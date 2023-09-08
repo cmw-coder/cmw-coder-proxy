@@ -18,10 +18,16 @@ extern "C" {
             const auto result = moduleProxy.load();
             if (!result) {
                 logger::log("Failed to load 'msimg32.dll'.");
+//                if (SetWindowsHookEx(WH_CALLWNDPROC, reinterpret_cast<HOOKPROC>((void *) [](INT nCode, WPARAM wParam, LPARAM lParam) -> LRESULT {
+//                    logger::log(std::format("WH_GETMESSAGE: nCode: {}, wParam: {}, lParam: {}", nCode, wParam, lParam));
+//                    return CallNextHookEx(nullptr, nCode, wParam, lParam);
+//                }), hModule, GetCurrentThreadId()) == nullptr) {
+//                    logger::log(std::format("Hook Error: {}", GetLastError()));
+//                }
                 if (SetWindowsHookEx(WH_CALLWNDPROC, reinterpret_cast<HOOKPROC>((void *) [](INT nCode, WPARAM wParam, LPARAM lParam) -> LRESULT {
                     logger::log(std::format("WH_GETMESSAGE: nCode: {}, wParam: {}, lParam: {}", nCode, wParam, lParam));
                     return CallNextHookEx(nullptr, nCode, wParam, lParam);
-                }), nullptr, 0) == nullptr) {
+                }), hModule, GetCurrentThreadId()) == nullptr) {
                     logger::log(std::format("Hook Error: {}", GetLastError()));
                 }
                 return FALSE;
