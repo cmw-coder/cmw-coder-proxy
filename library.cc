@@ -9,6 +9,7 @@ using namespace utils;
 
 static auto moduleProxy = ModuleProxy("msimg32");
 
+#define WM_UAHDRAWMENUITEM              0x0092
 #define UM_GETSELCOUNT                  (WM_USER + 1000)
 #define UM_GETUSERSELA                  (WM_USER + 1001)
 #define UM_GETUSERSELW                  (WM_USER + 1002)
@@ -63,10 +64,23 @@ extern "C" {
                     case UM_GETCURFOCUSA:
                     case UM_GETCURFOCUSW:
                     case WM_CTLCOLOREDIT:
+                    case WM_DRAWITEM:
                     case WM_GETTEXT:
                     case WM_NCHITTEST:
                     case WM_SETCURSOR:
-                    case WM_PSD_MINMARGINRECT: {
+                    case WM_PSD_MINMARGINRECT:
+                    case WM_UAHDRAWMENUITEM: {
+                        break;
+                    }
+                    case WM_COMMAND: {
+                        logger::log(format(
+                                "WH_CALLWNDPROC: isCurr: {}, hwnd: 0x{:08X}, message: WM_COMMAND, high: 0x{:04X}, low: 0x{:04X}, lParam: 0x{:08X}",
+                                wParam != 0,
+                                reinterpret_cast<uint64_t>(msg->hwnd),
+                                HIWORD(msg->wParam),
+                                LOWORD(msg->wParam),
+                                msg->lParam
+                        ));
                         break;
                     }
                     default: {
