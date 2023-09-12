@@ -15,12 +15,20 @@ namespace types {
 
         bool free();
 
+        bool hookWindowProc();
+
+        bool hookKeyboardProc();
+
+        bool unhookWindowProc();
+
+        bool unhookKeyboardProc();
+
         RemoteFunc getRemoteFunction(const std::string &procName);
 
     private:
-        std::string moduleName;
-        HMODULE m_hModule = nullptr;
+        std::string _moduleName;
+        HMODULE _hModule = nullptr;
+        HHOOK _windowHook = nullptr, _keyboardHook = nullptr;
     };
-
 }
 

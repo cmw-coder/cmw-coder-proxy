@@ -1,0 +1,57 @@
+#include <format>
+#include <memory>
+#include <vector>
+
+#include <utils/logger.h>
+#include <utils/system.h>
+
+#include <windows.h>
+#include <TlHelp32.h>
+
+using namespace std;
+using namespace utils;
+
+namespace {
+    constexpr uint64_t fileTime2Timestamp(const FILETIME &fileTile) {
+        return static_cast<uint64_t>(fileTile.dwHighDateTime) << 32 | fileTile.dwLowDateTime & 0xFFFFFFFF;
+    }
+}
+
+string system::getSystemDirectory() {
+    string systemDirectory;
+    systemDirectory.resize(MAX_PATH);
+    GetSystemDirectory(systemDirectory.data(), MAX_PATH);
+    systemDirectory.resize(strlen(systemDirectory.data()));
+    return systemDirectory;
+}
+
+unsigned long system::getMainThreadId() {
+    DWORD mainThreadId = 0;
+    const shared_ptr<void> sharedSnapshotHandle(CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0), CloseHandle);
+    if (sharedSnapshotHandle.get() == INVALID_HANDLE_VALUE) {
+        return mainThreadId;
+    }
+    const auto currentProcessId = GetCurrentProcessId();
+    uint64_t minCreateTime = UINT64_MAX;
+    auto threadEntry = THREADENTRY32{.dwSize = sizeof(THREADENTRY32)};
+
+    for (bool hasThreadEntry = Thread32First(sharedSnapshotHandle.get(), &threadEntry);
+         hasThreadEntry && GetLastError() != ERROR_NO_MORE_FILES;
+         hasThreadEntry = Thread32Next(sharedSnapshotHandle.get(), &threadEntry)) {
+        if (threadEntry.th32OwnerProcessID == currentProcessId) {
+            const auto currentThreadId = threadEntry.th32ThreadID;
+            const shared_ptr<void> sharedThreadHandle(OpenThread(THREAD_QUERY_INFORMATION, TRUE, currentThreadId), CloseHandle);
+            if (sharedThreadHandle) {
+                FILETIME afTimes[4] = {0};
+                if (GetThreadTimes(sharedThreadHandle.get(), &afTimes[0], &afTimes[1], &afTimes[2], &afTimes[3])) {
+                    uint64_t ullTest = fileTime2Timestamp(afTimes[0]);
+                    if (ullTest && ullTest < minCreateTime) {
+                        minCreateTime = ullTest;
+                        mainThreadId = currentThreadId;
+                    }
+                }
+            }
+        }
+    }
+    return mainThreadId;
+}
