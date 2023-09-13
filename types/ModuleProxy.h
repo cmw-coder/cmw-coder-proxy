@@ -17,11 +17,11 @@ namespace types {
 
         bool hookWindowProc();
 
-        bool hookKeyboardProc();
+        [[maybe_unused]] bool hookKeyboardProc();
 
         bool unhookWindowProc();
 
-        bool unhookKeyboardProc();
+        [[maybe_unused]] bool unhookKeyboardProc();
 
         RemoteFunc getRemoteFunction(const std::string &procName);
 

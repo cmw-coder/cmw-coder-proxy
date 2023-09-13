@@ -1,5 +1,7 @@
 #include <format>
 
+#include <utils/httplib.h>
+
 #include <types/ModuleProxy.h>
 #include <utils/logger.h>
 #include <utils/system.h>
@@ -8,7 +10,9 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
-static auto moduleProxy = ModuleProxy("msimg32");
+namespace {
+    static auto moduleProxy = ModuleProxy("msimg32");
+}
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,8 +23,9 @@ extern "C" {
         case DLL_PROCESS_ATTACH: {
             DisableThreadLibraryCalls(hModule);
             const auto result = moduleProxy.load();
-            logger::log("Successfully proxies 'msimg32.dll'.");
+            logger::log("Successfully hooked 'msimg32.dll'.");
             const auto mainThreadId = system::getMainThreadId();
+
             logger::log(std::format(
                     "ProcessId: {}, currentThreadId: {}, mainThreadId: {}",
                     GetCurrentProcessId(),
@@ -41,12 +46,23 @@ extern "C" {
                 return FALSE;
             }
 
+            thread([]() {
+                httplib::Server server;
+                server.Get("/hi", [](const httplib::Request &, httplib::Response &res) {
+                    res.set_content("Hello World!", "text/plain");
+                });
+                if (!server.listen("127.0.0.1", 23333)) {
+                    logger::log("Failed to start server.");
+                }
+            }).detach();
+
             break;
         }
         case DLL_PROCESS_DETACH: {
             moduleProxy.unhookWindowProc();
-            moduleProxy.unhookKeyboardProc();
+//            moduleProxy.unhookKeyboardProc();
             moduleProxy.free();
+            logger::log("Successfully unhooked 'msimg32.dll'.");
             break;
         }
         default: {
