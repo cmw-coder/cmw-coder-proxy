@@ -57,19 +57,6 @@ bool ModuleProxy::hookWindowProc() {
             reinterpret_cast<HOOKPROC>((void *) [](INT nCode, WPARAM wParam, LPARAM lParam) -> LRESULT {
                 const auto windowProcData = reinterpret_cast<PCWPSTRUCT>(lParam);
                 switch (windowProcData->message) {
-                    case WM_KEYDOWN: {
-                        if (window::getWindowClassName(windowProcData->hwnd) == "si_Sw") {
-                            logger::log(format(
-                                    "[WH_CALLWNDPROC] [WM_KEYDOWN] window: '{}'(0x{:08X} '{}'), wParam: 0x{:04X}, lParam: 0x{:08X}",
-                                    window::getWindowText(windowProcData->hwnd),
-                                    reinterpret_cast<uint64_t>(windowProcData->hwnd),
-                                    window::getWindowClassName(windowProcData->hwnd),
-                                    windowProcData->wParam,
-                                    windowProcData->lParam
-                            ));
-                        }
-                        break;
-                    }
                     case WM_KILLFOCUS: {
                         if (window::getWindowClassName(windowProcData->hwnd) == "si_Sw") {
                             logger::log(format(
@@ -110,16 +97,12 @@ bool ModuleProxy::hookWindowProc() {
                                     windowProcData->wParam,
                                     reinterpret_cast<uint64_t>(windowProcData->hwnd)
                             ));
-                            if (codeWindow.load()) {
-                                window::sendFunctionKey(codeWindow.load(), VK_F11);
-                            }
                         } catch (runtime_error &e) {
                             logger::log(format(
                                     "[WH_CALLWNDPROC] [UM_KEYCODE] RegSetKeyValue failed: {}",
                                     e.what()
                             ));
                         }
-                        windowProcData->message = WM_NULL;
                         break;
                     }
                     default: {
