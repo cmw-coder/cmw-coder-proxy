@@ -26,11 +26,11 @@ bool ModuleProxy::load() {
     thread([this]() {
         while (this->isLoaded.load()) {
             if (!codeWindow.load()) {
-                this_thread::sleep_for(chrono::milliseconds(300));
+                this_thread::sleep_for(chrono::milliseconds(50));
                 continue;
             }
             window::sendFunctionKey(codeWindow.load(), VK_F12);
-            this_thread::sleep_for(chrono::milliseconds(350));
+            this_thread::sleep_for(chrono::milliseconds(1000));
         }
     }).detach();
     return this->isLoaded;
@@ -58,7 +58,9 @@ bool ModuleProxy::hookWindowProc() {
                 const auto windowProcData = reinterpret_cast<PCWPSTRUCT>(lParam);
                 switch (windowProcData->message) {
                     case WM_KILLFOCUS: {
-                        if (window::getWindowClassName(windowProcData->hwnd) == "si_Sw") {
+                        const auto targetWindow = reinterpret_cast<HWND>(windowProcData->wParam);
+                        if (window::getWindowClassName(windowProcData->hwnd) == "si_Sw" &&
+                            window::getWindowClassName(targetWindow) != "si_Poplist") {
                             logger::log(format(
                                     "[WH_CALLWNDPROC] [WM_KILLFOCUS] window: '{}'(0x{:08X} '{}')",
                                     window::getWindowText(windowProcData->hwnd),
@@ -86,22 +88,24 @@ bool ModuleProxy::hookWindowProc() {
                         break;
                     }
                     case UM_KEYCODE: {
-                        try {
-                            system::setRegValue32(
-                                    R"(SOFTWARE\Source Dynamics\Source Insight\3.0)",
-                                    "keycode",
-                                    windowProcData->wParam
-                            );
-                            logger::log(format(
-                                    "[WH_CALLWNDPROC] [UM_KEYCODE] setRegValue32 success: 0x{:08X}, hwnd: 0x{:08X}",
-                                    windowProcData->wParam,
-                                    reinterpret_cast<uint64_t>(windowProcData->hwnd)
-                            ));
-                        } catch (runtime_error &e) {
-                            logger::log(format(
-                                    "[WH_CALLWNDPROC] [UM_KEYCODE] RegSetKeyValue failed: {}",
-                                    e.what()
-                            ));
+                        if (windowProcData->wParam != 0x1F7B) {
+                            try {
+                                system::setRegValue32(
+                                        R"(SOFTWARE\Source Dynamics\Source Insight\3.0)",
+                                        "keycode",
+                                        windowProcData->wParam
+                                );
+                                logger::log(format(
+                                        "[WH_CALLWNDPROC] [UM_KEYCODE] setRegValue32 success: 0x{:08X}, hwnd: 0x{:08X}",
+                                        windowProcData->wParam,
+                                        reinterpret_cast<uint64_t>(windowProcData->hwnd)
+                                ));
+                            } catch (runtime_error &e) {
+                                logger::log(format(
+                                        "[WH_CALLWNDPROC] [UM_KEYCODE] RegSetKeyValue failed: {}",
+                                        e.what()
+                                ));
+                            }
                         }
                         break;
                     }

@@ -30,5 +30,5 @@ bool window::sendFunctionKey(HWND hwnd, int key) {
 //    if (siVersion == SiVersion::New) {
 //        offset = offset << 8;
 //    }
-    return PostMessage(hwnd, UM_KEYCODE, offset + key, 0) != 0;
+    return SendMessage(hwnd, UM_KEYCODE, offset + key, 0) != 0;
 }
