@@ -12,7 +12,7 @@ using namespace utils;
 
 namespace {
     const auto UM_KEYCODE = WM_USER + 0x03E9;
-    atomic<bool> isFocused = false;
+    atomic<HWND> codeWindow = nullptr;
 }
 
 ModuleProxy::ModuleProxy(std::string &&moduleName) {
@@ -22,13 +22,25 @@ ModuleProxy::ModuleProxy(std::string &&moduleName) {
 bool ModuleProxy::load() {
     const auto modulePath = system::getSystemDirectory() + R"(\)" + _moduleName;
     this->_hModule = LoadLibrary(modulePath.data());
-    return this->_hModule != nullptr;
+    this->isLoaded = this->_hModule != nullptr;
+    thread([this]() {
+        while (this->isLoaded.load()) {
+            if (!codeWindow.load()) {
+                this_thread::sleep_for(chrono::milliseconds(300));
+                continue;
+            }
+            window::sendFunctionKey(codeWindow.load(), VK_F12);
+            this_thread::sleep_for(chrono::milliseconds(350));
+        }
+    }).detach();
+    return this->isLoaded;
 }
 
 bool ModuleProxy::free() {
     if (!this->_hModule) {
         return false;
     }
+    this->isLoaded = false;
     return FreeLibrary(this->_hModule) != FALSE;
 }
 
@@ -45,6 +57,19 @@ bool ModuleProxy::hookWindowProc() {
             reinterpret_cast<HOOKPROC>((void *) [](INT nCode, WPARAM wParam, LPARAM lParam) -> LRESULT {
                 const auto windowProcData = reinterpret_cast<PCWPSTRUCT>(lParam);
                 switch (windowProcData->message) {
+                    case WM_KEYDOWN: {
+                        if (window::getWindowClassName(windowProcData->hwnd) == "si_Sw") {
+                            logger::log(format(
+                                    "[WH_CALLWNDPROC] [WM_KEYDOWN] window: '{}'(0x{:08X} '{}'), wParam: 0x{:04X}, lParam: 0x{:08X}",
+                                    window::getWindowText(windowProcData->hwnd),
+                                    reinterpret_cast<uint64_t>(windowProcData->hwnd),
+                                    window::getWindowClassName(windowProcData->hwnd),
+                                    windowProcData->wParam,
+                                    windowProcData->lParam
+                            ));
+                        }
+                        break;
+                    }
                     case WM_KILLFOCUS: {
                         if (window::getWindowClassName(windowProcData->hwnd) == "si_Sw") {
                             logger::log(format(
@@ -53,9 +78,8 @@ bool ModuleProxy::hookWindowProc() {
                                     reinterpret_cast<uint64_t>(windowProcData->hwnd),
                                     window::getWindowClassName(windowProcData->hwnd)
                             ));
-                            if (isFocused.load()) {
-                                isFocused = false;
-                                window::sendFunctionKey(windowProcData->hwnd, VK_F11);
+                            if (codeWindow.load()) {
+                                codeWindow = nullptr;
                             }
                         }
                         break;
@@ -68,8 +92,8 @@ bool ModuleProxy::hookWindowProc() {
                                     reinterpret_cast<uint64_t>(windowProcData->hwnd),
                                     window::getWindowClassName(windowProcData->hwnd)
                             ));
-                            if (!isFocused.load()) {
-                                isFocused = true;
+                            if (!codeWindow.load()) {
+                                codeWindow = windowProcData->hwnd;
                             }
                         }
                         break;
@@ -86,8 +110,8 @@ bool ModuleProxy::hookWindowProc() {
                                     windowProcData->wParam,
                                     reinterpret_cast<uint64_t>(windowProcData->hwnd)
                             ));
-                            if (isFocused.load()) {
-                                window::sendFunctionKey(windowProcData->hwnd, VK_F12);
+                            if (codeWindow.load()) {
+                                window::sendFunctionKey(codeWindow.load(), VK_F11);
                             }
                         } catch (runtime_error &e) {
                             logger::log(format(
