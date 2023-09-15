@@ -31,7 +31,7 @@ extern "C" {
                     GetCurrentProcessId(),
                     GetCurrentThreadId(),
                     mainThreadId,
-                    GetModuleFileName()
+                    system::getModuleFileName(reinterpret_cast<uint64_t>(GetModuleHandle(nullptr)))
             ));
 
             if (!result) {

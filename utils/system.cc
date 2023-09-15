@@ -56,6 +56,17 @@ unsigned long system::getMainThreadId() {
     return mainThreadId;
 }
 
+string system::getModuleFileName(uint64_t moduleAddress) {
+    string moduleFileName;
+    moduleFileName.resize(MAX_PATH);
+    const auto copiedSize = GetModuleFileName(
+            reinterpret_cast<HMODULE>(moduleAddress),
+            moduleFileName.data(),
+            MAX_PATH
+    );
+    return moduleFileName.substr(0, copiedSize);
+}
+
 uint64_t system::scanPattern(const string &pattern) {
     uint64_t varAddress = 0;
     const shared_ptr<void> sharedProcessHandle(GetCurrentProcess(), CloseHandle);

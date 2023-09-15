@@ -5,7 +5,7 @@ namespace utils::system {
 
     unsigned long getMainThreadId();
 
-    std::string getModuleFileName(unsigned long processId);
+    std::string getModuleFileName(uint64_t moduleAddress);
 
     uint64_t scanPattern(const std::string &pattern);
 

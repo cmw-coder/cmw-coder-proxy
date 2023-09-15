@@ -13,6 +13,7 @@ using namespace utils;
 namespace {
     const auto UM_KEYCODE = WM_USER + 0x03E9;
     atomic<HWND> codeWindow = nullptr;
+    atomic<window::SiVersion> siVersion = window::SiVersion::Unknown;
 }
 
 ModuleProxy::ModuleProxy(std::string &&moduleName) {
@@ -36,10 +37,16 @@ bool ModuleProxy::load() {
                 this_thread::sleep_for(chrono::milliseconds(2000));
                 continue;
             }
-            window::sendFunctionKey(codeWindow.load(), VK_F12);
+            window::sendFunctionKey(codeWindow.load(), siVersion, VK_F12);
             this_thread::sleep_for(chrono::milliseconds(200));
         }
     }).detach();
+    const auto currentModuleName = system::getModuleFileName(reinterpret_cast<uint64_t>(GetModuleHandle(nullptr)));
+    if (currentModuleName.find("Insight3.exe") != string::npos) {
+        siVersion.store(window::SiVersion::Old);
+    } else if (currentModuleName.find("sourceinsight4.exe") != string::npos) {
+        siVersion.store(window::SiVersion::New);
+    }
     return this->isLoaded;
 }
 
