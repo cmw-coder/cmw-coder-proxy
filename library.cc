@@ -11,7 +11,7 @@ using namespace types;
 using namespace utils;
 
 namespace {
-    static auto moduleProxy = ModuleProxy("msimg32");
+    auto moduleProxy = ModuleProxy("msimg32");
 }
 
 #ifdef __cplusplus
@@ -41,10 +41,10 @@ extern "C" {
                 logger::log(format("Hook 'WH_CALLWNDPROC' Error: {}", GetLastError()));
                 return FALSE;
             }
-            if (!moduleProxy.hookKeyboardProc()) {
-                logger::log(format("Hook 'WH_KEYBOARD' Error: {}", GetLastError()));
-                return FALSE;
-            }
+//            if (!moduleProxy.hookKeyboardProc()) {
+//                logger::log(format("Hook 'WH_KEYBOARD' Error: {}", GetLastError()));
+//                return FALSE;
+//            }
 
             thread([]() {
                 httplib::Server server;

@@ -12,7 +12,7 @@ using namespace utils;
 
 namespace {
     const auto UM_KEYCODE = WM_USER + 0x03E9;
-    atomic<HWND> codeWindow = nullptr;
+    atomic <HWND> codeWindow = nullptr;
 }
 
 ModuleProxy::ModuleProxy(std::string &&moduleName) {
@@ -30,7 +30,7 @@ bool ModuleProxy::load() {
                 continue;
             }
             window::sendFunctionKey(codeWindow.load(), VK_F12);
-            this_thread::sleep_for(chrono::milliseconds(1000));
+            this_thread::sleep_for(chrono::milliseconds(500));
         }
     }).detach();
     return this->isLoaded;
@@ -60,30 +60,33 @@ bool ModuleProxy::hookWindowProc() {
                     case WM_KILLFOCUS: {
                         const auto targetWindow = reinterpret_cast<HWND>(windowProcData->wParam);
                         if (window::getWindowClassName(windowProcData->hwnd) == "si_Sw" &&
-                            window::getWindowClassName(targetWindow) != "si_Poplist") {
+                            window::getWindowClassName(targetWindow) != "si_Poplist" &&
+                            codeWindow.load()) {
                             logger::log(format(
-                                    "[WH_CALLWNDPROC] [WM_KILLFOCUS] window: '{}'(0x{:08X} '{}')",
+                                    "Coding window '{}' lost focus. (0x{:08X} '{}')",
                                     window::getWindowText(windowProcData->hwnd),
                                     reinterpret_cast<uint64_t>(windowProcData->hwnd),
                                     window::getWindowClassName(windowProcData->hwnd)
                             ));
-                            if (codeWindow.load()) {
-                                codeWindow = nullptr;
-                            }
+                            codeWindow = nullptr;
                         }
                         break;
                     }
                     case WM_SETFOCUS: {
-                        if (window::getWindowClassName(windowProcData->hwnd) == "si_Sw") {
-                            logger::log(format(
-                                    "[WH_CALLWNDPROC] [WM_SETFOCUS] window: '{}'(0x{:08X} '{}')",
-                                    window::getWindowText(windowProcData->hwnd),
-                                    reinterpret_cast<uint64_t>(windowProcData->hwnd),
-                                    window::getWindowClassName(windowProcData->hwnd)
-                            ));
-                            if (!codeWindow.load()) {
-                                codeWindow = windowProcData->hwnd;
-                            }
+                        const auto currentWindow = windowProcData->hwnd;
+                        if (window::getWindowClassName(currentWindow) == "si_Sw") {
+                            thread([currentWindow]() {
+                                this_thread::sleep_for(chrono::milliseconds(500));
+                                if (!codeWindow.load()) {
+                                    logger::log(format(
+                                            "Coding window '{}' gained focus. (0x{:08X} '{}')",
+                                            window::getWindowText(currentWindow),
+                                            reinterpret_cast<uint64_t>(currentWindow),
+                                            window::getWindowClassName(currentWindow)
+                                    ));
+                                    codeWindow = currentWindow;
+                                }
+                            }).detach();
                         }
                         break;
                     }
@@ -96,13 +99,13 @@ bool ModuleProxy::hookWindowProc() {
                                         windowProcData->wParam
                                 );
                                 logger::log(format(
-                                        "[WH_CALLWNDPROC] [UM_KEYCODE] setRegValue32 success: 0x{:08X}, hwnd: 0x{:08X}",
+                                        "Set keycode success: 0x{:08X}, hwnd: 0x{:08X}",
                                         windowProcData->wParam,
                                         reinterpret_cast<uint64_t>(windowProcData->hwnd)
                                 ));
                             } catch (runtime_error &e) {
                                 logger::log(format(
-                                        "[WH_CALLWNDPROC] [UM_KEYCODE] RegSetKeyValue failed: {}",
+                                        "Set keycode failed: {}",
                                         e.what()
                                 ));
                             }
