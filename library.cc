@@ -27,10 +27,11 @@ extern "C" {
             const auto mainThreadId = system::getMainThreadId();
 
             logger::log(std::format(
-                    "ProcessId: {}, currentThreadId: {}, mainThreadId: {}",
+                    "ProcessId: {}, currentThreadId: {}, mainThreadId: {}, mainModuleName: {}",
                     GetCurrentProcessId(),
                     GetCurrentThreadId(),
-                    mainThreadId
+                    mainThreadId,
+                    GetModuleFileName()
             ));
 
             if (!result) {
@@ -41,10 +42,6 @@ extern "C" {
                 logger::log(format("Hook 'WH_CALLWNDPROC' Error: {}", GetLastError()));
                 return FALSE;
             }
-//            if (!moduleProxy.hookKeyboardProc()) {
-//                logger::log(format("Hook 'WH_KEYBOARD' Error: {}", GetLastError()));
-//                return FALSE;
-//            }
 
             thread([]() {
                 httplib::Server server;
@@ -60,7 +57,6 @@ extern "C" {
         }
         case DLL_PROCESS_DETACH: {
             moduleProxy.unhookWindowProc();
-//            moduleProxy.unhookKeyboardProc();
             moduleProxy.free();
             logger::log("Successfully unhooked 'msimg32.dll'.");
             break;

@@ -12,7 +12,7 @@ using namespace utils;
 
 namespace {
     const auto UM_KEYCODE = WM_USER + 0x03E9;
-    atomic <HWND> codeWindow = nullptr;
+    atomic<HWND> codeWindow = nullptr;
 }
 
 ModuleProxy::ModuleProxy(std::string &&moduleName) {
@@ -24,13 +24,20 @@ bool ModuleProxy::load() {
     this->_hModule = LoadLibrary(modulePath.data());
     this->isLoaded = this->_hModule != nullptr;
     thread([this]() {
+        bool needDelay = true;
         while (this->isLoaded.load()) {
             if (!codeWindow.load()) {
+                needDelay = true;
                 this_thread::sleep_for(chrono::milliseconds(50));
                 continue;
             }
+            if (needDelay) {
+                needDelay = false;
+                this_thread::sleep_for(chrono::milliseconds(2000));
+                continue;
+            }
             window::sendFunctionKey(codeWindow.load(), VK_F12);
-            this_thread::sleep_for(chrono::milliseconds(500));
+            this_thread::sleep_for(chrono::milliseconds(200));
         }
     }).detach();
     return this->isLoaded;
@@ -58,35 +65,34 @@ bool ModuleProxy::hookWindowProc() {
                 const auto windowProcData = reinterpret_cast<PCWPSTRUCT>(lParam);
                 switch (windowProcData->message) {
                     case WM_KILLFOCUS: {
+                        const auto currentWindow = windowProcData->hwnd;
                         const auto targetWindow = reinterpret_cast<HWND>(windowProcData->wParam);
-                        if (window::getWindowClassName(windowProcData->hwnd) == "si_Sw" &&
-                            window::getWindowClassName(targetWindow) != "si_Poplist" &&
+                        if (window::getWindowClassName(currentWindow) == "si_Sw" &&
+                            window::getWindowClassName(currentWindow) != window::getWindowClassName(targetWindow) &&
                             codeWindow.load()) {
                             logger::log(format(
                                     "Coding window '{}' lost focus. (0x{:08X} '{}')",
-                                    window::getWindowText(windowProcData->hwnd),
-                                    reinterpret_cast<uint64_t>(windowProcData->hwnd),
-                                    window::getWindowClassName(windowProcData->hwnd)
+                                    window::getWindowText(currentWindow),
+                                    reinterpret_cast<uint64_t>(currentWindow),
+                                    window::getWindowClassName(currentWindow)
                             ));
-                            codeWindow = nullptr;
+                            codeWindow.store(nullptr);
                         }
                         break;
                     }
                     case WM_SETFOCUS: {
                         const auto currentWindow = windowProcData->hwnd;
-                        if (window::getWindowClassName(currentWindow) == "si_Sw") {
-                            thread([currentWindow]() {
-                                this_thread::sleep_for(chrono::milliseconds(500));
-                                if (!codeWindow.load()) {
-                                    logger::log(format(
-                                            "Coding window '{}' gained focus. (0x{:08X} '{}')",
-                                            window::getWindowText(currentWindow),
-                                            reinterpret_cast<uint64_t>(currentWindow),
-                                            window::getWindowClassName(currentWindow)
-                                    ));
-                                    codeWindow = currentWindow;
-                                }
-                            }).detach();
+                        const auto targetWindow = reinterpret_cast<HWND>(windowProcData->wParam);
+                        if (window::getWindowClassName(currentWindow) == "si_Sw" &&
+                            window::getWindowClassName(currentWindow) != window::getWindowClassName(targetWindow) &&
+                            !codeWindow.load()) {
+                            logger::log(format(
+                                    "Coding window '{}' gained focus. (0x{:08X} '{}')",
+                                    window::getWindowText(currentWindow),
+                                    reinterpret_cast<uint64_t>(currentWindow),
+                                    window::getWindowClassName(currentWindow)
+                            ));
+                            codeWindow.store(currentWindow);
                         }
                         break;
                     }
@@ -125,45 +131,6 @@ bool ModuleProxy::hookWindowProc() {
     return this->_windowHook != nullptr;
 }
 
-[[maybe_unused]] bool ModuleProxy::hookKeyboardProc() {
-    this->_keyboardHook = SetWindowsHookEx(
-            WH_KEYBOARD,
-            reinterpret_cast<HOOKPROC>((void *) [](INT nCode, WPARAM wParam, LPARAM lParam) -> LRESULT {
-                if (nCode >= 0) {
-                    WORD vkCode = LOWORD(wParam);
-                    WORD keyFlags = HIWORD(lParam);
-                    WORD repeatCount = LOWORD(lParam);  // > 0 if several keydown messages was combined into one message
-                    WORD scanCode = LOBYTE(keyFlags);
-
-                    // extended-key flag, 1 if scancode has 0xE0 prefix
-                    if ((keyFlags & KF_EXTENDED) == KF_EXTENDED) {
-                        scanCode = MAKEWORD(scanCode, 0xE0);
-                    }
-                    bool wasKeyDown = (keyFlags & KF_REPEAT) == KF_REPEAT;  // previous key-state flag, 1 on auto-repeat
-                    bool isKeyReleased = (keyFlags & KF_UP) == KF_UP;   // transition-state flag, 1 on keyup
-
-                    logger::log(format(
-                            "[WH_KEYBOARD] vkCode: 0x{:04X}, scanCode: 0x{:04X}, wasKeyDown: {}, repeatCount: {}, isKeyReleased: {}",
-                            vkCode,
-                            scanCode,
-                            wasKeyDown,
-                            repeatCount,
-                            isKeyReleased
-                    ));
-                }
-                return CallNextHookEx(nullptr, nCode, wParam, lParam);
-            }),
-            nullptr,
-            GetCurrentThreadId()
-    );
-
-    return this->_keyboardHook != nullptr;
-}
-
 bool ModuleProxy::unhookWindowProc() {
     return UnhookWindowsHookEx(this->_windowHook);
-}
-
-[[maybe_unused]] bool ModuleProxy::unhookKeyboardProc() {
-    return UnhookWindowsHookEx(this->_keyboardHook);
 }

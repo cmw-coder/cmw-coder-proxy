@@ -17,11 +17,7 @@ namespace types {
 
         bool hookWindowProc();
 
-        [[maybe_unused]] bool hookKeyboardProc();
-
         bool unhookWindowProc();
-
-        [[maybe_unused]] bool unhookKeyboardProc();
 
         RemoteFunc getRemoteFunction(const std::string &procName);
 
@@ -29,7 +25,7 @@ namespace types {
         std::atomic<bool> isLoaded = false;
         std::string _moduleName;
         HMODULE _hModule = nullptr;
-        HHOOK _windowHook = nullptr, _keyboardHook = nullptr;
+        HHOOK _windowHook = nullptr;
     };
 }
 

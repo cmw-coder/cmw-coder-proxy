@@ -5,6 +5,8 @@ namespace utils::system {
 
     unsigned long getMainThreadId();
 
+    std::string getModuleFileName(unsigned long processId);
+
     uint64_t scanPattern(const std::string &pattern);
 
     bool writeMemory(uint64_t address, const std::string &value);
