@@ -38,7 +38,7 @@ bool ModuleProxy::load() {
                 continue;
             }
             window::sendFunctionKey(codeWindow.load(), siVersion, VK_F12);
-            this_thread::sleep_for(chrono::milliseconds(200));
+            this_thread::sleep_for(chrono::milliseconds(500));
         }
     }).detach();
     const auto currentModuleName = system::getModuleFileName(reinterpret_cast<uint64_t>(GetModuleHandle(nullptr)));
@@ -73,10 +73,7 @@ bool ModuleProxy::hookWindowProc() {
                 switch (windowProcData->message) {
                     case WM_KILLFOCUS: {
                         const auto currentWindow = windowProcData->hwnd;
-                        const auto targetWindow = reinterpret_cast<HWND>(windowProcData->wParam);
-                        if (window::getWindowClassName(currentWindow) == "si_Sw" &&
-                            window::getWindowClassName(currentWindow) != window::getWindowClassName(targetWindow) &&
-                            codeWindow.load()) {
+                        if (window::getWindowClassName(currentWindow) == "si_Sw" && codeWindow.load()) {
                             logger::log(format(
                                     "Coding window '{}' lost focus. (0x{:08X} '{}')",
                                     window::getWindowText(currentWindow),
@@ -89,10 +86,7 @@ bool ModuleProxy::hookWindowProc() {
                     }
                     case WM_SETFOCUS: {
                         const auto currentWindow = windowProcData->hwnd;
-                        const auto targetWindow = reinterpret_cast<HWND>(windowProcData->wParam);
-                        if (window::getWindowClassName(currentWindow) == "si_Sw" &&
-                            window::getWindowClassName(currentWindow) != window::getWindowClassName(targetWindow) &&
-                            !codeWindow.load()) {
+                        if (window::getWindowClassName(currentWindow) == "si_Sw" && !codeWindow.load()) {
                             logger::log(format(
                                     "Coding window '{}' gained focus. (0x{:08X} '{}')",
                                     window::getWindowText(currentWindow),
