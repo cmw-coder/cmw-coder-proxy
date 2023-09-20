@@ -1,5 +1,4 @@
 #include <memory>
-#include <vector>
 #include <stdexcept>
 
 #include <utils/system.h>
@@ -93,6 +92,25 @@ uint64_t system::scanPattern(const string &pattern) {
         }
     }
     return varAddress;
+}
+
+optional<uint32_t> system::readMemory32(uint64_t address, bool relative) {
+    uint32_t value = 0;
+    const shared_ptr<void> sharedProcessHandle(GetCurrentProcess(), CloseHandle);
+    if (sharedProcessHandle) {
+        if (relative) {
+            address += reinterpret_cast<uint64_t>(GetModuleHandle(nullptr));
+        }
+        if (ReadProcessMemory(
+                sharedProcessHandle.get(),
+                reinterpret_cast<LPCVOID>(address),
+                &value,
+                sizeof(uint32_t),
+                nullptr
+        )) {
+            return value;
+        }
+    }
 }
 
 bool system::writeMemory(uint64_t address, const string &value) {

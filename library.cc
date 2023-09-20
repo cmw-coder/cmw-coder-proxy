@@ -1,7 +1,6 @@
 #include <format>
 
-#include <utils/httplib.h>
-
+#include <types/CursorMonitor.h>
 #include <types/ModuleProxy.h>
 #include <utils/logger.h>
 #include <utils/system.h>
@@ -12,6 +11,7 @@ using namespace utils;
 
 namespace {
     auto moduleProxy = ModuleProxy("msimg32");
+    auto cursorMonitor = CursorMonitor();
 }
 
 #ifdef __cplusplus
@@ -23,9 +23,13 @@ extern "C" {
         case DLL_PROCESS_ATTACH: {
             DisableThreadLibraryCalls(hModule);
             const auto result = moduleProxy.load();
+            if (!result) {
+                logger::log("Failed to load 'msimg32.dll'.");
+                return FALSE;
+            }
             logger::log("Successfully hooked 'msimg32.dll'.");
-            const auto mainThreadId = system::getMainThreadId();
 
+            const auto mainThreadId = system::getMainThreadId();
             logger::log(std::format(
                     "ProcessId: {}, currentThreadId: {}, mainThreadId: {}, mainModuleName: {}",
                     GetCurrentProcessId(),
@@ -34,24 +38,14 @@ extern "C" {
                     system::getModuleFileName(reinterpret_cast<uint64_t>(GetModuleHandle(nullptr)))
             ));
 
-            if (!result) {
-                logger::log("Failed to load 'msimg32.dll'.");
-                return FALSE;
-            }
             if (!moduleProxy.hookWindowProc()) {
                 logger::log(format("Hook 'WH_CALLWNDPROC' Error: {}", GetLastError()));
                 return FALSE;
             }
 
-            thread([]() {
-                httplib::Server server;
-                server.Get("/hi", [](const httplib::Request &, httplib::Response &res) {
-                    res.set_content("Hello World!", "text/plain");
-                });
-                if (!server.listen("127.0.0.1", 23333)) {
-                    logger::log("Failed to start server.");
-                }
-            }).detach();
+            cursorMonitor.addHandler([](const CursorMonitor::CursorPosition &cursorPosition) {
+                logger::log(format("Current cursor position: ({}, {})", cursorPosition.line, cursorPosition.character));
+            });
 
             break;
         }

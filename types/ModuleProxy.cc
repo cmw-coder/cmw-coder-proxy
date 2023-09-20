@@ -16,9 +16,7 @@ namespace {
     atomic<window::SiVersion> siVersion = window::SiVersion::Unknown;
 }
 
-ModuleProxy::ModuleProxy(std::string &&moduleName) {
-    this->_moduleName = std::move(moduleName);
-}
+ModuleProxy::ModuleProxy(std::string &&moduleName) : _moduleName(std::move(moduleName)) {}
 
 bool ModuleProxy::load() {
     const auto modulePath = system::getSystemDirectory() + R"(\)" + _moduleName;
@@ -38,7 +36,21 @@ bool ModuleProxy::load() {
                 continue;
             }
             window::sendFunctionKey(codeWindow.load(), siVersion, VK_F12);
-            this_thread::sleep_for(chrono::milliseconds(500));
+            this_thread::sleep_for(chrono::milliseconds(50));
+        }
+    }).detach();
+    thread([this]() {
+        tuple<uint32_t, uint32_t> cursorPosition;
+        while (this->isLoaded.load()) {
+            const auto cursorLineCurrent = system::readMemory32(0x1CBEFC);
+            const auto cursorCharCurrent = system::readMemory32(0x1CBF00);
+            if (cursorLineCurrent.has_value() && cursorCharCurrent.has_value() &&
+                cursorPosition != make_tuple(cursorLineCurrent.value(), cursorCharCurrent.value())) {
+                cursorPosition = make_tuple(cursorLineCurrent.value(), cursorCharCurrent.value());
+                const auto [line, character] = cursorPosition;
+                logger::log(format("Current cursor position: ({}, {})", line, character));
+            }
+            this_thread::sleep_for(chrono::milliseconds(10));
         }
     }).detach();
     const auto currentModuleName = system::getModuleFileName(reinterpret_cast<uint64_t>(GetModuleHandle(nullptr)));
@@ -111,10 +123,7 @@ bool ModuleProxy::hookWindowProc() {
                                         reinterpret_cast<uint64_t>(windowProcData->hwnd)
                                 ));
                             } catch (runtime_error &e) {
-                                logger::log(format(
-                                        "Set keycode failed: {}",
-                                        e.what()
-                                ));
+                                logger::log(format("Set keycode failed: {}", e.what()));
                             }
                         }
                         break;
@@ -128,7 +137,6 @@ bool ModuleProxy::hookWindowProc() {
             nullptr,
             GetCurrentThreadId()
     );
-
     return this->_windowHook != nullptr;
 }
 
