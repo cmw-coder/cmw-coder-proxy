@@ -1,6 +1,7 @@
 #include <utils/window.h>
 
 using namespace std;
+using namespace types;
 using namespace utils;
 
 namespace {

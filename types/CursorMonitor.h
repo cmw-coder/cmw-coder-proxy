@@ -2,7 +2,7 @@
 
 #include <functional>
 #include <memory>
-#include <vector>
+#include <optional>
 
 namespace types {
     class CursorMonitor {
@@ -21,26 +21,14 @@ namespace types {
             }
         };
 
-        using CallBackFunction = std::function<void(CursorPosition)>;
-
         CursorMonitor();
 
-        ~CursorMonitor();
-
-        template<class T>
-        void addHandler(T *const other, CallBackFunction memberFunction) {
-            _handlers.emplace_back(std::bind_front(memberFunction, other));
-        }
-
-        void addHandler(CallBackFunction function);
+        std::optional<std::pair<CursorPosition, CursorPosition>> checkPosition();
 
     private:
-        std::atomic<bool> _isRunning = true;
-        std::atomic<CursorPosition> _lastPosition{};
-        std::vector<CallBackFunction> _handlers;
+        const uint64_t _baseAddress;
         std::shared_ptr<void> _sharedProcessHandle;
-
-        void _notify();
+        CursorPosition _lastPosition{};
     };
 
 }

@@ -2,18 +2,14 @@
 
 #include <string>
 
+#include <types/SiVersion.h>
+
 #include <Windows.h>
 
 namespace utils::window {
-    enum class SiVersion {
-        Unknown = 0,
-        Old = 3,
-        New = 4,
-    };
-
     std::string getWindowClassName(HWND hwnd);
 
     std::string getWindowText(HWND hwnd);
 
-    bool sendFunctionKey(HWND hwnd, SiVersion siVersion, int key);
+    bool sendFunctionKey(HWND hwnd, types::SiVersion siVersion, int key);
 }

@@ -15,12 +15,26 @@ namespace {
     }
 }
 
-string system::getSystemDirectory() {
-    string systemDirectory;
-    systemDirectory.resize(MAX_PATH);
-    GetSystemDirectory(systemDirectory.data(), MAX_PATH);
-    systemDirectory.resize(strlen(systemDirectory.data()));
-    return systemDirectory;
+
+string system::formatSystemMessage(long errorCode) {
+    string errorMessage;
+    errorMessage.resize(16384);
+    const auto errorMessageLength = FormatMessage(
+            FORMAT_MESSAGE_FROM_SYSTEM,
+            nullptr,
+            errorCode,
+            0,
+            errorMessage.data(),
+            errorMessage.size(),
+            nullptr
+    );
+    return errorMessage.substr(0, errorMessageLength > 0 ? errorMessageLength - 1 : 0);
+}
+
+string system::getSystemPath(const string &relativePath) {
+    auto systemDirectory = string(MAX_PATH, 0);
+    const auto length = GetSystemDirectory(systemDirectory.data(), MAX_PATH);
+    return systemDirectory.substr(0, length) + R"(\)" + relativePath;
 }
 
 unsigned long system::getMainThreadId() {
@@ -66,68 +80,7 @@ string system::getModuleFileName(uint64_t moduleAddress) {
     return moduleFileName.substr(0, copiedSize);
 }
 
-uint64_t system::scanPattern(const string &pattern) {
-    uint64_t varAddress = 0;
-    const shared_ptr<void> sharedProcessHandle(GetCurrentProcess(), CloseHandle);
-    if (sharedProcessHandle) {
-        const auto BaseAddress = reinterpret_cast<uint64_t>(GetModuleHandle(nullptr));
-        string scannedString;
-        scannedString.resize(1024);
-        SIZE_T readLength = 0;
-        // Scan Process Memory using ReadProcessMemory
-        for (auto i = 0; i < 100000; i++) {
-            if (ReadProcessMemory(
-                    sharedProcessHandle.get(),
-                    (LPCVOID) (BaseAddress + i * scannedString.size() * sizeof(char)),
-                    scannedString.data(),
-                    scannedString.size() * sizeof(char),
-                    &readLength
-            )) {
-                const auto found = scannedString.find(pattern);
-                if (found != string::npos) {
-                    varAddress = BaseAddress + i * scannedString.size() * sizeof(char) + found;
-                    break;
-                }
-            }
-        }
-    }
-    return varAddress;
-}
-
-optional<uint32_t> system::readMemory32(uint64_t address, bool relative) {
-    uint32_t value = 0;
-    const shared_ptr<void> sharedProcessHandle(GetCurrentProcess(), CloseHandle);
-    if (sharedProcessHandle) {
-        if (relative) {
-            address += reinterpret_cast<uint64_t>(GetModuleHandle(nullptr));
-        }
-        if (ReadProcessMemory(
-                sharedProcessHandle.get(),
-                reinterpret_cast<LPCVOID>(address),
-                &value,
-                sizeof(uint32_t),
-                nullptr
-        )) {
-            return value;
-        }
-    }
-}
-
-bool system::writeMemory(uint64_t address, const string &value) {
-    const shared_ptr<void> sharedProcessHandle(GetCurrentProcess(), CloseHandle);
-    if (sharedProcessHandle) {
-        return WriteProcessMemory(
-                sharedProcessHandle.get(),
-                reinterpret_cast<LPVOID>(address),
-                value.data(),
-                (value.length() + 1) * sizeof(char),
-                nullptr
-        );
-    }
-    return false;
-}
-
-void system::setRegValue32(const string &subKey, const string &valueName, uint32_t value) {
+void system::setRegValue(const string &subKey, const string &valueName, uint32_t value) {
     const auto setResult = RegSetKeyValue(
             HKEY_CURRENT_USER,
             subKey.c_str(),
@@ -137,17 +90,44 @@ void system::setRegValue32(const string &subKey, const string &valueName, uint32
             sizeof(DWORD)
     );
     if (setResult != ERROR_SUCCESS) {
-        string errorMessage;
-        errorMessage.resize(512);
-        const auto errorMessageLength = FormatMessage(
-                FORMAT_MESSAGE_FROM_SYSTEM,
-                nullptr,
-                setResult,
-                0,
-                errorMessage.data(),
-                errorMessage.size(),
-                nullptr
-        );
-        throw (runtime_error(errorMessage.substr(0, errorMessageLength)));
+        throw (runtime_error(formatSystemMessage(setResult)));
     }
+}
+
+void system::setRegValue(const string &subKey, const string &valueName, const string &value) {
+    const auto setResult = RegSetKeyValue(
+            HKEY_CURRENT_USER,
+            subKey.c_str(),
+            valueName.c_str(),
+            REG_SZ,
+            value.c_str(),
+            value.size()
+    );
+    if (setResult != ERROR_SUCCESS) {
+        throw (runtime_error(formatSystemMessage(setResult)));
+    }
+}
+
+string system::getRegValue(const string &subKey, const string &valueName) {
+    HKEY hKey;
+    const auto openResult = RegOpenKeyEx(HKEY_CURRENT_USER, subKey.c_str(), 0, KEY_QUERY_VALUE, &hKey);
+    if (openResult != ERROR_SUCCESS) {
+        throw (runtime_error(formatSystemMessage(openResult)));
+    }
+    string value;
+    value.resize(16384);
+    DWORD valueLength = 16384;
+    const auto getResult = RegGetValue(
+            hKey,
+            nullptr,
+            valueName.c_str(),
+            RRF_RT_REG_SZ,
+            nullptr,
+            value.data(),
+            &valueLength
+    );
+    if (getResult != ERROR_SUCCESS) {
+        throw (runtime_error(formatSystemMessage(getResult)));
+    }
+    return value.substr(0, valueLength > 0 ? valueLength - 1 : 0);
 }

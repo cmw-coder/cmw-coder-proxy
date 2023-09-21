@@ -3,9 +3,13 @@ cmake_minimum_required(VERSION 3.26)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-project(msimg32)
+
+set(PROXY_MODULE_NAME "msimg32")
+
+project(si-coding-hook)
 
 add_compile_definitions(CMAKE_PROJECT_NAME="${PROJECT_NAME}")
+add_compile_definitions(PROXY_MODULE_NAME="${PROXY_MODULE_NAME}")
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     message(STATUS "Compiler is Clang")
@@ -20,16 +24,19 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS NOMINMAX)
 endif ()
 
-add_library(${PROJECT_NAME} SHARED library.cc)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_singleton.cmake)
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_library(${PROXY_MODULE_NAME} SHARED main.cc)
+
+target_link_libraries(${PROXY_MODULE_NAME} PRIVATE singleton::singleton)
+
+target_include_directories(${PROXY_MODULE_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/types/ TYPES)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/utils/ UTILS)
 
-target_sources(${PROJECT_NAME} PRIVATE ${TYPES} ${UTILS})
+target_sources(${PROXY_MODULE_NAME} PRIVATE ${TYPES} ${UTILS})
 
-install(FILES
-        ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.dll
-        DESTINATION
-        "C:/Program Files (x86)/Source Insight 3/")
+install(TARGETS ${PROXY_MODULE_NAME}
+        DESTINATION "C:/Program Files (x86)/Source Insight 3/"
+)
