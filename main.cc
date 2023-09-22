@@ -35,11 +35,11 @@ extern "C" {
                     UserAction::DeleteBackward,
                     [](CursorMonitor::CursorPosition oldPosition, CursorMonitor::CursorPosition newPosition) {
                         if (oldPosition.line == newPosition.line) {
-                            system::setRegValue("Software/Source Dynamics/Source Insight/3.0", "cancelType", 2);
+                            system::setRegValue(R"(SOFTWARE\Source Dynamics\Source Insight\3.0)", "cancelType", "2");
                             WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
                             logger::log(format("Deleted backward"));
                         } else {
-                            system::setRegValue("Software/Source Dynamics/Source Insight/3.0", "cancelType", 3);
+                            system::setRegValue(R"(SOFTWARE\Source Dynamics\Source Insight\3.0)", "cancelType", "3");
                             WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
                             logger::log(format("Modified line (Backspace)"));
                         }
@@ -48,7 +48,7 @@ extern "C" {
             CursorMonitor::GetInstance()->addHandler(
                     UserAction::Navigate,
                     [](CursorMonitor::CursorPosition oldPosition, CursorMonitor::CursorPosition newPosition) {
-                        system::setRegValue("Software/Source Dynamics/Source Insight/3.0", "cancelType", 1);
+                        system::setRegValue(R"(SOFTWARE\Source Dynamics\Source Insight\3.0)", "cancelType", "1");
                         WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
                         logger::log(format("Navigated (Scanned)"));
                     }
@@ -59,23 +59,22 @@ extern "C" {
                 logger::log(format("Accepted completion, keycode 0x{:08X}", keycode));
             });
             WindowInterceptor::GetInstance()->addHandler(UserAction::ModifyLine, [](unsigned int keycode) {
-                system::setRegValue("Software/Source Dynamics/Source Insight/3.0", "cancelType", 3);
+                system::setRegValue(R"(SOFTWARE\Source Dynamics\Source Insight\3.0)", "cancelType", "3");
                 WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
                 logger::log(format("Modified line (Enter)"));
             });
             WindowInterceptor::GetInstance()->addHandler(UserAction::Navigate, [](unsigned int keycode) {
-                system::setRegValue("Software/Source Dynamics/Source Insight/3.0", "cancelType", 1);
+                system::setRegValue(R"(SOFTWARE\Source Dynamics\Source Insight\3.0)", "cancelType", "1");
                 WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
                 logger::log(format("Navigated, keycode 0x{:08X}", keycode));
             });
             WindowInterceptor::GetInstance()->addHandler(UserAction::Normal, [](unsigned int keycode) {
-                WindowInterceptor::GetInstance()->sendFunctionKey(VK_F11);
                 logger::log(format("Normal, keycode 0x{:08X}", keycode));
                 thread([] {
                     // TODO: implement completion generation
                     this_thread::sleep_for(chrono::milliseconds(1000));
                     system::setRegValue(
-                            "Software/Source Dynamics/Source Insight/3.0",
+                            R"(SOFTWARE\Source Dynamics\Source Insight\3.0)",
                             "completionGenerated",
                             "Lorem ipsum dolor sit amet"
                     );

@@ -42,49 +42,47 @@ long WindowInterceptor::_windowProcedureHook(int nCode, unsigned int wParam, lon
 
 void WindowInterceptor::_processWindowMessage(long lParam) {
     const auto windowProcData = reinterpret_cast<PCWPSTRUCT>(lParam);
-    switch (windowProcData->message) {
-        case WM_KILLFOCUS: {
-            const auto currentWindow = windowProcData->hwnd;
-            if (window::getWindowClassName(currentWindow) == "si_Sw" && this->_codeWindow) {
-                logger::log(format(
-                        "Coding window '{}' lost focus. (0x{:08X} '{}')",
-                        window::getWindowText(currentWindow),
-                        reinterpret_cast<uint64_t>(currentWindow),
-                        window::getWindowClassName(currentWindow)
-                ));
-                this->_codeWindow.store(nullptr);
-                _handlers.at(UserAction::Navigate)(-1);
+    const auto currentWindow = windowProcData->hwnd;
+    if (window::getWindowClassName(currentWindow) == "si_Sw") {
+        switch (windowProcData->message) {
+            case WM_KILLFOCUS: {
+                if (this->_codeWindow) {
+                    logger::log(format(
+                            "Coding window '{}' lost focus. (0x{:08X} '{}')",
+                            window::getWindowText(currentWindow),
+                            reinterpret_cast<uint64_t>(currentWindow),
+                            window::getWindowClassName(currentWindow)
+                    ));
+                    this->_codeWindow.store(nullptr);
+                    _handlers.at(UserAction::Navigate)(-1);
+                }
+                break;
             }
-            break;
-        }
-        case WM_MOUSEACTIVATE: {
-            const auto currentWindow = windowProcData->hwnd;
-            if (window::getWindowClassName(currentWindow) == "si_Sw") {
+            case WM_MOUSEACTIVATE: {
                 CursorMonitor::GetInstance()->queueAction(UserAction::Navigate);
+                break;
             }
-            break;
-        }
-        case WM_SETFOCUS: {
-            const auto currentWindow = windowProcData->hwnd;
-            if (window::getWindowClassName(currentWindow) == "si_Sw" && !this->_codeWindow) {
-                logger::log(format(
-                        "Coding window '{}' gained focus. (0x{:08X} '{}')",
-                        window::getWindowText(currentWindow),
-                        reinterpret_cast<uint64_t>(currentWindow),
-                        window::getWindowClassName(currentWindow)
-                ));
-                this->_codeWindow.store(currentWindow);
+            case WM_SETFOCUS: {
+                if (!this->_codeWindow) {
+                    logger::log(format(
+                            "Coding window '{}' gained focus. (0x{:08X} '{}')",
+                            window::getWindowText(currentWindow),
+                            reinterpret_cast<uint64_t>(currentWindow),
+                            window::getWindowClassName(currentWindow)
+                    ));
+                    this->_codeWindow.store(currentWindow);
+                }
+                break;
             }
-            break;
-        }
-        case UM_KEYCODE: {
-            if (this->_codeWindow.load()) {
-                _handleKeycode(windowProcData->wParam);
+            case UM_KEYCODE: {
+                if (this->_codeWindow.load()) {
+                    _handleKeycode(windowProcData->wParam);
+                }
+                break;
             }
-            break;
-        }
-        default: {
-            break;
+            default: {
+                break;
+            }
         }
     }
 }
