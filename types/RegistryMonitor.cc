@@ -31,7 +31,9 @@ RegistryMonitor::RegistryMonitor() {
                 const auto editorInfo = system::getRegValue(_subKey, "editorInfo");
                 Json::Value requestBody, responseBody;
                 requestBody["info"] = editorInfo;
-                auto res = httplib::Client("http://localhost:3000").Post(
+                auto client = httplib::Client("http://localhost:3000");
+                client.set_connection_timeout(5);
+                auto res = client.Post(
                         "/generate",
                         stringify(requestBody),
                         "application/json"
@@ -43,6 +45,10 @@ RegistryMonitor::RegistryMonitor() {
                 }
                 system::deleteRegValue(_subKey, "editorInfo");
             } catch (runtime_error &e) {
+            } catch (exception &e) {
+                logger::log(e.what());
+            } catch (...) {
+                logger::log("Unknown exception.");
             }
             this_thread::sleep_for(chrono::milliseconds(10));
         }
