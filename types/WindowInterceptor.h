@@ -8,39 +8,29 @@
 
 #include <types/CursorMonitor.h>
 #include <types/SiVersion.h>
+#include <types/UserAction.h>
 
 namespace types {
     class WindowInterceptor : public SingletonDclp<WindowInterceptor> {
     public:
-        enum class ActionType {
-            Accept,
-            DeleteBackward,
-            DeleteForward,
-            ModifyLine,
-            Navigate,
-            Normal,
-        };
-
         using CallBackFunction = std::function<void(unsigned int)>;
 
         WindowInterceptor();
 
         template<class T>
-        void addHandler(ActionType keyType, T *const other, CallBackFunction memberFunction) {
-            _handlers[keyType] = std::bind_front(memberFunction, other);
+        void addHandler(UserAction userAction, T *const other, CallBackFunction memberFunction) {
+            _handlers[userAction] = std::bind_front(memberFunction, other);
         }
 
-        void addHandler(ActionType keyType, CallBackFunction function);
+        void addHandler(UserAction userAction, CallBackFunction function);
 
         bool sendFunctionKey(int key);
 
     private:
-        CursorMonitor _cursorMonitor;
         std::shared_ptr<void> _windowHook = nullptr;
         std::atomic<SiVersion> _siVersion = SiVersion::Unknown;
         std::atomic<void *> _codeWindow = nullptr;
-        std::unordered_map<ActionType, CallBackFunction> _handlers;
-
+        std::unordered_map<UserAction, CallBackFunction> _handlers;
 
         static long __stdcall _windowProcedureHook(int nCode, unsigned int wParam, long lParam);
 
