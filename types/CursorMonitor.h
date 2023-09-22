@@ -48,9 +48,7 @@ namespace types {
         std::shared_ptr<void> _sharedProcessHandle;
         std::atomic<bool> _isRunning = true;
         std::atomic<CursorPosition> _lastPosition{};
-        mutable std::shared_mutex _actionQueueMutex{}, _positionQueueMutex{};
-        std::deque<UserAction> _actionQueue{};
-        std::deque<std::pair<CursorPosition, CursorPosition>> _positionQueue{};
+        std::atomic<UserAction> _lastAction{};
         std::unordered_map<UserAction, CallBackFunction> _handlers;
     };
 

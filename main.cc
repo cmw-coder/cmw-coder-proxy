@@ -56,21 +56,21 @@ extern "C" {
 
             WindowInterceptor::GetInstance()->addHandler(UserAction::Accept, [](unsigned int keycode) {
                 WindowInterceptor::GetInstance()->sendFunctionKey(VK_F10);
-//                logger::log(format("Accepted completion, keycode 0x{:08X}", keycode));
+                logger::log(format("Accepted completion, keycode 0x{:08X}", keycode));
             });
             WindowInterceptor::GetInstance()->addHandler(UserAction::ModifyLine, [](unsigned int keycode) {
                 system::setRegValue("Software/Source Dynamics/Source Insight/3.0", "cancelType", 3);
                 WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
-//                logger::log(format("Modified line (Enter)"));
+                logger::log(format("Modified line (Enter)"));
             });
             WindowInterceptor::GetInstance()->addHandler(UserAction::Navigate, [](unsigned int keycode) {
                 system::setRegValue("Software/Source Dynamics/Source Insight/3.0", "cancelType", 1);
                 WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
-//                logger::log(format("Navigated, keycode 0x{:08X}", keycode));
+                logger::log(format("Navigated, keycode 0x{:08X}", keycode));
             });
             WindowInterceptor::GetInstance()->addHandler(UserAction::Normal, [](unsigned int keycode) {
                 WindowInterceptor::GetInstance()->sendFunctionKey(VK_F11);
-//                logger::log(format("Normal, keycode 0x{:08X}", keycode));
+                logger::log(format("Normal, keycode 0x{:08X}", keycode));
                 thread([] {
                     // TODO: implement completion generation
                     this_thread::sleep_for(chrono::milliseconds(1000));
@@ -80,7 +80,7 @@ extern "C" {
                             "Lorem ipsum dolor sit amet"
                     );
                     WindowInterceptor::GetInstance()->sendFunctionKey(VK_F12);
-//                    logger::log("Generated completion");
+                    logger::log("Generated completion");
                 }).detach();
             });
 
