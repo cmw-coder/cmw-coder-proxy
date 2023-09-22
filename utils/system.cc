@@ -131,3 +131,10 @@ string system::getRegValue(const string &subKey, const string &valueName) {
     }
     return value.substr(0, valueLength > 0 ? valueLength - 1 : 0);
 }
+
+void utils::system::deleteRegValue(const string &subKey, const string &valueName) {
+    const auto deleteResult = RegDeleteKeyValue(HKEY_CURRENT_USER, subKey.c_str(), valueName.c_str());
+    if (deleteResult != ERROR_SUCCESS) {
+        throw (runtime_error(formatSystemMessage(deleteResult)));
+    }
+}

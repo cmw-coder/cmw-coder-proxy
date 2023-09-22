@@ -24,11 +24,12 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS NOMINMAX)
 endif ()
 
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_jsoncpp.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_singleton.cmake)
 
 add_library(${PROXY_MODULE_NAME} SHARED main.cc)
 
-target_link_libraries(${PROXY_MODULE_NAME} PRIVATE singleton::singleton)
+target_link_libraries(${PROXY_MODULE_NAME} PRIVATE jsoncpp_static singleton::singleton)
 
 target_include_directories(${PROXY_MODULE_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 

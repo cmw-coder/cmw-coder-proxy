@@ -1,5 +1,6 @@
 #include <format>
 
+#include <types/CursorMonitor.h>
 #include <types/WindowInterceptor.h>
 #include <utils/logger.h>
 #include <utils/system.h>

@@ -9,25 +9,12 @@
 
 #include <singleton_dclp.hpp>
 
+#include <types/CursorPosition.h>
 #include <types/UserAction.h>
 
 namespace types {
     class CursorMonitor : public SingletonDclp<CursorMonitor> {
     public:
-        class CursorPosition {
-        public:
-            uint32_t line;
-            uint32_t character;
-
-            bool operator==(const CursorPosition &other) const {
-                return this->line == other.line && this->character == other.character;
-            }
-
-            bool operator!=(const CursorPosition &other) const {
-                return !(*this == other);
-            }
-        };
-
         using CallBackFunction = std::function<void(CursorPosition, CursorPosition)>;
 
         CursorMonitor();
@@ -37,11 +24,13 @@ namespace types {
         void queueAction(UserAction userAction);
 
         template<class T>
-        void addHandler(UserAction userAction, T *const other, CallBackFunction memberFunction) {
+        void addHandler(
+                UserAction userAction,
+                T *const other,
+                void(T::* const memberFunction)(CursorPosition, CursorPosition)
+        ) {
             _handlers[userAction] = std::bind_front(memberFunction, other);
         }
-
-        void addHandler(UserAction userAction, CallBackFunction function);
 
     private:
         const uint64_t _baseAddress;

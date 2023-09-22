@@ -59,7 +59,3 @@ void CursorMonitor::queueAction(UserAction userAction) {
         _lastAction.store(userAction);
     }
 }
-
-void CursorMonitor::addHandler(UserAction userAction, CursorMonitor::CallBackFunction function) {
-    _handlers[userAction] = std::move(function);
-}

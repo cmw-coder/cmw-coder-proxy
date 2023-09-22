@@ -16,4 +16,6 @@ namespace utils::system {
     void setRegValue(const std::string &subKey, const std::string &valueName, const std::string &value);
 
     std::string getRegValue(const std::string &subKey, const std::string &valueName);
+
+    void deleteRegValue(const std::string &subKey, const std::string &valueName);
 }

@@ -1,6 +1,8 @@
 #include <format>
 
+#include <types/CursorMonitor.h>
 #include <types/ModuleProxy.h>
+#include <types/RegistryMonitor.h>
 #include <types/WindowInterceptor.h>
 #include <utils/logger.h>
 #include <utils/system.h>
@@ -29,59 +31,39 @@ extern "C" {
             logger::log("Successfully hooked 'msimg32.dll'.");
 
             CursorMonitor::Construct();
+            RegistryMonitor::Construct();
             WindowInterceptor::Construct();
 
             CursorMonitor::GetInstance()->addHandler(
                     UserAction::DeleteBackward,
-                    [](CursorMonitor::CursorPosition oldPosition, CursorMonitor::CursorPosition newPosition) {
-                        if (oldPosition.line == newPosition.line) {
-                            system::setRegValue(R"(SOFTWARE\Source Dynamics\Source Insight\3.0)", "cancelType", "2");
-                            WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
-                            logger::log(format("Deleted backward"));
-                        } else {
-                            system::setRegValue(R"(SOFTWARE\Source Dynamics\Source Insight\3.0)", "cancelType", "3");
-                            WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
-                            logger::log(format("Modified line (Backspace)"));
-                        }
-                    }
+                    RegistryMonitor::GetInstance(),
+                    &RegistryMonitor::cancelByDeleteBackward
             );
             CursorMonitor::GetInstance()->addHandler(
                     UserAction::Navigate,
-                    [](CursorMonitor::CursorPosition oldPosition, CursorMonitor::CursorPosition newPosition) {
-                        system::setRegValue(R"(SOFTWARE\Source Dynamics\Source Insight\3.0)", "cancelType", "1");
-                        WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
-                        logger::log(format("Navigated (Scanned)"));
-                    }
+                    RegistryMonitor::GetInstance(),
+                    &RegistryMonitor::cancelByCursorNavigate
             );
 
             WindowInterceptor::GetInstance()->addHandler(UserAction::Accept, [](unsigned int keycode) {
                 WindowInterceptor::GetInstance()->sendFunctionKey(VK_F10);
                 logger::log(format("Accepted completion, keycode 0x{:08X}", keycode));
             });
-            WindowInterceptor::GetInstance()->addHandler(UserAction::ModifyLine, [](unsigned int keycode) {
-                system::setRegValue(R"(SOFTWARE\Source Dynamics\Source Insight\3.0)", "cancelType", "3");
-                WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
-                logger::log(format("Modified line (Enter)"));
-            });
-            WindowInterceptor::GetInstance()->addHandler(UserAction::Navigate, [](unsigned int keycode) {
-                system::setRegValue(R"(SOFTWARE\Source Dynamics\Source Insight\3.0)", "cancelType", "1");
-                WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
-                logger::log(format("Navigated, keycode 0x{:08X}", keycode));
-            });
-            WindowInterceptor::GetInstance()->addHandler(UserAction::Normal, [](unsigned int keycode) {
-                logger::log(format("Normal, keycode 0x{:08X}", keycode));
-                thread([] {
-                    // TODO: implement completion generation
-                    this_thread::sleep_for(chrono::milliseconds(1000));
-                    system::setRegValue(
-                            R"(SOFTWARE\Source Dynamics\Source Insight\3.0)",
-                            "completionGenerated",
-                            "Lorem ipsum dolor sit amet"
-                    );
-                    WindowInterceptor::GetInstance()->sendFunctionKey(VK_F12);
-                    logger::log("Generated completion");
-                }).detach();
-            });
+            WindowInterceptor::GetInstance()->addHandler(
+                    UserAction::ModifyLine,
+                    RegistryMonitor::GetInstance(),
+                    &RegistryMonitor::cancelByModifyLine
+            );
+            WindowInterceptor::GetInstance()->addHandler(
+                    UserAction::Navigate,
+                    RegistryMonitor::GetInstance(),
+                    &RegistryMonitor::cancelByKeycodeNavigate
+            );
+            WindowInterceptor::GetInstance()->addHandler(
+                    UserAction::Normal,
+                    RegistryMonitor::GetInstance(),
+                    &RegistryMonitor::triggerByNormal
+            );
 
             const auto mainThreadId = system::getMainThreadId();
             logger::log(std::format(
@@ -97,6 +79,7 @@ extern "C" {
         case DLL_PROCESS_DETACH: {
             moduleProxy.free();
             CursorMonitor::Destruct();
+            RegistryMonitor::Destruct();
             WindowInterceptor::Destruct();
             logger::log("Successfully unhooked 'msimg32.dll'.");
             break;
