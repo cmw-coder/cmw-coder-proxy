@@ -22,25 +22,31 @@ namespace {
         jsonWriter->write(json, &oss);
         return oss.str();
     }
+
+    optional<string> sendRequest(string &&editorInfo) {
+        Json::Value requestBody, responseBody;
+        requestBody["info"] = editorInfo;
+        auto client = httplib::Client("http://localhost:3000");
+        client.set_connection_timeout(5);
+        auto res = client.Post(
+                "/generate",
+                stringify(requestBody),
+                "application/json"
+        );
+        stringstream(res->body) >> responseBody;
+        if (responseBody["result"].asString() == "success") {
+            return responseBody["content"].asString();
+        }
+    }
 }
 
 RegistryMonitor::RegistryMonitor() {
     thread([this] {
         while (this->_isRunning.load()) {
             try {
-                const auto editorInfo = system::getRegValue(_subKey, "editorInfo");
-                Json::Value requestBody, responseBody;
-                requestBody["info"] = editorInfo;
-                auto client = httplib::Client("http://localhost:3000");
-                client.set_connection_timeout(5);
-                auto res = client.Post(
-                        "/generate",
-                        stringify(requestBody),
-                        "application/json"
-                );
-                stringstream(res->body) >> responseBody;
-                if (responseBody["result"].asString() == "success") {
-                    system::setRegValue(_subKey, "completionGenerated", responseBody["content"].asString());
+                const auto content = sendRequest(system::getRegValue(_subKey, "editorInfo"));
+                if (content.has_value()) {
+                    system::setRegValue(_subKey, "completionGenerated", content.value());
                     WindowInterceptor::GetInstance()->sendFunctionKey(VK_F12);
                 }
                 system::deleteRegValue(_subKey, "editorInfo");

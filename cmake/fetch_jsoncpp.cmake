@@ -1,5 +1,7 @@
 include(FetchContent)
 
+set(JSONCPP_WITH_TESTS OFF CACHE BOOL "" FORCE)
+
 FetchContent_Declare(
         jsoncpp
         GIT_REPOSITORY https://github.com/open-source-parsers/jsoncpp.git
