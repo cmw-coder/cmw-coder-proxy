@@ -29,6 +29,11 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_singleton.cmake)
 
 add_library(${PROXY_MODULE_NAME} SHARED main.cc)
 
+set_target_properties(${PROXY_MODULE_NAME} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY_DEBUG "C:/Program Files (x86)/Source Insight 3/"
+        RUNTIME_OUTPUT_DIRECTORY_RELEASE "C:/Program Files (x86)/Source Insight 3/"
+)
+
 target_link_libraries(${PROXY_MODULE_NAME} PRIVATE jsoncpp_static singleton::singleton)
 
 target_include_directories(${PROXY_MODULE_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -37,7 +42,3 @@ aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/types/ TYPES)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/utils/ UTILS)
 
 target_sources(${PROXY_MODULE_NAME} PRIVATE ${TYPES} ${UTILS})
-
-install(TARGETS ${PROXY_MODULE_NAME}
-        DESTINATION "C:/Program Files (x86)/Source Insight 3/"
-)

@@ -37,6 +37,7 @@ namespace {
         if (responseBody["result"].asString() == "success") {
             return responseBody["content"].asString();
         }
+        return nullopt;
     }
 }
 
@@ -98,8 +99,4 @@ void RegistryMonitor::cancelByModifyLine(unsigned int) {
     } catch (runtime_error &e) {
         logger::log(e.what());
     }
-}
-
-void RegistryMonitor::triggerByNormal(unsigned int) {
-    WindowInterceptor::GetInstance()->sendFunctionKey(VK_F11);
 }

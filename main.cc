@@ -61,8 +61,7 @@ extern "C" {
             );
             WindowInterceptor::GetInstance()->addHandler(
                     UserAction::Normal,
-                    RegistryMonitor::GetInstance(),
-                    &RegistryMonitor::triggerByNormal
+                    [](unsigned int) { WindowInterceptor::GetInstance()->sendFunctionKey(VK_F11); }
             );
 
             const auto mainThreadId = system::getMainThreadId();

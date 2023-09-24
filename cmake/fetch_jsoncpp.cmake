@@ -1,6 +1,7 @@
 include(FetchContent)
 
 set(JSONCPP_WITH_TESTS OFF CACHE BOOL "" FORCE)
+set(JSONCPP_WITH_PKGCONFIG_SUPPORT OFF CACHE BOOL "" FORCE)
 
 FetchContent_Declare(
         jsoncpp
