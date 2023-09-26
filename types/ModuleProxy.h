@@ -5,12 +5,20 @@
 
 #include <singleton_dclp.hpp>
 
+#include <windows.h>
+
 namespace types {
     class ModuleProxy : public SingletonDclp<ModuleProxy> {
     public:
         ModuleProxy();
 
-        std::function<int()> getRemoteFunction(const std::string &procName);
+        template<class T>
+        T getRemoteFunction(const std::string &procName) {
+            return (T) GetProcAddress(
+                    reinterpret_cast<HMODULE>(this->_hModule.get()),
+                    procName.c_str()
+            );
+        }
 
     private:
         std::string _moduleName;

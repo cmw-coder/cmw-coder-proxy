@@ -18,10 +18,3 @@ ModuleProxy::ModuleProxy() :
         throw runtime_error("Failed to load 'msimg32.dll'.");
     }
 }
-
-function<int()> ModuleProxy::getRemoteFunction(const string &procName) {
-    return GetProcAddress(
-            reinterpret_cast<HMODULE>(this->_hModule.get()),
-            procName.c_str()
-    );
-}
