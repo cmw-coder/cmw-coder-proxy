@@ -1,25 +1,20 @@
 #pragma once
 
+#include <functional>
 #include <string>
 
-#include <windows.h>
-
-typedef void (__cdecl *RemoteFunc)(void);
+#include <singleton_dclp.hpp>
 
 namespace types {
-    class ModuleProxy {
+    class ModuleProxy : public SingletonDclp<ModuleProxy> {
     public:
-        explicit ModuleProxy(std::string &&moduleName);
+        ModuleProxy();
 
-        bool load();
-
-        bool free();
-
-        RemoteFunc getRemoteFunction(const std::string &procName);
+        std::function<int()> getRemoteFunction(const std::string &procName);
 
     private:
         std::string _moduleName;
-        HMODULE _hModule = nullptr;
+        std::shared_ptr<void> _hModule = nullptr;
     };
 }
 

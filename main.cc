@@ -7,13 +7,11 @@
 #include <utils/logger.h>
 #include <utils/system.h>
 
+#include <windows.h>
+
 using namespace std;
 using namespace types;
 using namespace utils;
-
-namespace {
-    auto moduleProxy = ModuleProxy("msimg32");
-}
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,11 +21,7 @@ extern "C" {
     switch (dwReason) {
         case DLL_PROCESS_ATTACH: {
             DisableThreadLibraryCalls(hModule);
-            const auto result = moduleProxy.load();
-            if (!result) {
-                logger::log("Failed to load 'msimg32.dll'.");
-                return FALSE;
-            }
+            ModuleProxy::Construct();
             logger::log("Successfully hooked 'msimg32.dll'.");
 
             CursorMonitor::Construct();
@@ -61,7 +55,10 @@ extern "C" {
             );
             WindowInterceptor::GetInstance()->addHandler(
                     UserAction::Normal,
-                    [](unsigned int) { WindowInterceptor::GetInstance()->sendFunctionKey(VK_F11); }
+                    [](unsigned int) {
+                        WindowInterceptor::GetInstance()->sendFunctionKey(VK_F11);
+                        logger::log("Retrieve editor info.");
+                    }
             );
 
             const auto mainThreadId = system::getMainThreadId();
@@ -76,10 +73,10 @@ extern "C" {
             break;
         }
         case DLL_PROCESS_DETACH: {
-            moduleProxy.free();
             CursorMonitor::Destruct();
             RegistryMonitor::Destruct();
             WindowInterceptor::Destruct();
+            ModuleProxy::Destruct();
             logger::log("Successfully unhooked 'msimg32.dll'.");
             break;
         }
@@ -90,8 +87,8 @@ extern "C" {
     return TRUE;
 }
 
-[[maybe_unused]] void __cdecl DllInitialize() {
-    const auto func = moduleProxy.getRemoteFunction("DllInitialize");
+void DllInitialize_Impl() {
+    const auto func = ModuleProxy::GetInstance()->getRemoteFunction("DllInitialize");
     if (!func) {
         logger::log("Failed to get address of 'DllInitialize'.");
         return;
@@ -99,29 +96,41 @@ extern "C" {
     func();
 }
 
-[[maybe_unused]] void __cdecl vSetDdrawflag() {
-    const auto remoteFunction = moduleProxy.getRemoteFunction("vSetDdrawflag");
+void vSetDdrawflag_Impl() {
+    const auto remoteFunction = ModuleProxy::GetInstance()->getRemoteFunction("vSetDdrawflag");
     if (!remoteFunction) {
-        logger::log("Failed to get address of 'vSetDdrawflag'.");
+        logger::log("FATAL: Failed to get address of 'vSetDdrawflag'.");
         return;
     }
     remoteFunction();
 }
 
-//[[maybe_unused]] void __cdecl AlphaBlend(void) {
-//    auto func = (RemoteFunc) GetAddress("AlphaBlend");
-//    func();
-//}
+void AlphaBlend_Impl() {
+    const auto remoteFunction = ModuleProxy::GetInstance()->getRemoteFunction("AlphaBlend");
+    if (!remoteFunction) {
+        logger::log("FATAL: Failed to get address of 'AlphaBlend'.");
+        return;
+    }
+    remoteFunction();
+}
 
-//[[maybe_unused]] void __cdecl GradientFill() {
-//    auto func = (RemoteFunc) GetAddress("GradientFill");
-//    func();
-//}
+void GradientFill_Impl() {
+    const auto remoteFunction = ModuleProxy::GetInstance()->getRemoteFunction("GradientFill");
+    if (!remoteFunction) {
+        logger::log("FATAL: Failed to get address of 'GradientFill'.");
+        return;
+    }
+    remoteFunction();
+}
 
-//[[maybe_unused]] void __cdecl TransparentBlt() {
-//    auto func = (RemoteFunc) GetAddress("TransparentBlt");
-//    func();
-//}
+void TransparentBlt_Impl() {
+    const auto remoteFunction = ModuleProxy::GetInstance()->getRemoteFunction("TransparentBlt");
+    if (!remoteFunction) {
+        logger::log("FATAL: Failed to get address of 'TransparentBlt'.");
+        return;
+    }
+    remoteFunction();
+}
 
 #ifdef __cplusplus
 }

@@ -1,13 +1,15 @@
-#include <numeric>
+#include <format>
 #include <thread>
 #include <stdexcept>
 
 #include <types/CursorMonitor.h>
+#include <utils/logger.h>
 
 #include <windows.h>
 
 using namespace std;
 using namespace types;
+using namespace utils;
 
 CursorMonitor::CursorMonitor() :
         _baseAddress(reinterpret_cast<uint64_t>(GetModuleHandle(nullptr))),
@@ -38,6 +40,13 @@ CursorMonitor::CursorMonitor() :
             if (this->_lastPosition.load() != cursorPosition) {
                 const auto lastAction = this->_lastAction.load();
                 if (lastAction != UserAction::Idle) {
+                    if (lastAction == UserAction::DeleteBackward) {
+                        logger::log(format(
+                                "Cursor Moved due to backspace, lastLine: {}, currentLine: {}",
+                                this->_lastPosition.load().line,
+                                cursorPosition.line
+                        ));
+                    }
                     if (this->_handlers.contains(lastAction)) {
                         this->_handlers.at(lastAction)(this->_lastPosition.load(), cursorPosition);
                     }
@@ -55,7 +64,5 @@ CursorMonitor::~CursorMonitor() {
 }
 
 void CursorMonitor::queueAction(UserAction userAction) {
-    if (_lastAction.load() == UserAction::Idle) {
-        _lastAction.store(userAction);
-    }
+    _lastAction.store(userAction);
 }

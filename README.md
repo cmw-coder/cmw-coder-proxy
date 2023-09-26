@@ -1,4 +1,4 @@
-# si-coding-hook
+# cmw-coder-proxy
 
 ## Overview
 
