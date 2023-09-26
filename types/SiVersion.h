@@ -3,7 +3,8 @@
 namespace types {
     enum class SiVersion {
         Unknown = 0,
-        Old = 3,
-        New = 4,
+        V350076,
+        V350086,
+        V400113
     };
 }

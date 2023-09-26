@@ -2,6 +2,7 @@
 
 #include <json/json.h>
 
+#include <types/Configurator.h>
 #include <types/RegistryMonitor.h>
 #include <types/UserAction.h>
 #include <types/WindowInterceptor.h>
@@ -25,22 +26,60 @@ namespace {
         jsonWriter->write(json, &oss);
         return oss.str();
     }
+
+    optional<string> generateCompletion(const string &editorInfo) {
+        Json::Value requestBody, responseBody;
+        requestBody["info"] = base64::to_base64(editorInfo);
+        auto client = httplib::Client("http://localhost:3000");
+        client.set_connection_timeout(5);
+        if (auto res = client.Post(
+                "/generate",
+                stringify(requestBody),
+                "application/json"
+        )) {
+            stringstream(res->body) >> responseBody;
+            if (responseBody["result"].asString() == "success") {
+                return base64::from_base64(responseBody["content"].asString());
+            }
+            logger::log("HTTP result: " + responseBody["result"].asString());
+        } else {
+            logger::log("HTTP error: " + httplib::to_string(res.error()));
+        }
+        return nullopt;
+    }
+
+    void completionReaction() {
+        try {
+            Json::Value requestBody, responseBody;
+            requestBody["tabOutput"] = true;
+            requestBody["text_lenth"] = 1;
+            requestBody["username"] = Configurator::GetInstance()->username();
+            requestBody["code_line"] = 1;
+            requestBody["total_lines"] = 1;
+            requestBody["version"] = "SI-0.5.0";
+            requestBody["mode"] = false;
+            auto client = httplib::Client("http://10.113.10.68:4322");
+            client.set_connection_timeout(5);
+            client.Post("/code/statistical", stringify(requestBody), "application/json");
+        } catch (...) {}
+    }
+
 }
 
 RegistryMonitor::RegistryMonitor() {
     thread([this] {
         while (this->_isRunning.load()) {
             try {
-                auto editorInfo = system::getRegValue(_subKey, "editorInfo");
-                logger::log("Editor info: " + editorInfo);
+                const auto editorInfo = system::getRegValue(_subKey, "editorInfo");
                 _lastTriggerTime = chrono::high_resolution_clock::now();
                 system::deleteRegValue(_subKey, "editorInfo");
 
-                thread([this, &editorInfo, currentTriggerName = _lastTriggerTime.load()] {
-                    const auto completionGenerated = _generateCompletion(std::move(editorInfo));
+                thread([this, editorInfo, currentTriggerName = _lastTriggerTime.load()] {
+                    const auto completionGenerated = generateCompletion(editorInfo);
                     if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
                         system::setRegValue(_subKey, "completionGenerated", completionGenerated.value());
                         WindowInterceptor::GetInstance()->sendFunctionKey(VK_F12);
+                        _hasCompletion = true;
                     }
                 }).detach();
             } catch (runtime_error &e) {
@@ -58,6 +97,15 @@ RegistryMonitor::~RegistryMonitor() {
     this->_isRunning.store(false);
 }
 
+void RegistryMonitor::acceptByTab(unsigned int) {
+    WindowInterceptor::GetInstance()->sendFunctionKey(VK_F10);
+    if (_hasCompletion.load()) {
+        _hasCompletion = false;
+        thread(completionReaction).detach();
+    }
+    logger::log("Accepted completion");
+}
+
 void RegistryMonitor::cancelByCursorNavigate(CursorPosition, CursorPosition) {
     cancelByKeycodeNavigate(-1);
 }
@@ -67,6 +115,7 @@ void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorP
         try {
             system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::DeleteBackward)));
             WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
+            _hasCompletion = false;
             logger::log("Canceled by delete backward.");
         } catch (runtime_error &e) {
             logger::log(e.what());
@@ -80,6 +129,7 @@ void RegistryMonitor::cancelByKeycodeNavigate(unsigned int) {
     try {
         system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::Navigate)));
         WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
+        _hasCompletion = false;
         logger::log("Canceled by keycode navigate.");
     } catch (runtime_error &e) {
         logger::log(e.what());
@@ -90,31 +140,11 @@ void RegistryMonitor::cancelByModifyLine(unsigned int) {
     try {
         system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::ModifyLine)));
         WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
+        _hasCompletion = false;
         logger::log("Canceled by modify line.");
         WindowInterceptor::GetInstance()->sendFunctionKey(VK_F11);
         logger::log("Retrieve editor info.");
     } catch (runtime_error &e) {
         logger::log(e.what());
     }
-}
-
-optional<string> RegistryMonitor::_generateCompletion(string &&editorInfo) {
-    Json::Value requestBody, responseBody;
-    requestBody["info"] = base64::to_base64(editorInfo);
-    auto client = httplib::Client("http://localhost:3000");
-    client.set_connection_timeout(5);
-    if (auto res = client.Post(
-            "/generate",
-            stringify(requestBody),
-            "application/json"
-    )) {
-        stringstream(res->body) >> responseBody;
-        if (responseBody["result"].asString() == "success") {
-            return base64::from_base64(responseBody["content"].asString());
-        }
-        logger::log("HTTP result: " + responseBody["result"].asString());
-    } else {
-        logger::log("HTTP error: " + httplib::to_string(res.error()));
-    }
-    return nullopt;
 }

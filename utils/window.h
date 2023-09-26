@@ -11,5 +11,5 @@ namespace utils::window {
 
     std::string getWindowText(HWND hwnd);
 
-    bool sendFunctionKey(HWND hwnd, types::SiVersion siVersion, int key);
+    bool sendFunctionKey(HWND hwnd, int key);
 }

@@ -1,5 +1,6 @@
 #include <format>
 
+#include <types/Configurator.h>
 #include <types/CursorMonitor.h>
 #include <types/ModuleProxy.h>
 #include <types/RegistryMonitor.h>
@@ -13,6 +14,28 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
+namespace {
+    void initialize() {
+        logger::log("Comware Coder Proxy is initializing...");
+
+        ModuleProxy::Construct();
+        Configurator::Construct();
+        CursorMonitor::Construct();
+        RegistryMonitor::Construct();
+        WindowInterceptor::Construct();
+    }
+
+    void finalize() {
+        logger::log("Comware Coder Proxy is finalizing...");
+
+        WindowInterceptor::Destruct();
+        RegistryMonitor::Destruct();
+        CursorMonitor::Destruct();
+        Configurator::Destruct();
+        ModuleProxy::Destruct();
+    }
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -21,12 +44,8 @@ extern "C" {
     switch (dwReason) {
         case DLL_PROCESS_ATTACH: {
             DisableThreadLibraryCalls(hModule);
-            ModuleProxy::Construct();
-            logger::log("Successfully hooked 'msimg32.dll'.");
 
-            CursorMonitor::Construct();
-            RegistryMonitor::Construct();
-            WindowInterceptor::Construct();
+            initialize();
 
             CursorMonitor::GetInstance()->addHandler(
                     UserAction::DeleteBackward,
@@ -39,10 +58,11 @@ extern "C" {
                     &RegistryMonitor::cancelByCursorNavigate
             );
 
-            WindowInterceptor::GetInstance()->addHandler(UserAction::Accept, [](unsigned int keycode) {
-                WindowInterceptor::GetInstance()->sendFunctionKey(VK_F10);
-                logger::log(format("Accepted completion, keycode 0x{:08X}", keycode));
-            });
+            WindowInterceptor::GetInstance()->addHandler(
+                    UserAction::Accept,
+                    RegistryMonitor::GetInstance(),
+                    &RegistryMonitor::acceptByTab
+            );
             WindowInterceptor::GetInstance()->addHandler(
                     UserAction::ModifyLine,
                     RegistryMonitor::GetInstance(),
@@ -63,21 +83,20 @@ extern "C" {
 
             const auto mainThreadId = system::getMainThreadId();
             logger::log(std::format(
-                    "ProcessId: {}, currentThreadId: {}, mainThreadId: {}, mainModuleName: {}",
+                    "MinorVersion: {}, PID: {}, currentTID: {}, mainTID: {}, mainModuleName: {}",
+                    get<2>(system::getVersion()),
                     GetCurrentProcessId(),
                     GetCurrentThreadId(),
                     mainThreadId,
                     system::getModuleFileName(reinterpret_cast<uint64_t>(GetModuleHandle(nullptr)))
             ));
 
+            logger::log("Comware Coder Proxy is ready");
             break;
         }
         case DLL_PROCESS_DETACH: {
-            CursorMonitor::Destruct();
-            RegistryMonitor::Destruct();
-            WindowInterceptor::Destruct();
-            ModuleProxy::Destruct();
-            logger::log("Successfully unhooked 'msimg32.dll'.");
+            finalize();
+            logger::log("Comware Coder Proxy is unloaded");
             break;
         }
         default: {
@@ -90,7 +109,7 @@ extern "C" {
 void DllInitialize_Impl() {
     const auto func = ModuleProxy::GetInstance()->getRemoteFunction("DllInitialize");
     if (!func) {
-        logger::log("Failed to get address of 'DllInitialize'.");
+        logger::log("FATAL: Failed to get address of 'DllInitialize'.");
         return;
     }
     func();

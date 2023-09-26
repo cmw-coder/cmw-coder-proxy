@@ -21,7 +21,7 @@ namespace types {
 
         ~CursorMonitor() override;
 
-        void queueAction(UserAction userAction);
+        void setAction(UserAction userAction);
 
         template<class T>
         void addHandler(

@@ -3,7 +3,6 @@
 #include <types/CursorMonitor.h>
 #include <types/WindowInterceptor.h>
 #include <utils/logger.h>
-#include <utils/system.h>
 #include <utils/window.h>
 
 using namespace std;
@@ -23,12 +22,6 @@ WindowInterceptor::WindowInterceptor() {
     ), UnhookWindowsHookEx);
     if (!this->_windowHook) {
         throw runtime_error("Failed to set window hook.");
-    }
-    const auto currentModuleName = system::getModuleFileName(reinterpret_cast<uint64_t>(GetModuleHandle(nullptr)));
-    if (currentModuleName.find("Insight3.exe") != string::npos) {
-        _siVersion.store(SiVersion::Old);
-    } else if (currentModuleName.find("sourceinsight4.exe") != string::npos) {
-        _siVersion.store(SiVersion::New);
     }
 }
 
@@ -54,13 +47,13 @@ void WindowInterceptor::_processWindowMessage(long lParam) {
                             reinterpret_cast<uint64_t>(currentWindow),
                             window::getWindowClassName(currentWindow)
                     ));
-                    this->_codeWindow.store(nullptr);
                     _handlers.at(UserAction::Navigate)(-1);
+                    this->_codeWindow.store(nullptr);
                 }
                 break;
             }
             case WM_MOUSEACTIVATE: {
-                CursorMonitor::GetInstance()->queueAction(UserAction::Navigate);
+                CursorMonitor::GetInstance()->setAction(UserAction::Navigate);
                 break;
             }
             case WM_SETFOCUS: {
@@ -92,7 +85,7 @@ void WindowInterceptor::_handleKeycode(unsigned int keycode) noexcept {
     try {
         switch (keycode) {
             case 0x0008: { // Backspace
-                CursorMonitor::GetInstance()->queueAction(UserAction::DeleteBackward);
+                CursorMonitor::GetInstance()->setAction(UserAction::DeleteBackward);
                 break;
             }
             case 0x0009: { // Tab
@@ -116,7 +109,7 @@ void WindowInterceptor::_handleKeycode(unsigned int keycode) noexcept {
                     _handlers.at(UserAction::Normal)(keycode);
                 } else if (((keycode & 0x802F) >= 0x8021 && (keycode & 0x802F) <= 0x8029)) {
                     /// See "WinUser.h" Line 515
-                    CursorMonitor::GetInstance()->queueAction(UserAction::Navigate);
+                    CursorMonitor::GetInstance()->setAction(UserAction::Navigate);
                 }
                 break;
             }
@@ -125,5 +118,5 @@ void WindowInterceptor::_handleKeycode(unsigned int keycode) noexcept {
 }
 
 bool WindowInterceptor::sendFunctionKey(int key) {
-    return window::sendFunctionKey(reinterpret_cast<HWND>(this->_codeWindow.load()), _siVersion, key);
+    return window::sendFunctionKey(reinterpret_cast<HWND>(this->_codeWindow.load()), key);
 }

@@ -8,7 +8,7 @@ using namespace std;
 using namespace utils;
 
 namespace {
-    std::string logDistinguish = "si-coding-hook";
+    std::string logDistinguish = "cmw-coder-proxy";
 }
 
 void logger::log(const std::string &message) {

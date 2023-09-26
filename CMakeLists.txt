@@ -32,7 +32,11 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_singleton.cmake)
 
 add_library(${PROXY_MODULE_NAME} SHARED main.cc proxy.c)
 
-target_link_libraries(${PROXY_MODULE_NAME} PRIVATE jsoncpp_static singleton::singleton)
+target_link_libraries(${PROXY_MODULE_NAME} PRIVATE
+        jsoncpp_static
+        singleton::singleton
+        Version.lib
+)
 
 target_include_directories(${PROXY_MODULE_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 

@@ -27,7 +27,6 @@ namespace types {
 
     private:
         std::shared_ptr<void> _windowHook = nullptr;
-        std::atomic<SiVersion> _siVersion = SiVersion::Unknown;
         std::atomic<void *> _codeWindow = nullptr;
         std::unordered_map<UserAction, CallBackFunction> _handlers;
 

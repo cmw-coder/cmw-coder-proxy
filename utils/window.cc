@@ -20,7 +20,7 @@ std::string window::getWindowText(HWND hwnd) {
     return text.substr(0, GetWindowText(hwnd, text.data(), 256));
 }
 
-bool window::sendFunctionKey(HWND hwnd, SiVersion siVersion, int key) {
+bool window::sendFunctionKey(HWND hwnd, int key) {
     int offset = 0x1000;
     // alt
     offset += 0x800;
@@ -28,8 +28,8 @@ bool window::sendFunctionKey(HWND hwnd, SiVersion siVersion, int key) {
     offset += 0x400;
     // shift
     offset += 0x300;
-    if (siVersion == SiVersion::New) {
-        offset = offset << 8;
-    }
+//    if (siVersion == SiVersion::New) {
+//        offset = offset << 8;
+//    }
     return PostMessage(hwnd, UM_KEYCODE, offset + key, 0) != 0;
 }

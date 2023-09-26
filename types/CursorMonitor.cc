@@ -2,6 +2,7 @@
 #include <thread>
 #include <stdexcept>
 
+#include <types/Configurator.h>
 #include <types/CursorMonitor.h>
 #include <utils/logger.h>
 
@@ -18,9 +19,16 @@ CursorMonitor::CursorMonitor() :
         throw runtime_error("Failed to get current process handle");
     }
     thread([this]() {
-        /// These addresses are for source insight 3.X
-        const auto currentCursorLineAddress = _baseAddress + 0x1CBEFC;
-        const auto currentCursorCharAddress = _baseAddress + 0x1CBF00;
+        uint64_t currentCursorLineAddress, currentCursorCharAddress;
+        if (Configurator::GetInstance()->version() == SiVersion::V350076) {
+            currentCursorLineAddress = _baseAddress + 0x1CBEFC;
+            currentCursorCharAddress = _baseAddress + 0x1CBF00;
+        } else if (Configurator::GetInstance()->version() == SiVersion::V350086) {
+            currentCursorLineAddress = _baseAddress + 0x1BE0CC;
+            currentCursorCharAddress = _baseAddress + 0x1CD3E0;
+        } else {
+            throw runtime_error("Unsupported Source Insight version");
+        }
         while (this->_isRunning.load()) {
             CursorPosition cursorPosition{};
             ReadProcessMemory(
@@ -39,13 +47,14 @@ CursorMonitor::CursorMonitor() :
             );
             if (this->_lastPosition.load() != cursorPosition) {
                 const auto lastAction = this->_lastAction.load();
+                logger::log(format(
+                        "Cursor Moved, lastLine: {}, currentLine: {}",
+                        this->_lastPosition.load().line,
+                        cursorPosition.line
+                ));
                 if (lastAction != UserAction::Idle) {
                     if (lastAction == UserAction::DeleteBackward) {
-                        logger::log(format(
-                                "Cursor Moved due to backspace, lastLine: {}, currentLine: {}",
-                                this->_lastPosition.load().line,
-                                cursorPosition.line
-                        ));
+                        logger::log("Cursor Moved due to backspace");
                     }
                     if (this->_handlers.contains(lastAction)) {
                         this->_handlers.at(lastAction)(this->_lastPosition.load(), cursorPosition);
@@ -63,6 +72,6 @@ CursorMonitor::~CursorMonitor() {
     this->_isRunning.store(false);
 }
 
-void CursorMonitor::queueAction(UserAction userAction) {
+void CursorMonitor::setAction(UserAction userAction) {
     _lastAction.store(userAction);
 }

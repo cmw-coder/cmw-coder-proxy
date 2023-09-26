@@ -1,11 +1,16 @@
 #pragma once
 
 #include <string>
+#include <tuple>
 
 namespace utils::system {
     std::string formatSystemMessage(long errorCode);
 
     std::string getSystemPath(const std::string &relativePath);
+
+    std::string getUserName();
+
+    std::tuple<int, int, int, int> getVersion();
 
     unsigned long getMainThreadId();
 

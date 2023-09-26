@@ -1,9 +1,11 @@
+#include <format>
 #include <memory>
 #include <stdexcept>
 
 #include <utils/system.h>
 
 #include <windows.h>
+#include <winver.h>
 #include <TlHelp32.h>
 
 using namespace std;
@@ -14,7 +16,6 @@ namespace {
         return static_cast<uint64_t>(fileTile.dwHighDateTime) << 32 | fileTile.dwLowDateTime & 0xFFFFFFFF;
     }
 }
-
 
 string system::formatSystemMessage(long errorCode) {
     string errorMessage;
@@ -37,6 +38,46 @@ string system::getSystemPath(const string &relativePath) {
     return systemDirectory.substr(0, length) + R"(\)" + relativePath;
 }
 
+string system::getUserName() {
+    DWORD userNameLength = MAX_PATH;
+    string userName;
+    userName.resize(userNameLength);
+    GetUserName(userName.data(), &userNameLength);
+    return userName.substr(0, userNameLength - 1);
+}
+
+tuple<int, int, int, int> system::getVersion() {
+    string path;
+    {
+        path.resize(MAX_PATH);
+        path = path.substr(0, GetModuleFileName(nullptr, path.data(), MAX_PATH));
+    }
+    DWORD verHandle = 0;
+    DWORD verSize = GetFileVersionInfoSize(path.c_str(), &verHandle);
+    if (verSize != 0) {
+        string verData;
+        verData.resize(verSize);
+        if (GetFileVersionInfo(path.c_str(), verHandle, verSize, verData.data())) {
+            LPBYTE lpBuffer = nullptr;
+            UINT size = 0;
+            if (VerQueryValue(verData.c_str(), "\\", (VOID FAR *FAR *) &lpBuffer, &size)) {
+                if (size) {
+                    const auto *verInfo = reinterpret_cast<VS_FIXEDFILEINFO *>(lpBuffer);
+                    if (verInfo->dwSignature == 0xfeef04bd) {
+                        return {
+                                (verInfo->dwFileVersionMS >> 16) & 0xffff,
+                                (verInfo->dwFileVersionMS >> 0) & 0xffff,
+                                (verInfo->dwFileVersionLS >> 16) & 0xffff,
+                                (verInfo->dwFileVersionLS >> 0) & 0xffff
+                        };
+                    }
+                }
+            }
+        }
+    }
+    return {};
+}
+
 unsigned long system::getMainThreadId() {
     DWORD mainThreadId = 0;
     const shared_ptr<void> sharedSnapshotHandle(CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0), CloseHandle);
@@ -52,8 +93,10 @@ unsigned long system::getMainThreadId() {
          hasThreadEntry = Thread32Next(sharedSnapshotHandle.get(), &threadEntry)) {
         if (threadEntry.th32OwnerProcessID == currentProcessId) {
             const auto currentThreadId = threadEntry.th32ThreadID;
-            const shared_ptr<void> sharedThreadHandle(OpenThread(THREAD_QUERY_INFORMATION, TRUE, currentThreadId),
-                                                      CloseHandle);
+            const shared_ptr<void> sharedThreadHandle(
+                    OpenThread(THREAD_QUERY_INFORMATION, TRUE, currentThreadId),
+                    CloseHandle
+            );
             if (sharedThreadHandle) {
                 FILETIME afTimes[4] = {0};
                 if (GetThreadTimes(sharedThreadHandle.get(), &afTimes[0], &afTimes[1], &afTimes[2], &afTimes[3])) {
