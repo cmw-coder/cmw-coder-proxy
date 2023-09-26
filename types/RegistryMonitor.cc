@@ -32,6 +32,7 @@ RegistryMonitor::RegistryMonitor() {
         while (this->_isRunning.load()) {
             try {
                 auto editorInfo = system::getRegValue(_subKey, "editorInfo");
+                logger::log("Editor info: " + editorInfo);
                 _lastTriggerTime = chrono::high_resolution_clock::now();
                 system::deleteRegValue(_subKey, "editorInfo");
 
@@ -99,7 +100,7 @@ void RegistryMonitor::cancelByModifyLine(unsigned int) {
 
 optional<string> RegistryMonitor::_generateCompletion(string &&editorInfo) {
     Json::Value requestBody, responseBody;
-    requestBody["info"] = base64::base64Encode(editorInfo);
+    requestBody["info"] = base64::to_base64(editorInfo);
     auto client = httplib::Client("http://localhost:3000");
     client.set_connection_timeout(5);
     if (auto res = client.Post(
@@ -109,7 +110,7 @@ optional<string> RegistryMonitor::_generateCompletion(string &&editorInfo) {
     )) {
         stringstream(res->body) >> responseBody;
         if (responseBody["result"].asString() == "success") {
-            return base64::decode(responseBody["content"].asString());
+            return base64::from_base64(responseBody["content"].asString());
         }
         logger::log("HTTP result: " + responseBody["result"].asString());
     } else {
