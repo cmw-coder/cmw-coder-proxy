@@ -124,31 +124,62 @@ void vSetDdrawflag_Impl() {
     remoteFunction();
 }
 
-void AlphaBlend_Impl() {
+BOOL AlphaBlend_Impl(
+        _In_ HDC hdcDest,
+        _In_ int xoriginDest,
+        _In_ int yoriginDest,
+        _In_ int wDest,
+        _In_ int hDest,
+        _In_ HDC hdcSrc,
+        _In_ int xoriginSrc,
+        _In_ int yoriginSrc,
+        _In_ int wSrc,
+        _In_ int hSrc,
+        _In_ BLENDFUNCTION ftn
+) {
     const auto remoteFunction = ModuleProxy::GetInstance()->getRemoteFunction("AlphaBlend");
     if (!remoteFunction) {
         logger::log("FATAL: Failed to get address of 'AlphaBlend'.");
-        return;
+        return false;
     }
-    remoteFunction();
+    return remoteFunction();
 }
 
-void GradientFill_Impl() {
+BOOL GradientFill_Impl(
+        _In_ HDC hdc,
+        _In_reads_(nVertex) PTRIVERTEX pVertex,
+        _In_ ULONG nVertex,
+        _In_ PVOID pMesh,
+        _In_ ULONG nMesh,
+        _In_ ULONG ulMode
+) {
     const auto remoteFunction = ModuleProxy::GetInstance()->getRemoteFunction("GradientFill");
     if (!remoteFunction) {
         logger::log("FATAL: Failed to get address of 'GradientFill'.");
-        return;
+        return false;
     }
-    remoteFunction();
+    return remoteFunction();
 }
 
-void TransparentBlt_Impl() {
+BOOL TransparentBlt_Impl(
+        _In_ HDC hdcDest,
+        _In_ int xoriginDest,
+        _In_ int yoriginDest,
+        _In_ int wDest,
+        _In_ int hDest,
+        _In_ HDC hdcSrc,
+        _In_ int xoriginSrc,
+        _In_ int yoriginSrc,
+        _In_ int wSrc,
+        _In_ int hSrc,
+        _In_ UINT crTransparent
+) {
     const auto remoteFunction = ModuleProxy::GetInstance()->getRemoteFunction("TransparentBlt");
     if (!remoteFunction) {
         logger::log("FATAL: Failed to get address of 'TransparentBlt'.");
-        return;
+        return false;
     }
-    remoteFunction();
+    return remoteFunction();
 }
 
 #ifdef __cplusplus
