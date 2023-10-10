@@ -30,7 +30,7 @@ endif ()
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_jsoncpp.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_singleton.cmake)
 
-add_library(${PROXY_MODULE_NAME} SHARED proxy.c main.cc)
+add_library(${PROXY_MODULE_NAME} SHARED proxy.cc main.cc)
 
 target_link_libraries(${PROXY_MODULE_NAME} PRIVATE
         jsoncpp_static
