@@ -143,17 +143,17 @@ void RegistryMonitor::cancelByKeycodeNavigate(unsigned int) {
 }
 
 void RegistryMonitor::cancelByModifyLine(unsigned int) {
-    if (!_hasCompletion.load()) {
-        return;
+    if (_hasCompletion.load()) {
+        try {
+            system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::ModifyLine)));
+            WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
+            _hasCompletion = false;
+            logger::log("Canceled by modify line.");
+        } catch (runtime_error &e) {
+            logger::log(e.what());
+        }
     }
-    try {
-        system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::ModifyLine)));
-        WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
-        _hasCompletion = false;
-        logger::log("Canceled by modify line.");
-        WindowInterceptor::GetInstance()->sendFunctionKey(VK_F11);
-        logger::log("Retrieve editor info.");
-    } catch (runtime_error &e) {
-        logger::log(e.what());
-    }
+
+    WindowInterceptor::GetInstance()->sendFunctionKey(VK_F11);
+    logger::log("Retrieve editor info.");
 }
