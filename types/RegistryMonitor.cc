@@ -98,12 +98,12 @@ RegistryMonitor::~RegistryMonitor() {
 }
 
 void RegistryMonitor::acceptByTab(unsigned int) {
-    WindowInterceptor::GetInstance()->sendFunctionKey(VK_F10);
     if (_hasCompletion.load()) {
         _hasCompletion = false;
+        WindowInterceptor::GetInstance()->sendFunctionKey(VK_F10);
         thread(completionReaction).detach();
+        logger::log("Accepted completion");
     }
-    logger::log("Accepted completion");
 }
 
 void RegistryMonitor::cancelByCursorNavigate(CursorPosition, CursorPosition) {
@@ -112,6 +112,9 @@ void RegistryMonitor::cancelByCursorNavigate(CursorPosition, CursorPosition) {
 
 void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorPosition newPosition) {
     if (oldPosition.line == newPosition.line) {
+        if (!_hasCompletion.load()) {
+            return;
+        }
         try {
             system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::DeleteBackward)));
             WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
@@ -126,6 +129,9 @@ void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorP
 }
 
 void RegistryMonitor::cancelByKeycodeNavigate(unsigned int) {
+    if (!_hasCompletion.load()) {
+        return;
+    }
     try {
         system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::Navigate)));
         WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
@@ -137,6 +143,9 @@ void RegistryMonitor::cancelByKeycodeNavigate(unsigned int) {
 }
 
 void RegistryMonitor::cancelByModifyLine(unsigned int) {
+    if (!_hasCompletion.load()) {
+        return;
+    }
     try {
         system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::ModifyLine)));
         WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
