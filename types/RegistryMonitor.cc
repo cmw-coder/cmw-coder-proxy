@@ -56,7 +56,7 @@ namespace {
             requestBody["username"] = Configurator::GetInstance()->username();
             requestBody["code_line"] = 1;
             requestBody["total_lines"] = 1;
-            requestBody["version"] = "SI-0.5.0";
+            requestBody["version"] = "SI-0.5.1";
             requestBody["mode"] = false;
             auto client = httplib::Client("http://10.113.10.68:4322");
             client.set_connection_timeout(5);
