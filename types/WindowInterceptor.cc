@@ -47,7 +47,7 @@ void WindowInterceptor::_processWindowMessage(long lParam) {
                             reinterpret_cast<uint64_t>(currentWindow),
                             window::getWindowClassName(currentWindow)
                     ));
-//                    _handlers.at(UserAction::Navigate)(-1);
+                    _handlers.at(UserAction::Navigate)(-1);
                     this->_codeWindow.store(nullptr);
                 }
                 break;
