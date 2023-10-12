@@ -63,7 +63,6 @@ namespace {
             client.Post("/code/statistical", stringify(requestBody), "application/json");
         } catch (...) {}
     }
-
 }
 
 RegistryMonitor::RegistryMonitor() {
