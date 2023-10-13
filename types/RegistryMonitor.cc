@@ -39,7 +39,7 @@ namespace {
         )) {
             stringstream(res->body) >> responseBody;
             if (responseBody["result"].asString() == "success") {
-                return base64::from_base64(responseBody["content"].asString());
+                return base64::from_base64(responseBody["contents"][0].asString());
             }
             logger::log("HTTP result: " + responseBody["result"].asString());
         } else {
@@ -63,7 +63,6 @@ namespace {
             client.Post("/code/statistical", stringify(requestBody), "application/json");
         } catch (...) {}
     }
-
 }
 
 RegistryMonitor::RegistryMonitor() {

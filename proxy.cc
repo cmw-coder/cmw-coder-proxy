@@ -1,5 +1,4 @@
-#define NOGDI
-#define WIN32_LEAN_AND_MEAN
+#include <format>
 
 #include <types/ModuleProxy.h>
 #include <utils/logger.h>
@@ -34,6 +33,7 @@ typedef struct {
 
 void WINAPI vSetDdrawflag(void) {
 #pragma comment(linker, "/EXPORT:vSetDdrawflag=_vSetDdrawflag@0")
+    logger::log(format("Proxying {}", typeid(vSetDdrawflag).name()));
 }
 
 // https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-alphablend
@@ -81,8 +81,8 @@ BOOL WINAPI DllInitialize(
     (void) hinstDLL;
     (void) fdwReason;
     (void) lpvReserved;
+    logger::log(format("Proxying {}", typeid(DllInitialize).name()));
 //  DllMain(hinstDLL, fdwReason, lpvReserved);
-//  D(DllInitialize, hinstDLL, fdwReason, lpvReserved);
     return TRUE;
 }
 
