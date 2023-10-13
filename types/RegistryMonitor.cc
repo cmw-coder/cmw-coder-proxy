@@ -1,4 +1,6 @@
 #include <chrono>
+#include <ranges>
+#include <regex>
 
 #include <json/json.h>
 
@@ -14,15 +16,21 @@
 #include <windows.h>
 
 using namespace std;
+using namespace std::ranges;
 using namespace types;
 using namespace utils;
 
 namespace {
+    const regex editorInfoRegex(
+            R"regex(^cursor="(.*?)";path="(.*?)";project="(.*?)";tabs="(.*?)";type="(.*?)";version="(.*?)";symbols="(.*?)";prefix="(.*?)";suffix="(.*?)"$)regex");
+    const regex cursorRegex(
+            R"regex(^lnFirst="(.*?)";ichFirst="(.*?)";lnLast="(.*?)";ichLim="(.*?)";fExtended="(.*?)";fRect="(.*?)"$)regex");
+
     string stringify(const Json::Value &json, const string &indentation = "") {
         Json::StreamWriterBuilder writerBuilder;
         writerBuilder.settings_["indentation"] = indentation;
-        std::unique_ptr<Json::StreamWriter> jsonWriter(writerBuilder.newStreamWriter());
-        std::ostringstream oss;
+        unique_ptr<Json::StreamWriter> jsonWriter(writerBuilder.newStreamWriter());
+        ostringstream oss;
         jsonWriter->write(json, &oss);
         return oss.str();
     }
@@ -69,18 +77,81 @@ RegistryMonitor::RegistryMonitor() {
     thread([this] {
         while (this->_isRunning.load()) {
             try {
-                const auto editorInfo = system::getRegValue(_subKey, "editorInfo");
-                _lastTriggerTime = chrono::high_resolution_clock::now();
+                const auto editorInfoString = system::getRegValue(_subKey, "editorInfo");
+                Json::Value editorInfo;
                 system::deleteRegValue(_subKey, "editorInfo");
 
-                thread([this, editorInfo, currentTriggerName = _lastTriggerTime.load()] {
-                    const auto completionGenerated = generateCompletion(editorInfo);
-                    if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
-                        system::setRegValue(_subKey, "completionGenerated", completionGenerated.value());
-                        WindowInterceptor::GetInstance()->sendFunctionKey(VK_F12);
-                        _hasCompletion = true;
-                    }
-                }).detach();
+                smatch editorInfoRegexResults;
+                if (!regex_match(editorInfoString, editorInfoRegexResults, editorInfoRegex) ||
+                    editorInfoRegexResults.size() != 10) {
+                    logger::log("Invalid editorInfoString");
+                    continue;
+                }
+
+//                const auto cursorString = regex_replace(editorInfoRegexResults[1].str(), regex(R"(\\)"), "");
+//                smatch cursorRegexResults;
+//                if (!regex_match(cursorString, cursorRegexResults, cursorRegex) ||
+//                    cursorRegexResults.size() != 7) {
+//                    logger::log("Invalid cursorString");
+//                    continue;
+//                }
+//                editorInfo["cursor"]["startLine"] = cursorRegexResults[1].str();
+//                editorInfo["cursor"]["startCharacter"] = cursorRegexResults[2].str();
+//                editorInfo["cursor"]["endLine"] = cursorRegexResults[3].str();
+//                editorInfo["cursor"]["endCharacter"] = cursorRegexResults[4].str();
+//
+//                const auto symbolString = editorInfoRegexResults[7].str();
+//                editorInfo["symbols"] = Json::arrayValue;
+//                if (symbolString.length() > 2) {
+//                    for (const auto symbol: views::split(symbolString.substr(1, symbolString.length() - 1), "||")) {
+//                        Json::Value symbolInfo;
+//                        const auto symbolComponents = views::split(symbol, "|")
+//                                                      | views::transform(
+//                                [](auto &&rng) { return string(&*rng.begin(), ranges::distance(rng)); })
+//                                                      | to<vector>();
+//                        symbolInfo["name"] = symbolComponents[0];
+//                        symbolInfo["path"] = symbolComponents[1];
+//                        symbolInfo["startLine"] = symbolComponents[2];
+//                        symbolInfo["endLine"] = symbolComponents[3];
+//
+//                        editorInfo["symbols"].append(symbolInfo);
+//                    }
+//                }
+//
+//                auto tabsString = editorInfoRegexResults[4].str();
+//                editorInfo["openedTabs"] = Json::arrayValue;
+//                smatch tabsRegexResults;
+//                try {
+//                    while (regex_search(
+//                            tabsString,
+//                            tabsRegexResults,
+//                            regex(R"regex(.*?\.([ch]))regex", regex_constants::extended)
+//                    )) {
+//                        editorInfo["openedTabs"].append(tabsRegexResults[0].str());
+//                    }
+//                    editorInfo["suffix"] = editorInfoRegexResults[9].str();
+//                } catch (exception e) {
+//                    logger::log(e.what());
+//                }
+//                editorInfo["currentFilePath"] = regex_replace(editorInfoRegexResults[2].str(), regex(R"(\\\\)"), "");
+//                editorInfo["projectFolder"] = regex_replace(editorInfoRegexResults[3].str(), regex(R"(\\\\)"), "");
+//                editorInfo["completionType"] = stoi(editorInfoRegexResults[5].str()) > 0 ? "snippet" : "line";
+//                editorInfo["version"] = editorInfoRegexResults[6].str();
+//                editorInfo["prefix"] = editorInfoRegexResults[8].str();
+
+
+                logger::log(regex_replace(editorInfoRegexResults[3].str(), regex(R"(\\\\)"), "/"));
+//                system::setRegValue(_subKey + "Project List", "cancelType", ));
+                _lastTriggerTime = chrono::high_resolution_clock::now();
+
+//                thread([this, editorInfoString, currentTriggerName = _lastTriggerTime.load()] {
+//                    const auto completionGenerated = generateCompletion(editorInfoString);
+//                    if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
+//                        system::setRegValue(_subKey, "completionGenerated", completionGenerated.value());
+//                        WindowInterceptor::GetInstance()->sendFunctionKey(VK_F12);
+//                        _hasCompletion = true;
+//                    }
+//                }).detach();
             } catch (runtime_error &e) {
             } catch (exception &e) {
                 logger::log(e.what());
