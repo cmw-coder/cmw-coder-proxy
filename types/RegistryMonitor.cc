@@ -40,7 +40,7 @@ namespace {
     optional<string> generateCompletion(const string &editorInfo, const string &projectId) {
         Json::Value requestBody, responseBody;
         requestBody["info"] = base64::to_base64(editorInfo);
-        requestBody["project_id"] = projectId;
+        requestBody["projectId"] = projectId;
         auto client = httplib::Client("http://localhost:3000");
         client.set_connection_timeout(5);
         if (auto res = client.Post(
@@ -68,7 +68,7 @@ namespace {
             requestBody["code_line"] = 1;
             requestBody["project_id"] = projectId;
             requestBody["total_lines"] = 1;
-            requestBody["version"] = "SI-0.5.1";
+            requestBody["version"] = "SI-0.5.2";
             requestBody["mode"] = false;
             auto client = httplib::Client("http://10.113.10.68:4322");
             client.set_connection_timeout(5);
@@ -83,27 +83,36 @@ RegistryMonitor::RegistryMonitor() {
             try {
                 const auto editorInfoString = system::getRegValue(_subKey, "editorInfo");
 
-                if (_projectId.empty()) {
-                    smatch editorInfoRegexResults;
-                    if (!regex_match(editorInfoString, editorInfoRegexResults, editorInfoRegex) ||
-                        editorInfoRegexResults.size() != 10) {
-                        logger::log("Invalid editorInfoString");
-                        continue;
-                    }
-                    const auto projectListKey = _subKey + "\\Project List";
-                    const auto projectHash = hashpp::get::getHash(
+                smatch editorInfoRegexResults;
+                if (!regex_match(editorInfoString, editorInfoRegexResults, editorInfoRegex) ||
+                    editorInfoRegexResults.size() != 10) {
+                    logger::log("Invalid editorInfoString");
+                    continue;
+                }
+
+                {
+                    const auto currentProjectHash = hashpp::get::getHash(
                             hashpp::ALGORITHMS::SHA1,
                             regex_replace(editorInfoRegexResults[3].str(), regex(R"(\\\\)"), "/")
                     );
+
+                    if (_projectHash != currentProjectHash) {
+                        _projectId.clear();
+                        _projectHash = currentProjectHash;
+                    }
+                }
+
+                if (_projectId.empty()) {
+                    const auto projectListKey = _subKey + "\\Project List";
                     while (_projectId.empty()) {
                         try {
-                            _projectId = system::getRegValue(projectListKey, projectHash);
+                            _projectId = system::getRegValue(projectListKey, _projectHash);
                         } catch (...) {
                             _projectId = InputBox("Please input current project's iSoft ID", "Input Project ID");
                             if (_projectId.empty()) {
                                 logger::error("Project ID is empty.");
                             } else {
-                                system::setRegValue(projectListKey, projectHash, _projectId);
+                                system::setRegValue(projectListKey, _projectHash, _projectId);
                             }
                         }
                     }
