@@ -51,7 +51,8 @@ namespace {
             stringstream(res->body) >> responseBody;
             if (responseBody["result"].asString() == "success" &&
                 responseBody["contents"].isArray() &&
-                !responseBody["contents"].empty()) {
+                !responseBody["contents"].empty() &&
+                !responseBody["contents"][0].asString().empty()) {
                 return base64::from_base64(responseBody["contents"][0].asString());
             }
             logger::log("HTTP result: " + responseBody["result"].asString());
