@@ -49,7 +49,9 @@ namespace {
                 "application/json"
         )) {
             stringstream(res->body) >> responseBody;
-            if (responseBody["result"].asString() == "success") {
+            if (responseBody["result"].asString() == "success" &&
+                responseBody["contents"].isArray() &&
+                !responseBody["contents"].empty()) {
                 return base64::from_base64(responseBody["contents"][0].asString());
             }
             logger::log("HTTP result: " + responseBody["result"].asString());
