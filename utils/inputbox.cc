@@ -1,4 +1,4 @@
-#include "inputbox.h"
+#include <utils/inputbox.h>
 
 // Windows API
 #include <windows.h>
@@ -9,11 +9,9 @@
 #include <comdef.h>
 
 // UTF-8 Support
-#include <wchar.h>
+#include <cwchar>
 #include <string>
 #include <vector>
-
-using namespace utils;
 
 using std::string;
 using std::wstring;
@@ -160,8 +158,8 @@ static char *InputBoxHelper(const char *Prompt, const char *Title, const char *D
     HRESULT hr = S_OK;
     hr = CoInitialize(NULL);
     CSimpleScriptSite *pScriptSite = new CSimpleScriptSite();
-    CComPtr <IActiveScript> spVBScript;
-    CComPtr <IActiveScriptParse> spVBScriptParse;
+    CComPtr<IActiveScript> spVBScript;
+    CComPtr<IActiveScriptParse> spVBScriptParse;
     hr = spVBScript.CoCreateInstance(OLESTR("VBScript"));
     hr = spVBScript->SetScriptSite(pScriptSite);
     hr = spVBScript->QueryInterface(&spVBScriptParse);
@@ -202,12 +200,12 @@ static char *InputBoxHelper(const char *Prompt, const char *Title, const char *D
     return (char *) strResult.c_str();
 }
 
-char *InputBox(const char *Prompt, const char *Title, const char *Default) {
+char *utils::InputBox(const char *Prompt, const char *Title, const char *Default) {
     HideInput = false;
     return InputBoxHelper(Prompt, Title, Default);
 }
 
-char *PasswordBox(const char *Prompt, const char *Title, const char *Default) {
+char *utils::PasswordBox(const char *Prompt, const char *Title, const char *Default) {
     HideInput = true;
     return InputBoxHelper(Prompt, Title, Default);
 }
