@@ -1,4 +1,3 @@
-#include <format>
 #include <memory>
 #include <stdexcept>
 
@@ -155,6 +154,7 @@ string system::getRegValue(const string &subKey, const string &valueName) {
     HKEY hKey;
     const auto openResult = RegOpenKeyEx(HKEY_CURRENT_USER, subKey.c_str(), 0, KEY_QUERY_VALUE, &hKey);
     if (openResult != ERROR_SUCCESS) {
+        RegCloseKey(hKey);
         throw (runtime_error(formatSystemMessage(openResult)));
     }
     string value;
@@ -169,6 +169,7 @@ string system::getRegValue(const string &subKey, const string &valueName) {
             value.data(),
             &valueLength
     );
+    RegCloseKey(hKey);
     if (getResult != ERROR_SUCCESS) {
         throw (runtime_error(formatSystemMessage(getResult)));
     }

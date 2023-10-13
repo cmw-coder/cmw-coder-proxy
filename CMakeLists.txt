@@ -24,13 +24,18 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     message(STATUS "Compiler is Visual Studio C++")
     add_compile_options(/MP /utf-8)
-    add_compile_definitions(_CRT_SECURE_NO_WARNINGS NOMINMAX)
+    add_compile_definitions(
+            _CRT_SECURE_NO_WARNINGS
+            NOMINMAX
+            NOGDI
+            WIN32_LEAN_AND_MEAN
+    )
 endif ()
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_jsoncpp.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_singleton.cmake)
 
-add_library(${PROXY_MODULE_NAME} SHARED proxy.c main.cc)
+add_library(${PROXY_MODULE_NAME} SHARED proxy.cc main.cc)
 
 target_link_libraries(${PROXY_MODULE_NAME} PRIVATE
         jsoncpp_static

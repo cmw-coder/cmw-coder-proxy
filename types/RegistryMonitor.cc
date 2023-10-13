@@ -39,7 +39,7 @@ namespace {
         )) {
             stringstream(res->body) >> responseBody;
             if (responseBody["result"].asString() == "success") {
-                return base64::from_base64(responseBody["content"].asString());
+                return base64::from_base64(responseBody["contents"][0].asString());
             }
             logger::log("HTTP result: " + responseBody["result"].asString());
         } else {
@@ -56,14 +56,13 @@ namespace {
             requestBody["username"] = Configurator::GetInstance()->username();
             requestBody["code_line"] = 1;
             requestBody["total_lines"] = 1;
-            requestBody["version"] = "SI-0.5.0";
+            requestBody["version"] = "SI-0.5.1";
             requestBody["mode"] = false;
             auto client = httplib::Client("http://10.113.10.68:4322");
             client.set_connection_timeout(5);
             client.Post("/code/statistical", stringify(requestBody), "application/json");
         } catch (...) {}
     }
-
 }
 
 RegistryMonitor::RegistryMonitor() {
@@ -98,12 +97,12 @@ RegistryMonitor::~RegistryMonitor() {
 }
 
 void RegistryMonitor::acceptByTab(unsigned int) {
-    WindowInterceptor::GetInstance()->sendFunctionKey(VK_F10);
     if (_hasCompletion.load()) {
         _hasCompletion = false;
+        WindowInterceptor::GetInstance()->sendFunctionKey(VK_F10);
         thread(completionReaction).detach();
+        logger::log("Accepted completion");
     }
-    logger::log("Accepted completion");
 }
 
 void RegistryMonitor::cancelByCursorNavigate(CursorPosition, CursorPosition) {
@@ -112,6 +111,9 @@ void RegistryMonitor::cancelByCursorNavigate(CursorPosition, CursorPosition) {
 
 void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorPosition newPosition) {
     if (oldPosition.line == newPosition.line) {
+        if (!_hasCompletion.load()) {
+            return;
+        }
         try {
             system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::DeleteBackward)));
             WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
@@ -126,6 +128,9 @@ void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorP
 }
 
 void RegistryMonitor::cancelByKeycodeNavigate(unsigned int) {
+    if (!_hasCompletion.load()) {
+        return;
+    }
     try {
         system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::Navigate)));
         WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
@@ -137,14 +142,17 @@ void RegistryMonitor::cancelByKeycodeNavigate(unsigned int) {
 }
 
 void RegistryMonitor::cancelByModifyLine(unsigned int) {
-    try {
-        system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::ModifyLine)));
-        WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
-        _hasCompletion = false;
-        logger::log("Canceled by modify line.");
-        WindowInterceptor::GetInstance()->sendFunctionKey(VK_F11);
-        logger::log("Retrieve editor info.");
-    } catch (runtime_error &e) {
-        logger::log(e.what());
+    if (_hasCompletion.load()) {
+        try {
+            system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::ModifyLine)));
+            WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
+            _hasCompletion = false;
+            logger::log("Canceled by modify line.");
+        } catch (runtime_error &e) {
+            logger::log(e.what());
+        }
     }
+
+    WindowInterceptor::GetInstance()->sendFunctionKey(VK_F11);
+    logger::log("Retrieve editor info.");
 }

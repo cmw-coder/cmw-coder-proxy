@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <string>
 
 #include <singleton_dclp.hpp>
@@ -12,12 +13,12 @@ namespace types {
     public:
         ModuleProxy();
 
-        template<class T>
-        T getRemoteFunction(const std::string &procName) {
-            return (T) GetProcAddress(
+        template<typename T>
+        T* getFunction(const std::string &procName) {
+            return reinterpret_cast<T*>(GetProcAddress(
                     reinterpret_cast<HMODULE>(this->_hModule.get()),
                     procName.c_str()
-            );
+            ));
         }
 
     private:
