@@ -23,6 +23,7 @@ namespace types {
 
         void cancelByModifyLine(unsigned int);
 
+        void cancelByUndo();
 
     private:
         const std::string _subKey = R"(SOFTWARE\Source Dynamics\Source Insight\3.0)";

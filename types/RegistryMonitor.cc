@@ -121,7 +121,7 @@ RegistryMonitor::RegistryMonitor() {
                     }
                 }
 
-                /*Json::Value editorInfo;
+                Json::Value editorInfo;
                 const auto cursorString = regex_replace(editorInfoRegexResults[1].str(), regex(R"(\\)"), "");
                 smatch cursorRegexResults;
                 if (!regex_match(cursorString, cursorRegexResults, cursorRegex) ||
@@ -154,7 +154,7 @@ RegistryMonitor::RegistryMonitor() {
 
                 auto tabsString = editorInfoRegexResults[4].str();
                 editorInfo["openedTabs"] = Json::arrayValue;
-                smatch tabsRegexResults;
+                /*smatch tabsRegexResults;
                 try {
                     while (regex_search(
                             tabsString,
@@ -166,12 +166,14 @@ RegistryMonitor::RegistryMonitor() {
                     editorInfo["suffix"] = editorInfoRegexResults[9].str();
                 } catch (exception e) {
                     logger::log(e.what());
-                }
-                editorInfo["currentFilePath"] = regex_replace(editorInfoRegexResults[2].str(), regex(R"(\\\\)"), "");
-                editorInfo["projectFolder"] = regex_replace(editorInfoRegexResults[3].str(), regex(R"(\\\\)"), "");
+                }*/
+                editorInfo["currentFilePath"] = regex_replace(editorInfoRegexResults[2].str(), regex(R"(\\\\)"), "/");
+                editorInfo["projectFolder"] = regex_replace(editorInfoRegexResults[3].str(), regex(R"(\\\\)"), "/");
                 editorInfo["completionType"] = stoi(editorInfoRegexResults[5].str()) > 0 ? "snippet" : "line";
                 editorInfo["version"] = editorInfoRegexResults[6].str();
-                editorInfo["prefix"] = editorInfoRegexResults[8].str();*/
+                editorInfo["prefix"] = editorInfoRegexResults[8].str();
+
+                logger::log(stringify(editorInfo));
 
                 _lastTriggerTime = chrono::high_resolution_clock::now();
                 system::deleteRegValue(_subKey, "editorInfo");
@@ -257,4 +259,8 @@ void RegistryMonitor::cancelByModifyLine(unsigned int) {
 
     WindowInterceptor::GetInstance()->sendFunctionKey(VK_F11);
     logger::log("Retrieve editor info.");
+}
+
+void RegistryMonitor::cancelByUndo() {
+    _hasCompletion = false;
 }

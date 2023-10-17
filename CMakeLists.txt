@@ -45,10 +45,11 @@ target_link_libraries(${PROXY_MODULE_NAME} PRIVATE
 
 target_include_directories(${PROXY_MODULE_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
+aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/helpers/ HELPERS)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/types/ TYPES)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/utils/ UTILS)
 
-target_sources(${PROXY_MODULE_NAME} PRIVATE ${TYPES} ${UTILS})
+target_sources(${PROXY_MODULE_NAME} PRIVATE ${HELPERS} ${TYPES} ${UTILS})
 
 add_custom_command(TARGET ${PROXY_MODULE_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/${PROXY_MODULE_NAME}.dll "C:/Program Files (x86)/Source Insight 3/"

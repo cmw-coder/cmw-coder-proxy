@@ -1,6 +1,7 @@
 #include <format>
 
 #include <types/CursorMonitor.h>
+#include <types/RegistryMonitor.h>
 #include <types/WindowInterceptor.h>
 #include <utils/logger.h>
 #include <utils/window.h>
@@ -102,6 +103,10 @@ void WindowInterceptor::_handleKeycode(unsigned int keycode) noexcept {
             }
             case 0x802E: { // Delete
                 _handlers.at(UserAction::DeleteForward)(keycode);
+                break;
+            }
+            case 0x045A: { // Ctrl + Z
+                RegistryMonitor::GetInstance()->cancelByUndo();
                 break;
             }
             default: {
