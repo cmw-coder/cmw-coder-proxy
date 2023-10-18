@@ -76,7 +76,7 @@ extern "C" {
             WindowInterceptor::GetInstance()->addHandler(
                     UserAction::Normal,
                     [](unsigned int) {
-                        WindowInterceptor::GetInstance()->sendFunctionKey(VK_F11);
+                        WindowInterceptor::GetInstance()->sendRetrieveInfo();
                         logger::log("Retrieve editor info.");
                     }
             );

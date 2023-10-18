@@ -23,6 +23,8 @@ namespace types {
 
         void cancelByModifyLine(unsigned int);
 
+        void cancelBySave();
+
         void cancelByUndo();
 
     private:

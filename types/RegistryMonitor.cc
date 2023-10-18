@@ -2,20 +2,17 @@
 //#include <ranges>
 #include <regex>
 
-#include <json/json.h>
+#include <nlohmann/json.hpp>
+#include <httplib.h>
 
 #include <types/Configurator.h>
 #include <types/RegistryMonitor.h>
 #include <types/UserAction.h>
 #include <types/WindowInterceptor.h>
-#include <utils/base64.h>
-#include <utils/hashpp.h>
-#include <utils/httplib.h>
+#include <utils/crypto.h>
 #include <utils/inputbox.h>
 #include <utils/logger.h>
 #include <utils/system.h>
-
-#include <windows.h>
 
 using namespace std;
 using namespace std::ranges;
@@ -28,54 +25,46 @@ namespace {
     const regex cursorRegex(
             R"regex(^lnFirst="(.*?)";ichFirst="(.*?)";lnLast="(.*?)";ichLim="(.*?)";fExtended="(.*?)";fRect="(.*?)"$)regex");
 
-    string stringify(const Json::Value &json, const string &indentation = "") {
-        Json::StreamWriterBuilder writerBuilder;
-        writerBuilder.settings_["indentation"] = indentation;
-        unique_ptr<Json::StreamWriter> jsonWriter(writerBuilder.newStreamWriter());
-        ostringstream oss;
-        jsonWriter->write(json, &oss);
-        return oss.str();
-    }
-
     optional<string> generateCompletion(const string &editorInfo, const string &projectId) {
-        Json::Value requestBody, responseBody;
-        requestBody["info"] = base64::to_base64(editorInfo);
-        requestBody["projectId"] = projectId;
+        nlohmann::json requestBody = {
+                {"info",      crypto::encode(editorInfo, crypto::Encoding::Base64)},
+                {"projectId", projectId},
+        };
         auto client = httplib::Client("http://localhost:3000");
         client.set_connection_timeout(5);
         if (auto res = client.Post(
                 "/generate",
-                stringify(requestBody),
+                requestBody.dump(),
                 "application/json"
         )) {
-            stringstream(res->body) >> responseBody;
-            if (responseBody["result"].asString() == "success" &&
-                responseBody["contents"].isArray() &&
-                !responseBody["contents"].empty() &&
-                !responseBody["contents"][0].asString().empty()) {
-                return base64::from_base64(responseBody["contents"][0].asString());
+            const auto responseBody = nlohmann::json::parse(res->body);
+            const auto result = responseBody["result"].get<string>();
+            const auto contents = responseBody["contents"];
+            if (result == "success" && contents.is_array() && !contents.empty() && !contents[0].get<string>().empty()) {
+                return crypto::decode(contents[0].get<string>(), crypto::Encoding::Base64);
             }
-            logger::log("HTTP result: " + responseBody["result"].asString());
+            logger::log(format("HTTP result: {}", result));
         } else {
-            logger::log("HTTP error: " + httplib::to_string(res.error()));
+            logger::log(format("HTTP error: {}", httplib::to_string(res.error())));
         }
         return nullopt;
     }
 
     void completionReaction(const string &projectId) {
         try {
-            Json::Value requestBody, responseBody;
-            requestBody["tabOutput"] = true;
-            requestBody["text_lenth"] = 1;
-            requestBody["username"] = Configurator::GetInstance()->username();
-            requestBody["code_line"] = 1;
-            requestBody["project_id"] = projectId;
-            requestBody["total_lines"] = 1;
-            requestBody["version"] = "SI-0.5.2";
-            requestBody["mode"] = false;
+            nlohmann::json requestBody = {
+                    {"code_line",   1},
+                    {"mode",        false},
+                    {"project_id",  projectId},
+                    {"tab_output",  true},
+                    {"total_lines", 1},
+                    {"text_length", 1},
+                    {"username",    Configurator::GetInstance()->username()},
+                    {"version",     "SI-0.5.3"},
+            };
             auto client = httplib::Client("http://10.113.10.68:4322");
             client.set_connection_timeout(5);
-            client.Post("/code/statistical", stringify(requestBody), "application/json");
+            client.Post("/code/statistical", requestBody.dump(), "application/json");
         } catch (...) {}
     }
 }
@@ -86,6 +75,8 @@ RegistryMonitor::RegistryMonitor() {
             try {
                 const auto editorInfoString = system::getRegValue(_subKey, "editorInfo");
 
+                logger::log(editorInfoString);
+
                 smatch editorInfoRegexResults;
                 if (!regex_match(editorInfoString, editorInfoRegexResults, editorInfoRegex) ||
                     editorInfoRegexResults.size() != 10) {
@@ -94,8 +85,7 @@ RegistryMonitor::RegistryMonitor() {
                 }
 
                 {
-                    const auto currentProjectHash = hashpp::get::getHash(
-                            hashpp::ALGORITHMS::SHA1,
+                    const auto currentProjectHash = crypto::sha1(
                             regex_replace(editorInfoRegexResults[3].str(), regex(R"(\\\\)"), "/")
                     );
 
@@ -120,60 +110,73 @@ RegistryMonitor::RegistryMonitor() {
                         }
                     }
                 }
+                // TODO: Finish completionType
+                nlohmann::json editorInfo = {
+                        {"cursor",          nlohmann::json::object()},
+                        {"currentFilePath", regex_replace(editorInfoRegexResults[2].str(), regex(R"(\\\\)"), "/")},
+                        {"projectFolder",   regex_replace(editorInfoRegexResults[3].str(), regex(R"(\\\\)"), "/")},
+                        {"openedTabs",      nlohmann::json::array()},
+                        {"completionType",  stoi(editorInfoRegexResults[5].str()) > 0 ? "snippet" : "line"},
+                        {"version",         editorInfoRegexResults[6].str()},
+                        {"symbols",         nlohmann::json::array()},
+                        {"prefix",          editorInfoRegexResults[8].str()},
+                        {"suffix",          editorInfoRegexResults[9].str()},
+                };
 
-                Json::Value editorInfo;
-                const auto cursorString = regex_replace(editorInfoRegexResults[1].str(), regex(R"(\\)"), "");
-                smatch cursorRegexResults;
-                if (!regex_match(cursorString, cursorRegexResults, cursorRegex) ||
-                    cursorRegexResults.size() != 7) {
-                    logger::log("Invalid cursorString");
-                    continue;
+                {
+                    const auto cursorString = regex_replace(editorInfoRegexResults[1].str(), regex(R"(\\)"), "");
+                    smatch cursorRegexResults;
+                    if (!regex_match(cursorString, cursorRegexResults, cursorRegex) ||
+                        cursorRegexResults.size() != 7) {
+                        logger::log("Invalid cursorString");
+                        continue;
+                    }
+                    editorInfo["cursor"] = {
+                            {"startLine",      cursorRegexResults[1].str()},
+                            {"startCharacter", cursorRegexResults[2].str()},
+                            {"endLine",        cursorRegexResults[3].str()},
+                            {"endCharacter",   cursorRegexResults[4].str()},
+                    };
                 }
-                editorInfo["cursor"]["startLine"] = cursorRegexResults[1].str();
-                editorInfo["cursor"]["startCharacter"] = cursorRegexResults[2].str();
-                editorInfo["cursor"]["endLine"] = cursorRegexResults[3].str();
-                editorInfo["cursor"]["endCharacter"] = cursorRegexResults[4].str();
 
-                const auto symbolString = editorInfoRegexResults[7].str();
-                editorInfo["symbols"] = Json::arrayValue;
-                if (symbolString.length() > 2) {
-                    for (const auto symbol: views::split(symbolString.substr(1, symbolString.length() - 1), "||")) {
-                        Json::Value symbolInfo;
-                        const auto symbolComponents = views::split(symbol, "|")
-                                                      | views::transform(
-                                [](auto &&rng) { return string(&*rng.begin(), ranges::distance(rng)); })
-                                                      | to<vector>();
-                        symbolInfo["name"] = symbolComponents[0];
-                        symbolInfo["path"] = symbolComponents[1];
-                        symbolInfo["startLine"] = symbolComponents[2];
-                        symbolInfo["endLine"] = symbolComponents[3];
+                {
+                    const auto symbolString = editorInfoRegexResults[7].str();
+                    editorInfo["symbols"] = nlohmann::json::array();
+                    if (symbolString.length() > 2) {
+                        for (const auto symbol: views::split(symbolString.substr(1, symbolString.length() - 1), "||")) {
+                            const auto symbolComponents = views::split(symbol, "|")
+                                                          | views::transform(
+                                    [](auto &&rng) { return string(&*rng.begin(), ranges::distance(rng)); })
+                                                          | to<vector>();
 
-                        editorInfo["symbols"].append(symbolInfo);
+                            editorInfo["symbols"].push_back(
+                                    {
+                                            {"name",      symbolComponents[0]},
+                                            {"path",      symbolComponents[1]},
+                                            {"startLine", symbolComponents[2]},
+                                            {"endLine",   symbolComponents[3]},
+                                    }
+                            );
+                        }
                     }
                 }
 
-                auto tabsString = editorInfoRegexResults[4].str();
-                editorInfo["openedTabs"] = Json::arrayValue;
-                /*smatch tabsRegexResults;
-                try {
+                {
+                    const auto tabsString = editorInfoRegexResults[4].str();
+                    auto searchStart(tabsString.cbegin());
+                    smatch tabsRegexResults;
                     while (regex_search(
-                            tabsString,
+                            searchStart,
+                            tabsString.cend(),
                             tabsRegexResults,
-                            regex(R"regex(.*?\.([ch]))regex", regex_constants::extended)
+                            regex(R"regex(.*?\.([ch]))regex")
                     )) {
-                        editorInfo["openedTabs"].append(tabsRegexResults[0].str());
+                        editorInfo["openedTabs"].push_back(tabsRegexResults[0].str());
+                        searchStart = tabsRegexResults.suffix().first;
                     }
-                    editorInfo["suffix"] = editorInfoRegexResults[9].str();
-                } catch (exception e) {
-                    logger::log(e.what());
-                }*/
-                editorInfo["currentFilePath"] = regex_replace(editorInfoRegexResults[2].str(), regex(R"(\\\\)"), "/");
-                editorInfo["projectFolder"] = regex_replace(editorInfoRegexResults[3].str(), regex(R"(\\\\)"), "/");
-                editorInfo["completionType"] = stoi(editorInfoRegexResults[5].str()) > 0 ? "snippet" : "line";
-                editorInfo["version"] = editorInfoRegexResults[6].str();
-                editorInfo["prefix"] = editorInfoRegexResults[8].str();
+                }
 
-                logger::log(stringify(editorInfo));
+                logger::log(editorInfo.dump());
 
                 _lastTriggerTime = chrono::high_resolution_clock::now();
                 system::deleteRegValue(_subKey, "editorInfo");
@@ -181,7 +184,7 @@ RegistryMonitor::RegistryMonitor() {
                     const auto completionGenerated = generateCompletion(editorInfoString, _projectId);
                     if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
                         system::setRegValue(_subKey, "completionGenerated", completionGenerated.value());
-                        WindowInterceptor::GetInstance()->sendFunctionKey(VK_F12);
+                        WindowInterceptor::GetInstance()->sendInsertCompletion();
                         _hasCompletion = true;
                     }
                 }).detach();
@@ -203,7 +206,7 @@ RegistryMonitor::~RegistryMonitor() {
 void RegistryMonitor::acceptByTab(unsigned int) {
     if (_hasCompletion.load()) {
         _hasCompletion = false;
-        WindowInterceptor::GetInstance()->sendFunctionKey(VK_F10);
+        WindowInterceptor::GetInstance()->sendAcceptCompletion();
         thread(completionReaction, _projectId).detach();
         logger::log("Accepted completion");
     }
@@ -220,7 +223,7 @@ void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorP
         }
         try {
             system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::DeleteBackward)));
-            WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
+            WindowInterceptor::GetInstance()->sendCancelCompletion();
             _hasCompletion = false;
             logger::log("Canceled by delete backward.");
         } catch (runtime_error &e) {
@@ -237,19 +240,20 @@ void RegistryMonitor::cancelByKeycodeNavigate(unsigned int) {
     }
     try {
         system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::Navigate)));
-        WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
+        WindowInterceptor::GetInstance()->sendCancelCompletion();
         _hasCompletion = false;
-        logger::log("Canceled by keycode navigate.");
+        logger::log("Canceled by toKeycode navigate.");
     } catch (runtime_error &e) {
         logger::log(e.what());
     }
 }
 
 void RegistryMonitor::cancelByModifyLine(unsigned int) {
+    const auto windowInterceptor = WindowInterceptor::GetInstance();
     if (_hasCompletion.load()) {
         try {
             system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::ModifyLine)));
-            WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
+            windowInterceptor->sendCancelCompletion();
             _hasCompletion = false;
             logger::log("Canceled by modify line.");
         } catch (runtime_error &e) {
@@ -257,10 +261,23 @@ void RegistryMonitor::cancelByModifyLine(unsigned int) {
         }
     }
 
-    WindowInterceptor::GetInstance()->sendFunctionKey(VK_F11);
-    logger::log("Retrieve editor info.");
+    windowInterceptor->sendRetrieveInfo();
 }
 
 void RegistryMonitor::cancelByUndo() {
-    _hasCompletion = false;
+    // TODO: Send undo when last accept is a completion
+    const auto windowInterceptor = WindowInterceptor::GetInstance();
+    if (_hasCompletion.load()) {
+        _hasCompletion = false;
+        windowInterceptor->sendUndo();
+    }
+}
+
+void RegistryMonitor::cancelBySave() {
+    if (_hasCompletion.load()) {
+        const auto windowInterceptor = WindowInterceptor::GetInstance();
+        windowInterceptor->sendCancelCompletion();
+        _hasCompletion = false;
+        windowInterceptor->sendSave();
+    }
 }

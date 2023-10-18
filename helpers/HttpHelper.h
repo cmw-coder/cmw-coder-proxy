@@ -2,17 +2,18 @@
 
 #include <chrono>
 #include <string>
+#include <variant>
 
-#include <json/json.h>
-
-#include <utils/httplib.h>
+#include <httplib.h>
+#include <nlohmann/json.hpp>
 
 namespace helpers {
     class HttpHelper {
     public:
         explicit HttpHelper(std::string &&host, const std::chrono::microseconds &timeout);
 
-        Json::Value get(const std::string &path);
+        std::variant<nlohmann::json, std::string> post(const std::string &path, nlohmann::json &&body);
+
     private:
         httplib::Client _client;
     };
