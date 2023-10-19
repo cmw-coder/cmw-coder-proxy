@@ -197,7 +197,7 @@ void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorP
             return;
         }
         try {
-            system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::DeleteBackward)));
+            system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::DeleteBackward)));
             WindowInterceptor::GetInstance()->sendCancelCompletion();
             _hasCompletion = false;
             logger::log("Canceled by delete backward.");
@@ -214,7 +214,7 @@ void RegistryMonitor::cancelByKeycodeNavigate(unsigned int) {
         return;
     }
     try {
-        system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::Navigate)));
+        system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::Navigate)));
         WindowInterceptor::GetInstance()->sendCancelCompletion();
         _hasCompletion = false;
         logger::log("Canceled by navigate.");
@@ -228,7 +228,7 @@ void RegistryMonitor::cancelByModifyLine(unsigned int keycode) {
     _justInserted = false;
     if (_hasCompletion.load()) {
         try {
-            system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::ModifyLine)));
+            system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::ModifyLine)));
             windowInterceptor->sendCancelCompletion();
             _hasCompletion = false;
             if (keycode == enum_integer(Key::BackSpace)) {
@@ -248,7 +248,7 @@ void RegistryMonitor::cancelByModifyLine(unsigned int keycode) {
 void RegistryMonitor::cancelBySave() {
     if (_hasCompletion.load()) {
         const auto windowInterceptor = WindowInterceptor::GetInstance();
-        system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::Navigate)));
+        system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::Navigate)));
         windowInterceptor->sendCancelCompletion();
         _hasCompletion = false;
         logger::log("Canceled by save.");
@@ -273,15 +273,12 @@ void RegistryMonitor::cancelByUndo() {
 void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
     const auto windowInterceptor = WindowInterceptor::GetInstance();
     _justInserted = false;
-    if (_hasCompletion.load()) {
-        try {
-            system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::DeleteBackward)));
-            windowInterceptor->sendCancelCompletion();
-            _hasCompletion = false;
-            logger::log("Canceled by normal input.");
-        } catch (runtime_error &e) {
-            logger::log(e.what());
-        }
+    try {
+        system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::DeleteBackward)));
+        windowInterceptor->sendCancelCompletion();
+        logger::log("Canceled by normal input.");
+    } catch (runtime_error &e) {
+        logger::log(e.what());
     }
     if (keycode != enum_integer(Key::RightCurlyBracket)) {
         windowInterceptor->sendRetrieveInfo();
