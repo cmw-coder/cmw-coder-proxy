@@ -39,7 +39,7 @@ namespace {
         )) {
             const auto responseBody = nlohmann::json::parse(res->body);
             const auto result = responseBody["result"].get<string>();
-            const auto contents = responseBody["contents"];
+            const auto &contents = responseBody["contents"];
             if (result == "success" && contents.is_array() && !contents.empty() && !contents[0].get<string>().empty()) {
                 return crypto::decode(contents[0].get<string>(), crypto::Encoding::Base64);
             }
@@ -111,7 +111,7 @@ RegistryMonitor::RegistryMonitor() {
                     }
                 }
                 // TODO: Finish completionType
-                nlohmann::json editorInfo = {
+                /*nlohmann::json editorInfo = {
                         {"cursor",          nlohmann::json::object()},
                         {"currentFilePath", regex_replace(editorInfoRegexResults[2].str(), regex(R"(\\\\)"), "/")},
                         {"projectFolder",   regex_replace(editorInfoRegexResults[3].str(), regex(R"(\\\\)"), "/")},
@@ -176,7 +176,7 @@ RegistryMonitor::RegistryMonitor() {
                     }
                 }
 
-                logger::log(editorInfo.dump());
+                logger::log(editorInfo.dump());*/
 
                 _lastTriggerTime = chrono::high_resolution_clock::now();
                 system::deleteRegValue(_subKey, "editorInfo");
@@ -185,6 +185,7 @@ RegistryMonitor::RegistryMonitor() {
                     if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
                         system::setRegValue(_subKey, "completionGenerated", completionGenerated.value());
                         WindowInterceptor::GetInstance()->sendInsertCompletion();
+                        logger::log("Inserted completion");
                         _hasCompletion = true;
                     }
                 }).detach();
@@ -204,6 +205,7 @@ RegistryMonitor::~RegistryMonitor() {
 }
 
 void RegistryMonitor::acceptByTab(unsigned int) {
+    _justInserted = true;
     if (_hasCompletion.load()) {
         _hasCompletion = false;
         WindowInterceptor::GetInstance()->sendAcceptCompletion();
@@ -242,7 +244,7 @@ void RegistryMonitor::cancelByKeycodeNavigate(unsigned int) {
         system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::Navigate)));
         WindowInterceptor::GetInstance()->sendCancelCompletion();
         _hasCompletion = false;
-        logger::log("Canceled by toKeycode navigate.");
+        logger::log("Canceled by navigate.");
     } catch (runtime_error &e) {
         logger::log(e.what());
     }
@@ -250,6 +252,7 @@ void RegistryMonitor::cancelByKeycodeNavigate(unsigned int) {
 
 void RegistryMonitor::cancelByModifyLine(unsigned int) {
     const auto windowInterceptor = WindowInterceptor::GetInstance();
+    _justInserted = false;
     if (_hasCompletion.load()) {
         try {
             system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::ModifyLine)));
@@ -260,17 +263,7 @@ void RegistryMonitor::cancelByModifyLine(unsigned int) {
             logger::log(e.what());
         }
     }
-
     windowInterceptor->sendRetrieveInfo();
-}
-
-void RegistryMonitor::cancelByUndo() {
-    // TODO: Send undo when last accept is a completion
-    const auto windowInterceptor = WindowInterceptor::GetInstance();
-    if (_hasCompletion.load()) {
-        _hasCompletion = false;
-        windowInterceptor->sendUndo();
-    }
 }
 
 void RegistryMonitor::cancelBySave() {
@@ -278,6 +271,33 @@ void RegistryMonitor::cancelBySave() {
         const auto windowInterceptor = WindowInterceptor::GetInstance();
         windowInterceptor->sendCancelCompletion();
         _hasCompletion = false;
+        logger::log("Canceled by save.");
         windowInterceptor->sendSave();
     }
+}
+
+void RegistryMonitor::cancelByUndo() {
+    // TODO: Send undo when last accept is a completion
+    const auto windowInterceptor = WindowInterceptor::GetInstance();
+    if (_justInserted.load()) {
+        _justInserted = false;
+        windowInterceptor->sendUndo();
+        windowInterceptor->sendUndo();
+    } else if (_hasCompletion.load()) {
+        _hasCompletion = false;
+        windowInterceptor->sendUndo();
+        logger::log(("Canceled by undo"));
+    }
+}
+
+void RegistryMonitor::retrieveEditorInfo(unsigned int) {
+    const auto windowInterceptor = WindowInterceptor::GetInstance();
+    _justInserted = false;
+    if (_hasCompletion.load()) {
+        windowInterceptor->sendCancelCompletion();
+        _hasCompletion = false;
+        logger::log("Canceled by normal input.");
+    }
+    windowInterceptor->sendRetrieveInfo();
+    logger::log("Retrieving editor info....");
 }
