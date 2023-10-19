@@ -1,4 +1,3 @@
-#include <format>
 #include <thread>
 #include <stdexcept>
 
@@ -53,9 +52,6 @@ CursorMonitor::CursorMonitor() :
                         cursorPosition.line
                 ));*/
                 if (lastAction != UserAction::Idle) {
-                    /*if (lastAction == UserAction::DeleteBackward) {
-                        logger::log("Cursor Moved due to backspace");
-                    }*/
                     if (this->_handlers.contains(lastAction)) {
                         this->_handlers.at(lastAction)(this->_lastPosition.load(), cursorPosition);
                     }

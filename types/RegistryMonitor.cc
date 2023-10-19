@@ -2,6 +2,7 @@
 //#include <ranges>
 #include <regex>
 
+#include <magic_enum.hpp>
 #include <nlohmann/json.hpp>
 #include <httplib.h>
 
@@ -14,6 +15,7 @@
 #include <utils/logger.h>
 #include <utils/system.h>
 
+using namespace magic_enum;
 using namespace std;
 using namespace std::ranges;
 using namespace types;
@@ -232,7 +234,7 @@ void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorP
             logger::log(e.what());
         }
     } else {
-        cancelByModifyLine(-1);
+        cancelByModifyLine(enum_integer(Key::BackSpace));
     }
 }
 
@@ -250,7 +252,7 @@ void RegistryMonitor::cancelByKeycodeNavigate(unsigned int) {
     }
 }
 
-void RegistryMonitor::cancelByModifyLine(unsigned int) {
+void RegistryMonitor::cancelByModifyLine(unsigned int keycode) {
     const auto windowInterceptor = WindowInterceptor::GetInstance();
     _justInserted = false;
     if (_hasCompletion.load()) {
@@ -258,12 +260,18 @@ void RegistryMonitor::cancelByModifyLine(unsigned int) {
             system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::ModifyLine)));
             windowInterceptor->sendCancelCompletion();
             _hasCompletion = false;
-            logger::log("Canceled by modify line.");
+            if (keycode == enum_integer(Key::BackSpace)) {
+                logger::log("Canceled by backspace");
+            } else {
+                logger::log("Canceled by enter");
+            }
         } catch (runtime_error &e) {
             logger::log(e.what());
         }
     }
-    windowInterceptor->sendRetrieveInfo();
+    if (keycode != enum_integer(Key::BackSpace)) {
+        windowInterceptor->sendRetrieveInfo();
+    }
 }
 
 void RegistryMonitor::cancelBySave() {

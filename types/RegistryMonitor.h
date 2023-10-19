@@ -21,7 +21,7 @@ namespace types {
 
         void cancelByKeycodeNavigate(unsigned int);
 
-        void cancelByModifyLine(unsigned int);
+        void cancelByModifyLine(unsigned int keycode);
 
         void cancelBySave();
 
