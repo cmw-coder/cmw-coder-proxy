@@ -33,7 +33,9 @@ namespace {
                 {"projectId", projectId},
         };
         auto client = httplib::Client("http://localhost:3000");
-        client.set_connection_timeout(5);
+        client.set_connection_timeout(10);
+        client.set_read_timeout(10);
+        client.set_write_timeout(10);
         if (auto res = client.Post(
                 "/generate",
                 requestBody.dump(),
@@ -65,7 +67,7 @@ namespace {
                     {"version",     "SI-0.5.3"},
             };
             auto client = httplib::Client("http://10.113.10.68:4322");
-            client.set_connection_timeout(5);
+            client.set_connection_timeout(3);
             client.Post("/code/statistical", requestBody.dump(), "application/json");
         } catch (...) {}
     }
@@ -77,7 +79,7 @@ RegistryMonitor::RegistryMonitor() {
             try {
                 const auto editorInfoString = system::getRegValue(_subKey, "editorInfo");
 
-                logger::log(editorInfoString);
+//                logger::log(editorInfoString);
 
                 smatch editorInfoRegexResults;
                 if (!regex_match(editorInfoString, editorInfoRegexResults, editorInfoRegex) ||
@@ -280,10 +282,9 @@ void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
     } catch (runtime_error &e) {
         logger::log(e.what());
     }
-    if (keycode != enum_integer(Key::RightCurlyBracket)) {
-        windowInterceptor->sendRetrieveInfo();
-        logger::log("Retrieving editor info....");
-    }
+
+    windowInterceptor->sendRetrieveInfo();
+    logger::log(format("Retrieving editor info... (keycode: {})", keycode));
 }
 
 void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
@@ -291,7 +292,11 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
     thread([this, editorInfoString, currentTriggerName = _lastTriggerTime.load()] {
         const auto completionGenerated = generateCompletion(editorInfoString, _projectId);
         if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
-            system::setRegValue(_subKey, "completionGenerated", completionGenerated.value());
+            try {
+                system::setRegValue(_subKey, "completionGenerated", completionGenerated.value());
+            } catch (runtime_error &e) {
+                logger::log(e.what());
+            }
             WindowInterceptor::GetInstance()->sendInsertCompletion();
             logger::log("Inserted completion");
             _hasCompletion = true;

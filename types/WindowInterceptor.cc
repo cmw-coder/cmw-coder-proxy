@@ -120,7 +120,8 @@ void WindowInterceptor::_handleKeycode(unsigned int keycode) noexcept {
                 break;
             }
             default: {
-                if (keycode >= enum_integer(Key::Space) && keycode <= enum_integer(Key::Tilde)) {
+                if (keycode >= enum_integer(Key::Space) && keycode <= enum_integer(Key::Tilde) &&
+                    keycode != enum_integer(Key::RightCurlyBracket)) {
                     _handlers.at(UserAction::Normal)(keycode);
                 } else if (((keycode & 0x802F) >= 0x8021 && (keycode & 0x802F) <= 0x8029)) {
                     /// See "WinUser.h" Line 515
