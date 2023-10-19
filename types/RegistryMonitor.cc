@@ -42,7 +42,7 @@ namespace {
             const auto responseBody = nlohmann::json::parse(res->body);
             const auto result = responseBody["result"].get<string>();
             const auto &contents = responseBody["contents"];
-            if (result == "success" && contents.is_array() && !contents.empty() && !contents[0].get<string>().empty()) {
+            if (result == "success" && contents.is_array() && !contents.empty()) {
                 return crypto::decode(contents[0].get<string>(), crypto::Encoding::Base64);
             }
             logger::log(format("HTTP result: {}", result));
@@ -298,7 +298,7 @@ void RegistryMonitor::cancelByUndo() {
     }
 }
 
-void RegistryMonitor::retrieveEditorInfo(unsigned int) {
+void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
     const auto windowInterceptor = WindowInterceptor::GetInstance();
     _justInserted = false;
     if (_hasCompletion.load()) {
@@ -306,6 +306,8 @@ void RegistryMonitor::retrieveEditorInfo(unsigned int) {
         _hasCompletion = false;
         logger::log("Canceled by normal input.");
     }
-    windowInterceptor->sendRetrieveInfo();
-    logger::log("Retrieving editor info....");
+    if (keycode != enum_integer(Key::RightCurlyBracket)) {
+        windowInterceptor->sendRetrieveInfo();
+        logger::log("Retrieving editor info....");
+    }
 }

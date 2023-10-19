@@ -10,6 +10,7 @@ namespace types {
         Tilde = 0x007E,
         S = 0x0053,
         Z = 0x005A,
+        RightCurlyBracket = 0x007D,
         F9 = 0x1078,
         F10 = 0x1079,
         F11 = 0x107A,

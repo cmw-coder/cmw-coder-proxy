@@ -27,7 +27,7 @@ namespace types {
 
         void cancelByUndo();
 
-        void retrieveEditorInfo(unsigned int);
+        void retrieveEditorInfo(unsigned int keycode);
 
     private:
         const std::string _subKey = R"(SOFTWARE\Source Dynamics\Source Insight\3.0)";
