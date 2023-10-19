@@ -88,6 +88,8 @@ RegistryMonitor::RegistryMonitor() {
 
                 const auto projectFolder = regex_replace(editorInfoRegexResults[3].str(), regex(R"(\\\\)"), "/");
 
+                system::deleteRegValue(_subKey, "editorInfo");
+
                 _retrieveProjectId(projectFolder);
 
                 _retrieveCompletion(editorInfoString);
@@ -246,6 +248,7 @@ void RegistryMonitor::cancelByModifyLine(unsigned int keycode) {
 void RegistryMonitor::cancelBySave() {
     if (_hasCompletion.load()) {
         const auto windowInterceptor = WindowInterceptor::GetInstance();
+        system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::Navigate)));
         windowInterceptor->sendCancelCompletion();
         _hasCompletion = false;
         logger::log("Canceled by save.");
