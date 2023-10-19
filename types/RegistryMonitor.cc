@@ -86,32 +86,12 @@ RegistryMonitor::RegistryMonitor() {
                     continue;
                 }
 
-                {
-                    const auto currentProjectHash = crypto::sha1(
-                            regex_replace(editorInfoRegexResults[3].str(), regex(R"(\\\\)"), "/")
-                    );
+                const auto projectFolder = regex_replace(editorInfoRegexResults[3].str(), regex(R"(\\\\)"), "/");
 
-                    if (_projectHash != currentProjectHash) {
-                        _projectId.clear();
-                        _projectHash = currentProjectHash;
-                    }
-                }
+                _retrieveProjectId(projectFolder);
 
-                if (_projectId.empty()) {
-                    const auto projectListKey = _subKey + "\\Project List";
-                    while (_projectId.empty()) {
-                        try {
-                            _projectId = system::getRegValue(projectListKey, _projectHash);
-                        } catch (...) {
-                            _projectId = InputBox("Please input current project's iSoft ID", "Input Project ID");
-                            if (_projectId.empty()) {
-                                logger::error("Project ID is empty.");
-                            } else {
-                                system::setRegValue(projectListKey, _projectHash, _projectId);
-                            }
-                        }
-                    }
-                }
+                _retrieveCompletion(editorInfoString);
+
                 // TODO: Finish completionType
                 /*nlohmann::json editorInfo = {
                         {"cursor",          nlohmann::json::object()},
@@ -180,17 +160,6 @@ RegistryMonitor::RegistryMonitor() {
 
                 logger::log(editorInfo.dump());*/
 
-                _lastTriggerTime = chrono::high_resolution_clock::now();
-                system::deleteRegValue(_subKey, "editorInfo");
-                thread([this, editorInfoString, currentTriggerName = _lastTriggerTime.load()] {
-                    const auto completionGenerated = generateCompletion(editorInfoString, _projectId);
-                    if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
-                        system::setRegValue(_subKey, "completionGenerated", completionGenerated.value());
-                        WindowInterceptor::GetInstance()->sendInsertCompletion();
-                        logger::log("Inserted completion");
-                        _hasCompletion = true;
-                    }
-                }).detach();
             } catch (runtime_error &e) {
             } catch (exception &e) {
                 logger::log(e.what());
@@ -302,12 +271,54 @@ void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
     const auto windowInterceptor = WindowInterceptor::GetInstance();
     _justInserted = false;
     if (_hasCompletion.load()) {
-        windowInterceptor->sendCancelCompletion();
-        _hasCompletion = false;
-        logger::log("Canceled by normal input.");
+        try {
+            system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::DeleteBackward)));
+            windowInterceptor->sendCancelCompletion();
+            _hasCompletion = false;
+            logger::log("Canceled by normal input.");
+        } catch (runtime_error &e) {
+            logger::log(e.what());
+        }
     }
     if (keycode != enum_integer(Key::RightCurlyBracket)) {
         windowInterceptor->sendRetrieveInfo();
         logger::log("Retrieving editor info....");
+    }
+}
+
+void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
+    _lastTriggerTime = chrono::high_resolution_clock::now();
+    thread([this, editorInfoString, currentTriggerName = _lastTriggerTime.load()] {
+        const auto completionGenerated = generateCompletion(editorInfoString, _projectId);
+        if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
+            system::setRegValue(_subKey, "completionGenerated", completionGenerated.value());
+            WindowInterceptor::GetInstance()->sendInsertCompletion();
+            logger::log("Inserted completion");
+            _hasCompletion = true;
+        }
+    }).detach();
+}
+
+void RegistryMonitor::_retrieveProjectId(const string &projectFolder) {
+    const auto currentProjectHash = crypto::sha1(projectFolder);
+    if (_projectHash != currentProjectHash) {
+        _projectId.clear();
+        _projectHash = currentProjectHash;
+    }
+
+    if (_projectId.empty()) {
+        const auto projectListKey = _subKey + "\\Project List";
+        while (_projectId.empty()) {
+            try {
+                _projectId = system::getRegValue(projectListKey, _projectHash);
+            } catch (...) {
+                _projectId = InputBox("Please input current project's iSoft ID", "Input Project ID");
+                if (_projectId.empty()) {
+                    logger::error("Project ID is empty.");
+                } else {
+                    system::setRegValue(projectListKey, _projectHash, _projectId);
+                }
+            }
+        }
     }
 }

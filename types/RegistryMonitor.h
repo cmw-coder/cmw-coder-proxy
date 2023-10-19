@@ -34,5 +34,9 @@ namespace types {
         std::string _projectId, _projectHash;
         std::atomic<bool> _isRunning = true, _hasCompletion = false, _justInserted = false;
         std::atomic<std::chrono::time_point<std::chrono::high_resolution_clock>> _lastTriggerTime;
+
+        void _retrieveCompletion(const std::string &editorInfoString);
+
+        void _retrieveProjectId(const std::string &projectFolder);
     };
 }
