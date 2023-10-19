@@ -162,7 +162,7 @@ RegistryMonitor::RegistryMonitor() {
                 }
 
                 {
-                    const auto tabsString = editorInfoRegexResults[4].str();
+                    const string tabsString = editorInfoRegexResults[4].str();
                     auto searchStart(tabsString.cbegin());
                     smatch tabsRegexResults;
                     while (regex_search(
