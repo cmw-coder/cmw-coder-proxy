@@ -291,7 +291,7 @@ void RegistryMonitor::_reactToCompletion() {
                     {"total_lines", lines},
                     {"text_length", _currentCompletion.length() - 1},
                     {"username",    Configurator::GetInstance()->username()},
-                    {"version",     "SI-0.5.3"},
+                    {"version",     "SI-0.6.0"},
             };
         }
         auto client = httplib::Client("http://10.113.10.68:4322");
