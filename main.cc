@@ -75,10 +75,8 @@ extern "C" {
             );
             WindowInterceptor::GetInstance()->addHandler(
                     UserAction::Normal,
-                    [](unsigned int) {
-                        WindowInterceptor::GetInstance()->sendFunctionKey(VK_F11);
-                        logger::log("Retrieve editor info.");
-                    }
+                    RegistryMonitor::GetInstance(),
+                    &RegistryMonitor::retrieveEditorInfo
             );
 
             const auto mainThreadId = system::getMainThreadId();

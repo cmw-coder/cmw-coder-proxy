@@ -1,0 +1,17 @@
+{
+    "name": "cmw-coder-proxy",
+    "version-string": "0.5.3",
+    "maintainers": [
+        "Particle_G <particle_g@outlook.com>"
+    ],
+    "description": "A DLL proxy for cmw-coder",
+    "homepage": "https://github.com/ParticleG/cmw-coder-proxy",
+    "documentation": "https://github.com/ParticleG/cmw-coder-proxy/blob/main/README.md",
+    "license": "MIT",
+    "dependencies": [
+        "cpp-httplib",
+        "cryptopp",
+        "magic-enum",
+        "nlohmann-json"
+    ]
+}

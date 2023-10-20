@@ -1,4 +1,3 @@
-#include <format>
 #include <thread>
 #include <stdexcept>
 
@@ -47,15 +46,12 @@ CursorMonitor::CursorMonitor() :
             );
             if (this->_lastPosition.load() != cursorPosition) {
                 const auto lastAction = this->_lastAction.load();
-                logger::log(format(
+                /*logger::log(format(
                         "Cursor Moved, lastLine: {}, currentLine: {}",
                         this->_lastPosition.load().line,
                         cursorPosition.line
-                ));
+                ));*/
                 if (lastAction != UserAction::Idle) {
-                    if (lastAction == UserAction::DeleteBackward) {
-                        logger::log("Cursor Moved due to backspace");
-                    }
                     if (this->_handlers.contains(lastAction)) {
                         this->_handlers.at(lastAction)(this->_lastPosition.load(), cursorPosition);
                     }

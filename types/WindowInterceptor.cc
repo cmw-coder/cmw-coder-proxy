@@ -1,17 +1,24 @@
 #include <format>
 
+#include <magic_enum.hpp>
+
+#include <helpers/KeyHelper.h>
+#include <types/common.h>
 #include <types/CursorMonitor.h>
+#include <types/RegistryMonitor.h>
 #include <types/WindowInterceptor.h>
 #include <utils/logger.h>
 #include <utils/window.h>
 
+#include <windows.h>
+
+using namespace helpers;
+using namespace magic_enum;
 using namespace std;
 using namespace types;
 using namespace utils;
 
-namespace {
-    const auto UM_KEYCODE = WM_USER + 0x03E9;
-}
+namespace {}
 
 WindowInterceptor::WindowInterceptor() {
     this->_windowHook = shared_ptr<void>(SetWindowsHookEx(
@@ -84,28 +91,37 @@ void WindowInterceptor::_processWindowMessage(long lParam) {
 void WindowInterceptor::_handleKeycode(unsigned int keycode) noexcept {
     try {
         switch (keycode) {
-            case 0x0008: { // Backspace
+            case enum_integer(Key::BackSpace): {
                 CursorMonitor::GetInstance()->setAction(UserAction::DeleteBackward);
                 break;
             }
-            case 0x0009: { // Tab
+            case enum_integer(Key::Tab): {
                 _handlers.at(UserAction::Accept)(keycode);
                 break;
             }
-            case 0x000D: { // Enter
+            case enum_integer(Key::Enter): {
                 _handlers.at(UserAction::ModifyLine)(keycode);
                 break;
             }
-            case 0x001B: { // Escape
+            case enum_integer(Key::Escape): {
                 _handlers.at(UserAction::Navigate)(keycode);
                 break;
             }
-            case 0x802E: { // Delete
+            case enum_integer(Key::Delete): {
                 _handlers.at(UserAction::DeleteForward)(keycode);
                 break;
             }
+            case enum_integer(Modifier::Ctrl) + enum_integer(Key::S): {
+                RegistryMonitor::GetInstance()->cancelBySave();
+                break;
+            }
+            case enum_integer(Modifier::Ctrl) + enum_integer(Key::Z): {
+                RegistryMonitor::GetInstance()->cancelByUndo();
+                break;
+            }
             default: {
-                if (keycode >= 0x0020 && keycode <= 0x007E) {
+                if (keycode >= enum_integer(Key::Space) && keycode <= enum_integer(Key::Tilde) &&
+                    keycode != enum_integer(Key::RightCurlyBracket)) {
                     _handlers.at(UserAction::Normal)(keycode);
                 } else if (((keycode & 0x802F) >= 0x8021 && (keycode & 0x802F) <= 0x8029)) {
                     /// See "WinUser.h" Line 515
@@ -117,6 +133,45 @@ void WindowInterceptor::_handleKeycode(unsigned int keycode) noexcept {
     } catch (...) {}
 }
 
-bool WindowInterceptor::sendFunctionKey(int key) {
-    return window::sendFunctionKey(reinterpret_cast<HWND>(this->_codeWindow.load()), key);
+bool WindowInterceptor::sendAcceptCompletion() {
+    return window::sendKeycode(
+            this->_codeWindow.load(),
+            KeyHelper::toKeycode(Key::F10, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
+    );
+}
+
+bool WindowInterceptor::sendCancelCompletion() {
+    return window::sendKeycode(
+            this->_codeWindow.load(),
+            KeyHelper::toKeycode(Key::F9, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
+    );
+}
+
+bool WindowInterceptor::sendInsertCompletion() {
+    return window::sendKeycode(
+            this->_codeWindow.load(),
+            KeyHelper::toKeycode(Key::F12, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
+    );
+}
+
+bool WindowInterceptor::sendRetrieveInfo() {
+    logger::log("Retrieving editor info...");
+    return window::sendKeycode(
+            this->_codeWindow.load(),
+            KeyHelper::toKeycode(Key::F11, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
+    );
+}
+
+bool WindowInterceptor::sendSave() {
+    return window::sendKeycode(
+            this->_codeWindow.load(),
+            KeyHelper::toKeycode(Key::S, Modifier::Ctrl)
+    );
+}
+
+bool WindowInterceptor::sendUndo() {
+    return window::sendKeycode(
+            this->_codeWindow.load(),
+            KeyHelper::toKeycode(Key::Z, Modifier::Ctrl)
+    );
 }

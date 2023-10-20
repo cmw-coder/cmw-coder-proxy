@@ -1,66 +1,74 @@
 #include <chrono>
+//#include <ranges>
+#include <regex>
 
-#include <json/json.h>
+#include <magic_enum.hpp>
+#include <nlohmann/json.hpp>
+#include <httplib.h>
 
 #include <types/Configurator.h>
 #include <types/RegistryMonitor.h>
 #include <types/UserAction.h>
 #include <types/WindowInterceptor.h>
-#include <utils/base64.h>
-#include <utils/httplib.h>
+#include <utils/crypto.h>
+#include <utils/inputbox.h>
 #include <utils/logger.h>
 #include <utils/system.h>
 
-#include <windows.h>
-
+using namespace magic_enum;
 using namespace std;
+using namespace std::ranges;
 using namespace types;
 using namespace utils;
 
 namespace {
-    string stringify(const Json::Value &json, const string &indentation = "") {
-        Json::StreamWriterBuilder writerBuilder;
-        writerBuilder.settings_["indentation"] = indentation;
-        std::unique_ptr<Json::StreamWriter> jsonWriter(writerBuilder.newStreamWriter());
-        std::ostringstream oss;
-        jsonWriter->write(json, &oss);
-        return oss.str();
-    }
+    const regex editorInfoRegex(
+            R"regex(^cursor="(.*?)";path="(.*?)";project="(.*?)";tabs="(.*?)";type="(.*?)";version="(.*?)";symbols="(.*?)";prefix="(.*?)";suffix="(.*?)"$)regex");
+    const regex cursorRegex(
+            R"regex(^lnFirst="(.*?)";ichFirst="(.*?)";lnLast="(.*?)";ichLim="(.*?)";fExtended="(.*?)";fRect="(.*?)"$)regex");
 
-    optional<string> generateCompletion(const string &editorInfo) {
-        Json::Value requestBody, responseBody;
-        requestBody["info"] = base64::to_base64(editorInfo);
+    optional<string> generateCompletion(const string &editorInfo, const string &projectId) {
+        nlohmann::json requestBody = {
+                {"info",      crypto::encode(editorInfo, crypto::Encoding::Base64)},
+                {"projectId", projectId},
+        };
         auto client = httplib::Client("http://localhost:3000");
-        client.set_connection_timeout(5);
+        client.set_connection_timeout(10);
+        client.set_read_timeout(10);
+        client.set_write_timeout(10);
         if (auto res = client.Post(
                 "/generate",
-                stringify(requestBody),
+                requestBody.dump(),
                 "application/json"
         )) {
-            stringstream(res->body) >> responseBody;
-            if (responseBody["result"].asString() == "success") {
-                return base64::from_base64(responseBody["contents"][0].asString());
+            const auto responseBody = nlohmann::json::parse(res->body);
+            const auto result = responseBody["result"].get<string>();
+            const auto &contents = responseBody["contents"];
+            if (result == "success" && contents.is_array() && !contents.empty()) {
+                return crypto::decode(contents[0].get<string>(), crypto::Encoding::Base64);
             }
-            logger::log("HTTP result: " + responseBody["result"].asString());
+            logger::log(format("HTTP result: {}", result));
         } else {
-            logger::log("HTTP error: " + httplib::to_string(res.error()));
+            logger::log(format("HTTP error: {}", httplib::to_string(res.error())));
         }
         return nullopt;
     }
 
-    void completionReaction() {
+    void completionReaction(const string &projectId) {
         try {
-            Json::Value requestBody, responseBody;
-            requestBody["tabOutput"] = true;
-            requestBody["text_lenth"] = 1;
-            requestBody["username"] = Configurator::GetInstance()->username();
-            requestBody["code_line"] = 1;
-            requestBody["total_lines"] = 1;
-            requestBody["version"] = "SI-0.5.1";
-            requestBody["mode"] = false;
+            nlohmann::json requestBody = {
+                    {"code_line",   1},
+                    {"mode",        false},
+                    {"project_id",  projectId},
+                    {"tab_output",  true},
+                    {"total_lines", 1},
+                    {"text_length", 1},
+                    {"username",    Configurator::GetInstance()->username()},
+                    {"version",     "SI-0.5.3"},
+            };
             auto client = httplib::Client("http://10.113.10.68:4322");
-            client.set_connection_timeout(5);
-            client.Post("/code/statistical", stringify(requestBody), "application/json");
+            client.set_connection_timeout(3);
+            client.Post("/code/statistical", requestBody.dump(), "application/json");
         } catch (...) {}
     }
 }
@@ -69,18 +77,93 @@ RegistryMonitor::RegistryMonitor() {
     thread([this] {
         while (this->_isRunning.load()) {
             try {
-                const auto editorInfo = system::getRegValue(_subKey, "editorInfo");
-                _lastTriggerTime = chrono::high_resolution_clock::now();
+                const auto editorInfoString = system::getRegValue(_subKey, "editorInfo");
+
+//                logger::log(editorInfoString);
+
+                smatch editorInfoRegexResults;
+                if (!regex_match(editorInfoString, editorInfoRegexResults, editorInfoRegex) ||
+                    editorInfoRegexResults.size() != 10) {
+                    logger::log("Invalid editorInfoString");
+                    continue;
+                }
+
+                const auto projectFolder = regex_replace(editorInfoRegexResults[3].str(), regex(R"(\\\\)"), "/");
+
                 system::deleteRegValue(_subKey, "editorInfo");
 
-                thread([this, editorInfo, currentTriggerName = _lastTriggerTime.load()] {
-                    const auto completionGenerated = generateCompletion(editorInfo);
-                    if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
-                        system::setRegValue(_subKey, "completionGenerated", completionGenerated.value());
-                        WindowInterceptor::GetInstance()->sendFunctionKey(VK_F12);
-                        _hasCompletion = true;
+                _retrieveProjectId(projectFolder);
+
+                _retrieveCompletion(editorInfoString);
+
+                // TODO: Finish completionType
+                /*nlohmann::json editorInfo = {
+                        {"cursor",          nlohmann::json::object()},
+                        {"currentFilePath", regex_replace(editorInfoRegexResults[2].str(), regex(R"(\\\\)"), "/")},
+                        {"projectFolder",   regex_replace(editorInfoRegexResults[3].str(), regex(R"(\\\\)"), "/")},
+                        {"openedTabs",      nlohmann::json::array()},
+                        {"completionType",  stoi(editorInfoRegexResults[5].str()) > 0 ? "snippet" : "line"},
+                        {"version",         editorInfoRegexResults[6].str()},
+                        {"symbols",         nlohmann::json::array()},
+                        {"prefix",          editorInfoRegexResults[8].str()},
+                        {"suffix",          editorInfoRegexResults[9].str()},
+                };
+
+                {
+                    const auto cursorString = regex_replace(editorInfoRegexResults[1].str(), regex(R"(\\)"), "");
+                    smatch cursorRegexResults;
+                    if (!regex_match(cursorString, cursorRegexResults, cursorRegex) ||
+                        cursorRegexResults.size() != 7) {
+                        logger::log("Invalid cursorString");
+                        continue;
                     }
-                }).detach();
+                    editorInfo["cursor"] = {
+                            {"startLine",      cursorRegexResults[1].str()},
+                            {"startCharacter", cursorRegexResults[2].str()},
+                            {"endLine",        cursorRegexResults[3].str()},
+                            {"endCharacter",   cursorRegexResults[4].str()},
+                    };
+                }
+
+                {
+                    const auto symbolString = editorInfoRegexResults[7].str();
+                    editorInfo["symbols"] = nlohmann::json::array();
+                    if (symbolString.length() > 2) {
+                        for (const auto symbol: views::split(symbolString.substr(1, symbolString.length() - 1), "||")) {
+                            const auto symbolComponents = views::split(symbol, "|")
+                                                          | views::transform(
+                                    [](auto &&rng) { return string(&*rng.begin(), ranges::distance(rng)); })
+                                                          | to<vector>();
+
+                            editorInfo["symbols"].push_back(
+                                    {
+                                            {"name",      symbolComponents[0]},
+                                            {"path",      symbolComponents[1]},
+                                            {"startLine", symbolComponents[2]},
+                                            {"endLine",   symbolComponents[3]},
+                                    }
+                            );
+                        }
+                    }
+                }
+
+                {
+                    const string tabsString = editorInfoRegexResults[4].str();
+                    auto searchStart(tabsString.cbegin());
+                    smatch tabsRegexResults;
+                    while (regex_search(
+                            searchStart,
+                            tabsString.cend(),
+                            tabsRegexResults,
+                            regex(R"regex(.*?\.([ch]))regex")
+                    )) {
+                        editorInfo["openedTabs"].push_back(tabsRegexResults[0].str());
+                        searchStart = tabsRegexResults.suffix().first;
+                    }
+                }
+
+                logger::log(editorInfo.dump());*/
+
             } catch (runtime_error &e) {
             } catch (exception &e) {
                 logger::log(e.what());
@@ -97,10 +180,11 @@ RegistryMonitor::~RegistryMonitor() {
 }
 
 void RegistryMonitor::acceptByTab(unsigned int) {
+    _justInserted = true;
     if (_hasCompletion.load()) {
         _hasCompletion = false;
-        WindowInterceptor::GetInstance()->sendFunctionKey(VK_F10);
-        thread(completionReaction).detach();
+        WindowInterceptor::GetInstance()->sendAcceptCompletion();
+        thread(completionReaction, _projectId).detach();
         logger::log("Accepted completion");
     }
 }
@@ -115,15 +199,15 @@ void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorP
             return;
         }
         try {
-            system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::DeleteBackward)));
-            WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
+            system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::DeleteBackward)));
+            WindowInterceptor::GetInstance()->sendCancelCompletion();
             _hasCompletion = false;
             logger::log("Canceled by delete backward.");
         } catch (runtime_error &e) {
             logger::log(e.what());
         }
     } else {
-        cancelByModifyLine(-1);
+        cancelByModifyLine(enum_integer(Key::BackSpace));
     }
 }
 
@@ -132,27 +216,114 @@ void RegistryMonitor::cancelByKeycodeNavigate(unsigned int) {
         return;
     }
     try {
-        system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::Navigate)));
-        WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
+        system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::Navigate)));
+        WindowInterceptor::GetInstance()->sendCancelCompletion();
         _hasCompletion = false;
-        logger::log("Canceled by keycode navigate.");
+        logger::log("Canceled by navigate.");
     } catch (runtime_error &e) {
         logger::log(e.what());
     }
 }
 
-void RegistryMonitor::cancelByModifyLine(unsigned int) {
+void RegistryMonitor::cancelByModifyLine(unsigned int keycode) {
+    const auto windowInterceptor = WindowInterceptor::GetInstance();
+    _justInserted = false;
     if (_hasCompletion.load()) {
         try {
-            system::setRegValue(_subKey, "cancelType", to_string(static_cast<int>(UserAction::ModifyLine)));
-            WindowInterceptor::GetInstance()->sendFunctionKey(VK_F9);
+            system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::ModifyLine)));
+            windowInterceptor->sendCancelCompletion();
             _hasCompletion = false;
-            logger::log("Canceled by modify line.");
+            if (keycode == enum_integer(Key::BackSpace)) {
+                logger::log("Canceled by backspace");
+            } else {
+                logger::log("Canceled by enter");
+            }
         } catch (runtime_error &e) {
             logger::log(e.what());
         }
     }
+    if (keycode != enum_integer(Key::BackSpace)) {
+        windowInterceptor->sendRetrieveInfo();
+    }
+}
 
-    WindowInterceptor::GetInstance()->sendFunctionKey(VK_F11);
-    logger::log("Retrieve editor info.");
+void RegistryMonitor::cancelBySave() {
+    if (_hasCompletion.load()) {
+        const auto windowInterceptor = WindowInterceptor::GetInstance();
+        system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::Navigate)));
+        windowInterceptor->sendCancelCompletion();
+        _hasCompletion = false;
+        logger::log("Canceled by save.");
+        windowInterceptor->sendSave();
+    }
+}
+
+void RegistryMonitor::cancelByUndo() {
+    // TODO: Send undo when last accept is a completion
+    const auto windowInterceptor = WindowInterceptor::GetInstance();
+    if (_justInserted.load()) {
+        _justInserted = false;
+        windowInterceptor->sendUndo();
+        windowInterceptor->sendUndo();
+    } else if (_hasCompletion.load()) {
+        _hasCompletion = false;
+        windowInterceptor->sendUndo();
+        logger::log(("Canceled by undo"));
+    }
+}
+
+void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
+    const auto windowInterceptor = WindowInterceptor::GetInstance();
+    _justInserted = false;
+    try {
+        system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::DeleteBackward)));
+        windowInterceptor->sendCancelCompletion();
+        logger::log("Canceled by normal input.");
+    } catch (runtime_error &e) {
+        logger::log(e.what());
+    }
+
+    windowInterceptor->sendRetrieveInfo();
+    logger::log(format("Retrieving editor info... (keycode: {})", keycode));
+}
+
+void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
+    _lastTriggerTime = chrono::high_resolution_clock::now();
+    thread([this, editorInfoString, currentTriggerName = _lastTriggerTime.load()] {
+        const auto completionGenerated = generateCompletion(editorInfoString, _projectId);
+        if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
+            try {
+                system::setRegValue(_subKey, "completionGenerated", completionGenerated.value());
+            } catch (runtime_error &e) {
+                logger::log(e.what());
+            }
+            WindowInterceptor::GetInstance()->sendInsertCompletion();
+            logger::log("Inserted completion");
+            _hasCompletion = true;
+        }
+    }).detach();
+}
+
+void RegistryMonitor::_retrieveProjectId(const string &projectFolder) {
+    const auto currentProjectHash = crypto::sha1(projectFolder);
+    if (_projectHash != currentProjectHash) {
+        _projectId.clear();
+        _projectHash = currentProjectHash;
+    }
+
+    if (_projectId.empty()) {
+        const auto projectListKey = _subKey + "\\Project List";
+        while (_projectId.empty()) {
+            try {
+                _projectId = system::getRegValue(projectListKey, _projectHash);
+            } catch (...) {
+                _projectId = InputBox("Please input current project's iSoft ID", "Input Project ID");
+                if (_projectId.empty()) {
+                    logger::error("Project ID is empty.");
+                } else {
+                    system::setRegValue(projectListKey, _projectHash, _projectId);
+                }
+            }
+        }
+    }
 }

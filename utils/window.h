@@ -2,14 +2,12 @@
 
 #include <string>
 
-#include <types/SiVersion.h>
-
-#include <Windows.h>
+#include <types/Key.h>
 
 namespace utils::window {
-    std::string getWindowClassName(HWND hwnd);
+    std::string getWindowClassName(void *hwnd);
 
-    std::string getWindowText(HWND hwnd);
+    std::string getWindowText(void *hwnd);
 
-    bool sendFunctionKey(HWND hwnd, int key);
+    bool sendKeycode(void *hwnd, int keycode);
 }

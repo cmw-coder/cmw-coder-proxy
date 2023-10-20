@@ -14,3 +14,7 @@ namespace {
 void logger::log(const std::string &message) {
     OutputDebugString(format("[{}] {}", logDistinguish, message).c_str());
 }
+
+void logger::error(const string &message) {
+    MessageBox(nullptr, message.c_str(), "Error", MB_OK | MB_ICONERROR);
+}

@@ -6,6 +6,7 @@
 
 #include <singleton_dclp.hpp>
 
+#include <types/Key.h>
 #include <types/SiVersion.h>
 #include <types/UserAction.h>
 
@@ -23,7 +24,17 @@ namespace types {
 
         void addHandler(UserAction userAction, CallBackFunction function);
 
-        bool sendFunctionKey(int key);
+        bool sendAcceptCompletion();
+
+        bool sendCancelCompletion();
+
+        bool sendInsertCompletion();
+
+        bool sendRetrieveInfo();
+
+        bool sendSave();
+
+        bool sendUndo();
 
     private:
         std::shared_ptr<void> _windowHook = nullptr;
