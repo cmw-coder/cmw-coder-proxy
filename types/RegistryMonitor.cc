@@ -277,10 +277,10 @@ void RegistryMonitor::_reactToCompletion() {
             const auto isSnippet = _currentCompletion[0] == '1';
             auto lines = 1;
             if (isSnippet) {
-                auto pos = _currentCompletion.find(R"(\\r\\n)", 0);
+                auto pos = _currentCompletion.find(R"(\r\n)", 0);
                 while (pos != string::npos) {
                     ++lines;
-                    pos = _currentCompletion.find(R"(\\r\\n)", 0);
+                    pos = _currentCompletion.find(R"(\r\n)", pos + 1);
                 }
             }
             requestBody = {
@@ -293,6 +293,7 @@ void RegistryMonitor::_reactToCompletion() {
                     {"username",    Configurator::GetInstance()->username()},
                     {"version",     "SI-0.6.0"},
             };
+            logger::log(requestBody.dump());
         }
         auto client = httplib::Client("http://10.113.10.68:4322");
         client.set_connection_timeout(3);
