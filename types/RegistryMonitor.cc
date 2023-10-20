@@ -53,24 +53,6 @@ namespace {
         }
         return nullopt;
     }
-
-    void completionReaction(const string &projectId) {
-        try {
-            nlohmann::json requestBody = {
-                    {"code_line",   1},
-                    {"mode",        false},
-                    {"project_id",  projectId},
-                    {"tab_output",  true},
-                    {"total_lines", 1},
-                    {"text_length", 1},
-                    {"username",    Configurator::GetInstance()->username()},
-                    {"version",     "SI-0.5.3"},
-            };
-            auto client = httplib::Client("http://10.113.10.68:4322");
-            client.set_connection_timeout(3);
-            client.Post("/code/statistical", requestBody.dump(), "application/json");
-        } catch (...) {}
-    }
 }
 
 RegistryMonitor::RegistryMonitor() {
@@ -184,7 +166,7 @@ void RegistryMonitor::acceptByTab(unsigned int) {
     if (_hasCompletion.load()) {
         _hasCompletion = false;
         WindowInterceptor::GetInstance()->sendAcceptCompletion();
-        thread(completionReaction, _projectId).detach();
+        thread(&RegistryMonitor::_reactToCompletion, this).detach();
         logger::log("Accepted completion");
     }
 }
@@ -287,12 +269,45 @@ void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
     logger::log(format("Retrieving editor info... (keycode: {})", keycode));
 }
 
+void RegistryMonitor::_reactToCompletion() {
+    try {
+        nlohmann::json requestBody;
+        {
+            shared_lock<shared_mutex> lock(_completionMutex);
+            const auto isSnippet = _currentCompletion[0] == '1';
+            auto lines = 1;
+            if (isSnippet) {
+                auto pos = _currentCompletion.find(R"(\\r\\n)", 0);
+                while (pos != string::npos) {
+                    ++lines;
+                    pos = _currentCompletion.find(R"(\\r\\n)", 0);
+                }
+            }
+            requestBody = {
+                    {"code_line",   lines},
+                    {"mode",        isSnippet},
+                    {"project_id",  _projectId},
+                    {"tab_output",  true},
+                    {"total_lines", lines},
+                    {"text_length", _currentCompletion.length() - 1},
+                    {"username",    Configurator::GetInstance()->username()},
+                    {"version",     "SI-0.5.3"},
+            };
+        }
+        auto client = httplib::Client("http://10.113.10.68:4322");
+        client.set_connection_timeout(3);
+        client.Post("/code/statistical", requestBody.dump(), "application/json");
+    } catch (...) {}
+}
+
 void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
     _lastTriggerTime = chrono::high_resolution_clock::now();
     thread([this, editorInfoString, currentTriggerName = _lastTriggerTime.load()] {
         const auto completionGenerated = generateCompletion(editorInfoString, _projectId);
         if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
             try {
+                unique_lock<shared_mutex> lock(_completionMutex);
+                _currentCompletion = completionGenerated.value();
                 system::setRegValue(_subKey, "completionGenerated", completionGenerated.value());
             } catch (runtime_error &e) {
                 logger::log(e.what());
