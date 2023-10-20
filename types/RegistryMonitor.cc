@@ -277,10 +277,10 @@ void RegistryMonitor::_reactToCompletion() {
             const auto isSnippet = _currentCompletion[0] == '1';
             auto lines = 1;
             if (isSnippet) {
-                auto pos = _currentCompletion.find(R"(\r\n)", 0);
+                auto pos = _currentCompletion.find(R"(\n)", 0);
                 while (pos != string::npos) {
                     ++lines;
-                    pos = _currentCompletion.find(R"(\r\n)", pos + 1);
+                    pos = _currentCompletion.find(R"(\n)", pos + 1);
                 }
             }
             requestBody = {
