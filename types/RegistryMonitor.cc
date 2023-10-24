@@ -278,7 +278,6 @@ void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
             logger::log(format("Retrieving editor info... (keycode: {})", keycode));
         } else {
             _currentIndex++;
-            // _currentCompletion = _currentCompletion.substr()
             system::setRegValue(_subKey, "completionGenerated", _originalCompletion.substr(_currentIndex));
             WindowInterceptor::GetInstance()->sendInsertCompletion();
             logger::log(format("Cache Completion ... (keycode: {})", keycode));
@@ -295,13 +294,13 @@ void RegistryMonitor::_reactToCompletion() {
         nlohmann::json requestBody;
         {
             shared_lock<shared_mutex> lock(_completionMutex);
-            const auto isSnippet = _currentCompletion[0] == '1';
+            const auto isSnippet = _originalCompletion[0] == '1';
             auto lines = 1;
             if (isSnippet) {
-                auto pos = _currentCompletion.find(R"(\n)", 0);
+                auto pos = _originalCompletion.find(R"(\n)", 0);
                 while (pos != string::npos) {
                     ++lines;
-                    pos = _currentCompletion.find(R"(\n)", pos + 1);
+                    pos = _originalCompletion.find(R"(\n)", pos + 1);
                 }
             }
             requestBody = {
@@ -310,7 +309,7 @@ void RegistryMonitor::_reactToCompletion() {
                     {"project_id",  _projectId},
                     {"tab_output",  true},
                     {"total_lines", lines},
-                    {"text_length", _currentCompletion.length() - 1},
+                    {"text_length", _originalCompletion.length() - 1},
                     {"username",    Configurator::GetInstance()->username()},
                     {"version",     "SI-0.6.0"},
             };
@@ -329,8 +328,8 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
         if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
             try {
                 unique_lock<shared_mutex> lock(_completionMutex);
-                _currentCompletion = completionGenerated.value();
                 _originalCompletion = completionGenerated.value();
+                _currentIndex = 0;
                 system::setRegValue(_subKey, "completionGenerated", completionGenerated.value());
             } catch (runtime_error &e) {
                 logger::log(e.what());
