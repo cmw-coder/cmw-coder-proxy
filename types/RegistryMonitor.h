@@ -4,6 +4,7 @@
 
 #include <singleton_dclp.hpp>
 
+#include <types/CompletionCache.h>
 #include <types/CursorPosition.h>
 
 namespace types {
@@ -30,12 +31,10 @@ namespace types {
         void retrieveEditorInfo(unsigned int keycode);
 
     private:
-        mutable std::shared_mutex _completionMutex;
-
         const std::string _subKey = R"(SOFTWARE\Source Dynamics\Source Insight\3.0)";
-        std::string _projectId, _projectHash, _originalCompletion;
-        std::atomic<int64_t> _currentIndex; 
-        std::atomic<bool> _isRunning = true, _hasCompletion = false, _justInserted = false;
+        std::string _projectId, _projectHash;
+        CompletionCache _completionCache;
+        std::atomic<bool> _isRunning = true, _justInserted = false;
         std::atomic<std::chrono::time_point<std::chrono::high_resolution_clock>> _lastTriggerTime;
 
         void _reactToCompletion(std::string completion);
