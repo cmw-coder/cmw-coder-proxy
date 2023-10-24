@@ -181,9 +181,16 @@ void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorP
             return;
         }
         try {
-            system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::DeleteBackward)));
-            WindowInterceptor::GetInstance()->sendCancelCompletion();
-            _hasCompletion = false;
+            if(_currentIndex > 0) {
+                _currentIndex--;
+                system::setRegValue(_subKey, "completionGenerated", _originalCompletion.substr(_currentIndex));
+                WindowInterceptor::GetInstance()->sendInsertCompletion();
+                logger::log("Cache Completion ... ");
+            } else {
+                system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::DeleteBackward)));
+                WindowInterceptor::GetInstance()->sendCancelCompletion();
+                _hasCompletion = false;
+            }
             logger::log("Canceled by delete backward.");
         } catch (runtime_error &e) {
             logger::log(e.what());
@@ -257,16 +264,30 @@ void RegistryMonitor::cancelByUndo() {
 void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
     const auto windowInterceptor = WindowInterceptor::GetInstance();
     _justInserted = false;
+    if (_originalCompletion.empty()){
+        return;
+    }
     try {
         system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::DeleteBackward)));
-        windowInterceptor->sendCancelCompletion();
-        logger::log("Canceled by normal input.");
+        if (keycode != _originalCompletion[_currentIndex]){
+            _originalCompletion.clear();
+            _currentIndex = 0;
+            windowInterceptor->sendCancelCompletion();
+            logger::log("Canceled by normal input.");
+            windowInterceptor->sendRetrieveInfo();
+            logger::log(format("Retrieving editor info... (keycode: {})", keycode));
+        } else {
+            _currentIndex++;
+            // _currentCompletion = _currentCompletion.substr()
+            system::setRegValue(_subKey, "completionGenerated", _originalCompletion.substr(_currentIndex));
+            WindowInterceptor::GetInstance()->sendInsertCompletion();
+            logger::log(format("Cache Completion ... (keycode: {})", keycode));
+        }
     } catch (runtime_error &e) {
         logger::log(e.what());
     }
 
-    windowInterceptor->sendRetrieveInfo();
-    logger::log(format("Retrieving editor info... (keycode: {})", keycode));
+
 }
 
 void RegistryMonitor::_reactToCompletion() {
@@ -309,6 +330,7 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
             try {
                 unique_lock<shared_mutex> lock(_completionMutex);
                 _currentCompletion = completionGenerated.value();
+                _originalCompletion = completionGenerated.value();
                 system::setRegValue(_subKey, "completionGenerated", completionGenerated.value());
             } catch (runtime_error &e) {
                 logger::log(e.what());

@@ -33,7 +33,8 @@ namespace types {
         mutable std::shared_mutex _completionMutex;
 
         const std::string _subKey = R"(SOFTWARE\Source Dynamics\Source Insight\3.0)";
-        std::string _projectId, _projectHash, _currentCompletion;
+        std::string _projectId, _projectHash, _currentCompletion, _originalCompletion;
+        std::atomic<int64_t> _currentIndex; 
         std::atomic<bool> _isRunning = true, _hasCompletion = false, _justInserted = false;
         std::atomic<std::chrono::time_point<std::chrono::high_resolution_clock>> _lastTriggerTime;
 
