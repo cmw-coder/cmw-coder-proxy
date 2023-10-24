@@ -166,7 +166,7 @@ void RegistryMonitor::acceptByTab(unsigned int) {
     if (_hasCompletion.load()) {
         _hasCompletion = false;
         WindowInterceptor::GetInstance()->sendAcceptCompletion();
-        thread(&RegistryMonitor::_reactToCompletion, this).detach();
+        thread(&RegistryMonitor::_reactToCompletion, this, _originalCompletion).detach();
         logger::log("Accepted completion");
     }
 }
@@ -181,9 +181,15 @@ void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorP
             return;
         }
         try {
-            if(_currentIndex > 0) {
+            if(_currentIndex >= 1) {
                 _currentIndex--;
-                system::setRegValue(_subKey, "completionGenerated", _originalCompletion.substr(_currentIndex));
+                WindowInterceptor::GetInstance()->sendCancelCompletion();
+                if(_currentIndex != 0) {
+                    system::setRegValue(_subKey, "completionGenerated", _originalCompletion[0] + _originalCompletion.substr(_currentIndex));
+                } else {
+                    system::setRegValue(_subKey, "completionGenerated", _originalCompletion.substr(_currentIndex));
+                }
+                    system::setRegValue(_subKey, "completionGenerated", _originalCompletion[0] + _originalCompletion.substr(_currentIndex));
                 WindowInterceptor::GetInstance()->sendInsertCompletion();
                 logger::log("Cache Completion ... ");
             } else {
@@ -264,22 +270,29 @@ void RegistryMonitor::cancelByUndo() {
 void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
     const auto windowInterceptor = WindowInterceptor::GetInstance();
     _justInserted = false;
-    if (_originalCompletion.empty()){
-        return;
-    }
     try {
         system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::DeleteBackward)));
-        if (keycode != _originalCompletion[_currentIndex]){
+        logger::log(format("(keycode: {}), _originalCompletion[_currentIndex]: {}", keycode, _originalCompletion[_currentIndex]));
+        if (_originalCompletion.empty() || keycode != _originalCompletion[_currentIndex]){
             _originalCompletion.clear();
-            _currentIndex = 0;
+            _currentIndex = 1;
             windowInterceptor->sendCancelCompletion();
             logger::log("Canceled by normal input.");
             windowInterceptor->sendRetrieveInfo();
             logger::log(format("Retrieving editor info... (keycode: {})", keycode));
         } else {
             _currentIndex++;
-            system::setRegValue(_subKey, "completionGenerated", _originalCompletion.substr(_currentIndex));
-            WindowInterceptor::GetInstance()->sendInsertCompletion();
+            windowInterceptor->sendCancelCompletion();
+            if (_currentIndex < _originalCompletion.size()) {
+                system::setRegValue(_subKey, "completionGenerated", _originalCompletion[0] + _originalCompletion.substr(_currentIndex));
+                WindowInterceptor::GetInstance()->sendInsertCompletion();
+            } else {
+                thread(&RegistryMonitor::_reactToCompletion, this, _originalCompletion).detach();
+                _originalCompletion.clear();
+                _currentIndex = 1;
+                _hasCompletion = false;
+            }
+            
             logger::log(format("Cache Completion ... (keycode: {})", keycode));
         }
     } catch (runtime_error &e) {
@@ -289,18 +302,17 @@ void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
 
 }
 
-void RegistryMonitor::_reactToCompletion() {
+void RegistryMonitor::_reactToCompletion(string completion) {
     try {
         nlohmann::json requestBody;
         {
-            shared_lock<shared_mutex> lock(_completionMutex);
-            const auto isSnippet = _originalCompletion[0] == '1';
+            const auto isSnippet = completion[0] == '1';
             auto lines = 1;
             if (isSnippet) {
-                auto pos = _originalCompletion.find(R"(\n)", 0);
+                auto pos = completion.find(R"(\n)", 0);
                 while (pos != string::npos) {
                     ++lines;
-                    pos = _originalCompletion.find(R"(\n)", pos + 1);
+                    pos = completion.find(R"(\n)", pos + 1);
                 }
             }
             requestBody = {
@@ -309,7 +321,7 @@ void RegistryMonitor::_reactToCompletion() {
                     {"project_id",  _projectId},
                     {"tab_output",  true},
                     {"total_lines", lines},
-                    {"text_length", _originalCompletion.length() - 1},
+                    {"text_length", completion.length() - 1},
                     {"username",    Configurator::GetInstance()->username()},
                     {"version",     "SI-0.6.0"},
             };
@@ -324,12 +336,13 @@ void RegistryMonitor::_reactToCompletion() {
 void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
     _lastTriggerTime = chrono::high_resolution_clock::now();
     thread([this, editorInfoString, currentTriggerName = _lastTriggerTime.load()] {
-        const auto completionGenerated = generateCompletion(editorInfoString, _projectId);
+        // const auto completionGenerated = generateCompletion(editorInfoString, _projectId);
+        const optional<std::string> completionGenerated = "0Generated";
         if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
             try {
                 unique_lock<shared_mutex> lock(_completionMutex);
                 _originalCompletion = completionGenerated.value();
-                _currentIndex = 0;
+                _currentIndex = 1;
                 system::setRegValue(_subKey, "completionGenerated", completionGenerated.value());
             } catch (runtime_error &e) {
                 logger::log(e.what());

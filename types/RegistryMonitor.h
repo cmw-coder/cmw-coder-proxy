@@ -38,7 +38,7 @@ namespace types {
         std::atomic<bool> _isRunning = true, _hasCompletion = false, _justInserted = false;
         std::atomic<std::chrono::time_point<std::chrono::high_resolution_clock>> _lastTriggerTime;
 
-        void _reactToCompletion();
+        void _reactToCompletion(std::string completion);
 
         void _retrieveCompletion(const std::string &editorInfoString);
 
