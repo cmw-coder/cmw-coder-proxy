@@ -1,6 +1,7 @@
 #include <chrono>
 //#include <ranges>
 #include <regex>
+#include  <ctime>
 
 #include <magic_enum.hpp>
 #include <nlohmann/json.hpp>
@@ -10,6 +11,7 @@
 #include <types/RegistryMonitor.h>
 #include <types/UserAction.h>
 #include <types/WindowInterceptor.h>
+#include <types/Statistics.h>
 #include <utils/crypto.h>
 #include <utils/inputbox.h>
 #include <utils/logger.h>
@@ -271,8 +273,9 @@ void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
 
 void RegistryMonitor::_reactToCompletion() {
     try {
+        
         nlohmann::json requestBody;
-        {
+        {   
             shared_lock<shared_mutex> lock(_completionMutex);
             const auto isSnippet = _currentCompletion[0] == '1';
             auto lines = 1;
@@ -283,21 +286,25 @@ void RegistryMonitor::_reactToCompletion() {
                     pos = _currentCompletion.find(R"(\n)", pos + 1);
                 }
             }
-            requestBody = {
-                    {"code_line",   lines},
-                    {"mode",        isSnippet},
-                    {"project_id",  _projectId},
-                    {"tab_output",  true},
-                    {"total_lines", lines},
-                    {"text_length", _currentCompletion.length() - 1},
-                    {"username",    Configurator::GetInstance()->username()},
-                    {"version",     "SI-0.6.0"},
-            };
+            SKU lineData(Configurator::GetInstance()->username(), _projectId, _currentCompletion, false);
+            // requestBody = {
+            //         {"code_line",   lines},
+            //         {"mode",        isSnippet},
+            //         {"project_id",  _projectId},
+            //         {"tab_output",  true},
+            //         {"total_lines", lines},
+            //         {"text_length", _currentCompletion.length() - 1},
+            //         {"username",    Configurator::GetInstance()->username()},
+            //         {"version",     "SI-0.6.0"},
+            // };
+            lineData.to_json(requestBody);
+            SKU charData(Configurator::GetInstance()->username(), _projectId, _currentCompletion, true);
+            charData.to_json(requestBody);
             logger::log(requestBody.dump());
         }
-        auto client = httplib::Client("http://10.113.10.68:4322");
+        auto client = httplib::Client("http://ipAddress/kong/RdTestResourceStatistic/");
         client.set_connection_timeout(3);
-        client.Post("/code/statistical", requestBody.dump(), "application/json");
+        client.Post("/report/summary", requestBody.dump(), "application/json");
     } catch (...) {}
 }
 
