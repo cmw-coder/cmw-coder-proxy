@@ -15,7 +15,7 @@ namespace types {
 
         std::optional<std::string> getNext();
 
-        std::string reset(std::string &&content = {});
+        std::string reset(std::string content = {});
 
         bool test(char c) const;
 

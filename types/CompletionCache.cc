@@ -34,7 +34,7 @@ std::optional<std::string> CompletionCache::getNext() {
     return get();
 }
 
-string CompletionCache::reset(string &&content) {
+string CompletionCache::reset(string content) {
     unique_lock<shared_mutex> lock(_shared_mutex);
     const auto old_content = ::move(_content);
     _content = ::move(content);

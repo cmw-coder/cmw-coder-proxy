@@ -3,7 +3,6 @@
 
 #include <types/Configurator.h>
 #include <types/CursorMonitor.h>
-#include <utils/logger.h>
 
 #include <windows.h>
 
