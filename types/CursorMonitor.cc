@@ -8,7 +8,6 @@
 
 using namespace std;
 using namespace types;
-using namespace utils;
 
 CursorMonitor::CursorMonitor() :
         _baseAddress(reinterpret_cast<uint64_t>(GetModuleHandle(nullptr))),
