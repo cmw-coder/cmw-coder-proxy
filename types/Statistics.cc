@@ -18,7 +18,7 @@ user(Configurator::GetInstance()->username()), count(completion.length() - 1){
     }
     
 }
-SKU::to_json(nlohmann::json& request){
+void SKU::to_json(nlohmann::json& request){
     nlohmann::json temp_json;
     temp_json = {
         {"begin", begin},
@@ -32,7 +32,7 @@ SKU::to_json(nlohmann::json& request){
         {"firstClass", firstClass},
         {"secondClass", secondClass},
         {"skuName", skuName},
-        {"subType", subType}.
+        {"subType", subType},
     };
-    request.push_back(temp_json)
+    request.push_back(temp_json);
 }
