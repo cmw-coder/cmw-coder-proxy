@@ -277,15 +277,6 @@ void RegistryMonitor::_reactToCompletion() {
         nlohmann::json requestBody;
         {   
             shared_lock<shared_mutex> lock(_completionMutex);
-            const auto isSnippet = _currentCompletion[0] == '1';
-            auto lines = 1;
-            if (isSnippet) {
-                auto pos = _currentCompletion.find(R"(\n)", 0);
-                while (pos != string::npos) {
-                    ++lines;
-                    pos = _currentCompletion.find(R"(\n)", pos + 1);
-                }
-            }
             SKU lineData(Configurator::GetInstance()->username(), _projectId, _currentCompletion, false);
             // requestBody = {
             //         {"code_line",   lines},
@@ -311,7 +302,8 @@ void RegistryMonitor::_reactToCompletion() {
 void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
     _lastTriggerTime = chrono::high_resolution_clock::now();
     thread([this, editorInfoString, currentTriggerName = _lastTriggerTime.load()] {
-        const auto completionGenerated = generateCompletion(editorInfoString, _projectId);
+        // const auto completionGenerated = generateCompletion(editorInfoString, _projectId);
+        const optional<std::string> completionGenerated = "0Generated";
         if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
             try {
                 unique_lock<shared_mutex> lock(_completionMutex);
