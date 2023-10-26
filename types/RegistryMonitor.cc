@@ -339,7 +339,7 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
     _lastTriggerTime = chrono::high_resolution_clock::now();
     thread([this, editorInfoString, currentTriggerName = _lastTriggerTime.load()] {
         // const auto completionGenerated = generateCompletion(editorInfoString, _projectId);
-        const optional<std::string> completionGenerated = "0Generated";
+        const optional<std::string> completionGenerated = R"(1Multi-Line\r\nTest)";
         if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
             try {
                 _completionCache.reset(completionGenerated.value()[0] == '1', completionGenerated.value().substr(1));
