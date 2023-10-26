@@ -3,13 +3,11 @@
 
 #include <types/Configurator.h>
 #include <types/CursorMonitor.h>
-#include <utils/logger.h>
 
 #include <windows.h>
 
 using namespace std;
 using namespace types;
-using namespace utils;
 
 CursorMonitor::CursorMonitor() :
         _baseAddress(reinterpret_cast<uint64_t>(GetModuleHandle(nullptr))),
@@ -59,7 +57,7 @@ CursorMonitor::CursorMonitor() :
                 }
                 this->_lastPosition.store(cursorPosition);
             }
-            this_thread::sleep_for(chrono::milliseconds(10));
+            this_thread::sleep_for(chrono::milliseconds(1));
         }
     }).detach();
 }

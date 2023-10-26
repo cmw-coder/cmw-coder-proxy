@@ -15,6 +15,7 @@ namespace types {
         F10 = 0x1079,
         F11 = 0x107A,
         F12 = 0x107B,
+        Insert = 0x802D,
         Delete = 0x802E,
     };
 

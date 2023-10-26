@@ -12,7 +12,7 @@ namespace {
 }
 
 void logger::log(const std::string &message) {
-    OutputDebugString(format("[{}] {}", logDistinguish, message).c_str());
+    OutputDebugString(format("[{}] {}\n", logDistinguish, message).c_str());
 }
 
 void logger::error(const string &message) {

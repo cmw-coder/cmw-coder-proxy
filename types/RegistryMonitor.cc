@@ -1,5 +1,4 @@
 #include <chrono>
-//#include <ranges>
 #include <regex>
 #include  <ctime>
 
@@ -26,8 +25,8 @@ using namespace utils;
 namespace {
     const regex editorInfoRegex(
             R"regex(^cursor="(.*?)";path="(.*?)";project="(.*?)";tabs="(.*?)";type="(.*?)";version="(.*?)";symbols="(.*?)";prefix="(.*?)";suffix="(.*?)"$)regex");
-    const regex cursorRegex(
-            R"regex(^lnFirst="(.*?)";ichFirst="(.*?)";lnLast="(.*?)";ichLim="(.*?)";fExtended="(.*?)";fRect="(.*?)"$)regex");
+//    const regex cursorRegex(
+//            R"regex(^lnFirst="(.*?)";ichFirst="(.*?)";lnLast="(.*?)";ichLim="(.*?)";fExtended="(.*?)";fRect="(.*?)"$)regex");
 
     optional<string> generateCompletion(const string &editorInfo, const string &projectId) {
         nlohmann::json requestBody = {
@@ -154,7 +153,19 @@ RegistryMonitor::RegistryMonitor() {
             } catch (...) {
                 logger::log("Unknown exception.");
             }
-            this_thread::sleep_for(chrono::milliseconds(5));
+            this_thread::sleep_for(chrono::milliseconds(1));
+        }
+    }).detach();
+    thread([this] {
+        const auto debugLogKey = "CMWCODER_logDebug";
+        while (this->_isRunning.load()) {
+            try {
+                const auto logDebugString = system::getRegValue(_subKey, debugLogKey);
+                logger::log(format("[SI] {}", logDebugString));
+                system::deleteRegValue(_subKey, debugLogKey);
+            } catch (runtime_error &e) {
+            }
+            this_thread::sleep_for(chrono::milliseconds(1));
         }
     }).detach();
 }
@@ -165,10 +176,11 @@ RegistryMonitor::~RegistryMonitor() {
 
 void RegistryMonitor::acceptByTab(unsigned int) {
     _justInserted = true;
-    if (_hasCompletion.load()) {
-        _hasCompletion = false;
+    const auto completion = _completionCache.reset();
+    logger::log(format("Accepted completion: {}", completion.stringify()));
+    if (!completion.content().empty()) {
         WindowInterceptor::GetInstance()->sendAcceptCompletion();
-        thread(&RegistryMonitor::_reactToCompletion, this).detach();
+        thread(&RegistryMonitor::_reactToCompletion, this, ::move(completion)).detach();
         logger::log("Accepted completion");
     }
 }
@@ -179,16 +191,24 @@ void RegistryMonitor::cancelByCursorNavigate(CursorPosition, CursorPosition) {
 
 void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorPosition newPosition) {
     if (oldPosition.line == newPosition.line) {
-        if (!_hasCompletion.load()) {
-            return;
-        }
-        try {
-            system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::DeleteBackward)));
-            WindowInterceptor::GetInstance()->sendCancelCompletion();
-            _hasCompletion = false;
-            logger::log("Canceled by delete backward.");
-        } catch (runtime_error &e) {
-            logger::log(e.what());
+        const auto previousCacheOpt = _completionCache.previous();
+        if (previousCacheOpt.has_value()) {
+            // Has valid cache
+            const auto [_, completionOpt] = previousCacheOpt.value();
+            try {
+                if (completionOpt.has_value()) {
+                    // In cache
+                    _cancelCompletion(UserAction::DeleteBackward, false);
+                    _insertCompletion(completionOpt.value().stringify());
+                    logger::log("Insert previous cached completion");
+                } else {
+                    // Out of cache
+                    _cancelCompletion();
+                    logger::log("Canceled by delete backward.");
+                }
+            } catch (runtime_error &e) {
+                logger::log(e.what());
+            }
         }
     } else {
         cancelByModifyLine(enum_integer(Key::BackSpace));
@@ -196,104 +216,151 @@ void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorP
 }
 
 void RegistryMonitor::cancelByKeycodeNavigate(unsigned int) {
-    if (!_hasCompletion.load()) {
-        return;
-    }
-    try {
-        system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::Navigate)));
-        WindowInterceptor::GetInstance()->sendCancelCompletion();
-        _hasCompletion = false;
-        logger::log("Canceled by navigate.");
-    } catch (runtime_error &e) {
-        logger::log(e.what());
+    if (_completionCache.valid()) {
+        try {
+            _cancelCompletion(UserAction::Navigate);
+            logger::log("Canceled by navigate.");
+        } catch (runtime_error &e) {
+            logger::log(e.what());
+        }
     }
 }
 
 void RegistryMonitor::cancelByModifyLine(unsigned int keycode) {
     const auto windowInterceptor = WindowInterceptor::GetInstance();
     _justInserted = false;
-    if (_hasCompletion.load()) {
+    if (_completionCache.valid()) {
         try {
-            system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::ModifyLine)));
-            windowInterceptor->sendCancelCompletion();
-            _hasCompletion = false;
-            if (keycode == enum_integer(Key::BackSpace)) {
-                logger::log("Canceled by backspace");
-            } else {
-                logger::log("Canceled by enter");
-            }
+            _cancelCompletion(UserAction::ModifyLine);
+            logger::log(format("Canceled by {}", keycode == enum_integer(Key::BackSpace) ? "backspace" : "enter"));
         } catch (runtime_error &e) {
             logger::log(e.what());
         }
     }
+
     if (keycode != enum_integer(Key::BackSpace)) {
         windowInterceptor->sendRetrieveInfo();
     }
 }
 
 void RegistryMonitor::cancelBySave() {
-    if (_hasCompletion.load()) {
-        const auto windowInterceptor = WindowInterceptor::GetInstance();
-        system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::Navigate)));
-        windowInterceptor->sendCancelCompletion();
-        _hasCompletion = false;
+    if (_completionCache.valid()) {
+        _cancelCompletion(UserAction::Navigate);
         logger::log("Canceled by save.");
-        windowInterceptor->sendSave();
+        WindowInterceptor::GetInstance()->sendSave();
     }
 }
 
 void RegistryMonitor::cancelByUndo() {
-    // TODO: Send undo when last accept is a completion
     const auto windowInterceptor = WindowInterceptor::GetInstance();
     if (_justInserted.load()) {
         _justInserted = false;
         windowInterceptor->sendUndo();
         windowInterceptor->sendUndo();
-    } else if (_hasCompletion.load()) {
-        _hasCompletion = false;
-        windowInterceptor->sendUndo();
+    } else if (_completionCache.valid()) {
+        _completionCache.reset();
         logger::log(("Canceled by undo"));
+        windowInterceptor->sendUndo();
     }
 }
 
 void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
     const auto windowInterceptor = WindowInterceptor::GetInstance();
     _justInserted = false;
-    try {
-        system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::DeleteBackward)));
-        windowInterceptor->sendCancelCompletion();
-        logger::log("Canceled by normal input.");
-    } catch (runtime_error &e) {
-        logger::log(e.what());
-    }
 
-    windowInterceptor->sendRetrieveInfo();
-    logger::log(format("Retrieving editor info... (keycode: {})", keycode));
+    const auto nextCacheOpt = _completionCache.next();
+    if (nextCacheOpt.has_value()) {
+        // Has valid cache
+        const auto [currentChar, completionOpt] = nextCacheOpt.value();
+        try {
+            if (keycode == currentChar) {
+                // Cache hit
+                if (completionOpt.has_value()) {
+                    // In cache
+                    _cancelCompletion(UserAction::DeleteBackward, false);
+                    logger::log("Canceled due to update cache");
+                    _insertCompletion(completionOpt.value().stringify());
+//                    logger::log(format("Insert next cached completion: {}", completionOpt.value().stringify()));
+                } else {
+                    // Out of cache
+                    logger::log("Accept due to fill in cache");
+                    acceptByTab(keycode);
+                }
+            } else {
+                // Cache miss
+                _cancelCompletion();
+                logger::log(format("Canceled due to cache miss (keycode: {})", keycode));
+                windowInterceptor->sendRetrieveInfo();
+                logger::log(format("Retrieving editor info... (keycode: {})", keycode));
+            }
+        } catch (runtime_error &e) {
+            logger::log(e.what());
+        }
+    } else {
+        // No valid cache
+        windowInterceptor->sendRetrieveInfo();
+        logger::log(format("Retrieving editor info... (keycode: {})", keycode));
+        return;
+    }
 }
 
-void RegistryMonitor::_reactToCompletion() {
+void RegistryMonitor::_cancelCompletion(UserAction action, bool resetCache) {
+    system::setRegValue(_subKey, "cancelType", to_string(enum_integer(action)));
+    WindowInterceptor::GetInstance()->sendCancelCompletion();
+    if (resetCache) {
+        _completionCache.reset();
+    }
+}
+
+void RegistryMonitor::_insertCompletion(const string &data) {
+    system::setRegValue(_subKey, "completionGenerated", data);
+    WindowInterceptor::GetInstance()->sendInsertCompletion();
+}
+
+void RegistryMonitor::_reactToCompletion(CompletionCache::Completion &&completion) {
     try {
         
         nlohmann::json requestBody;
-        {   
-            shared_lock<shared_mutex> lock(_completionMutex);
-            SKU lineData(Configurator::GetInstance()->username(), _projectId, _currentCompletion, false);
-            // requestBody = {
-            //         {"code_line",   lines},
-            //         {"mode",        isSnippet},
-            //         {"project_id",  _projectId},
-            //         {"tab_output",  true},
-            //         {"total_lines", lines},
-            //         {"text_length", _currentCompletion.length() - 1},
-            //         {"username",    Configurator::GetInstance()->username()},
-            //         {"version",     "SI-0.6.0"},
-            // };
-            lineData.to_json(requestBody);
-            SKU charData(Configurator::GetInstance()->username(), _projectId, _currentCompletion, true);
-            charData.to_json(requestBody);
-            logger::log(requestBody.dump());
-        }
+
+//         auto lines = 1;
+//         if (completion.isSnippet()) {
+//             const auto &content = completion.content();
+//             auto pos = content.find(R"(\n)", 0);
+//             while (pos != string::npos) {
+//                 ++lines;
+//                 pos = content.find(R"(\n)", pos + 1);
+//             }
+//         }
+//         requestBody = {
+//                 {"code_line",   lines},
+//                 {"mode",        completion.isSnippet()},
+//                 {"project_id",  _projectId},
+//                 {"tab_output",  true},
+//                 {"total_lines", lines},
+//                 {"text_length", completion.content().length()},
+//                 {"username",    Configurator::GetInstance()->username()},
+//                 {"version",     "SI-0.6.1"},
+//         };
+//         logger::log(requestBody.dump());
+//         auto client = httplib::Client("http://10.113.10.68:4322");
+
+        SKU lineData(Configurator::GetInstance()->username(), _projectId, completion.stringify(), false);
+        // requestBody = {
+        //         {"code_line",   lines},
+        //         {"mode",        isSnippet},
+        //         {"project_id",  _projectId},
+        //         {"tab_output",  true},
+        //         {"total_lines", lines},
+        //         {"text_length", _currentCompletion.length() - 1},
+        //         {"username",    Configurator::GetInstance()->username()},
+        //         {"version",     "SI-0.6.0"},
+        // };
+        lineData.to_json(requestBody);
+        SKU charData(Configurator::GetInstance()->username(), _projectId, completion.stringify(), true);
+        charData.to_json(requestBody);
+        logger::log(requestBody.dump());
         auto client = httplib::Client("http://ipAddress/kong/RdTestResourceStatistic/");
+
         client.set_connection_timeout(3);
         client.Post("/report/summary", requestBody.dump(), "application/json");
     } catch (...) {}
@@ -302,19 +369,16 @@ void RegistryMonitor::_reactToCompletion() {
 void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
     _lastTriggerTime = chrono::high_resolution_clock::now();
     thread([this, editorInfoString, currentTriggerName = _lastTriggerTime.load()] {
-        // const auto completionGenerated = generateCompletion(editorInfoString, _projectId);
-        const optional<std::string> completionGenerated = "0Generated";
+        const auto completionGenerated = generateCompletion(editorInfoString, _projectId);
+        logger::log(format("Generated completion: {}", completionGenerated.value_or("null")));
         if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
             try {
-                unique_lock<shared_mutex> lock(_completionMutex);
-                _currentCompletion = completionGenerated.value();
-                system::setRegValue(_subKey, "completionGenerated", completionGenerated.value());
+                _completionCache.reset(completionGenerated.value()[0] == '1', completionGenerated.value().substr(1));
+                _insertCompletion(completionGenerated.value());
+                logger::log("Inserted completion");
             } catch (runtime_error &e) {
                 logger::log(e.what());
             }
-            WindowInterceptor::GetInstance()->sendInsertCompletion();
-            logger::log("Inserted completion");
-            _hasCompletion = true;
         }
     }).detach();
 }

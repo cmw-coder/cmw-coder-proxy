@@ -38,7 +38,7 @@ string crypto::encode(const string &input, crypto::Encoding encoding) {
         case Encoding::Hex:
             return _encode<CryptoPP::HexEncoder>(input);
             [[unlikely]]default:
-            throw new runtime_error("Unsupported encoding.");
+            throw runtime_error("Unsupported encoding.");
     }
 }
 
@@ -49,7 +49,7 @@ std::string crypto::decode(const string &input, crypto::Encoding encoding) {
         case Encoding::Hex:
             return _decode<CryptoPP::HexDecoder>(input);
             [[unlikely]]default:
-            throw new runtime_error("Unsupported encoding.");
+            throw runtime_error("Unsupported encoding.");
     }
 }
 
