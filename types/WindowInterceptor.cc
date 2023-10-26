@@ -58,7 +58,7 @@ void WindowInterceptor::_processWindowMessage(long lParam) {
                             static_cast<uint64_t>(windowProcData->wParam),
                             targetWindowClass
                     ));
-//                    _handlers.at(UserAction::Navigate)(-1);
+                    _handlers.at(UserAction::Navigate)(-1);
                     this->_codeWindow.store(-1);
                 } else if (targetWindowClass == "si_Poplist") {
                     logger::log("PopList show up.");
@@ -105,18 +105,8 @@ void WindowInterceptor::_handleKeycode(unsigned int keycode) noexcept {
         switch (keycode) {
             case enum_integer(Key::BackSpace): {
                 if (this->_popListWindow >= 0) {
-                    SendMessage(
-                            (HWND__ *) this->_codeWindow.load(),
-                            UM_KEYCODE,
-                            KeyHelper::toKeycode(Key::Insert),
-                            0
-                    );
-                    SendMessage(
-                            (HWND__ *) this->_codeWindow.load(),
-                            UM_KEYCODE,
-                            KeyHelper::toKeycode(Key::Insert),
-                            0
-                    );
+                    window::sendKeycode(this->_codeWindow.load(), KeyHelper::toKeycode(Key::Insert));
+                    window::sendKeycode(this->_codeWindow.load(), KeyHelper::toKeycode(Key::Insert));
                 }
                 CursorMonitor::GetInstance()->setAction(UserAction::DeleteBackward);
                 break;
@@ -149,26 +139,8 @@ void WindowInterceptor::_handleKeycode(unsigned int keycode) noexcept {
                 if (keycode >= enum_integer(Key::Space) && keycode <= enum_integer(Key::Tilde) &&
                     keycode != enum_integer(Key::RightCurlyBracket)) {
                     if (this->_popListWindow >= 0) {
-                        SendMessage(
-                                (HWND__ *) this->_codeWindow.load(),
-                                UM_KEYCODE,
-                                KeyHelper::toKeycode(Key::Insert),
-                                0
-                        );
-                        SendMessage(
-                                (HWND__ *) this->_codeWindow.load(),
-                                UM_KEYCODE,
-                                KeyHelper::toKeycode(Key::Insert),
-                                0
-                        );
-                        /*POINT cursorPosition;
-                        GetCursorPos(&cursorPosition);
-                        SendMessage(
-                                reinterpret_cast<HWND>(_codeWindow.load()),
-                                WM_LBUTTONDBLCLK,
-                                0,
-                                cursorPosition.y << 16 | cursorPosition.x
-                        );*/
+                        window::sendKeycode(this->_codeWindow.load(), KeyHelper::toKeycode(Key::Insert));
+                        window::sendKeycode(this->_codeWindow.load(), KeyHelper::toKeycode(Key::Insert));
                     }
                     _handlers.at(UserAction::Normal)(keycode);
                 } else if (((keycode & 0x802F) >= 0x8021 && (keycode & 0x802F) <= 0x8029)) {
@@ -182,21 +154,21 @@ void WindowInterceptor::_handleKeycode(unsigned int keycode) noexcept {
 }
 
 bool WindowInterceptor::sendAcceptCompletion() {
-    return window::sendKeycode(
+    return window::postKeycode(
             this->_codeWindow,
             KeyHelper::toKeycode(Key::F10, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
     );
 }
 
 bool WindowInterceptor::sendCancelCompletion() {
-    return window::sendKeycode(
+    return window::postKeycode(
             this->_codeWindow,
             KeyHelper::toKeycode(Key::F9, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
     );
 }
 
 bool WindowInterceptor::sendInsertCompletion() {
-    return window::sendKeycode(
+    return window::postKeycode(
             this->_codeWindow,
             KeyHelper::toKeycode(Key::F12, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
     );
@@ -204,21 +176,21 @@ bool WindowInterceptor::sendInsertCompletion() {
 
 bool WindowInterceptor::sendRetrieveInfo() {
     logger::log("Retrieving editor info...");
-    return window::sendKeycode(
+    return window::postKeycode(
             this->_codeWindow,
             KeyHelper::toKeycode(Key::F11, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
     );
 }
 
 bool WindowInterceptor::sendSave() {
-    return window::sendKeycode(
+    return window::postKeycode(
             this->_codeWindow,
             KeyHelper::toKeycode(Key::S, Modifier::Ctrl)
     );
 }
 
 bool WindowInterceptor::sendUndo() {
-    return window::sendKeycode(
+    return window::postKeycode(
             this->_codeWindow,
             KeyHelper::toKeycode(Key::Z, Modifier::Ctrl)
     );

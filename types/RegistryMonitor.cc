@@ -23,8 +23,8 @@ using namespace utils;
 namespace {
     const regex editorInfoRegex(
             R"regex(^cursor="(.*?)";path="(.*?)";project="(.*?)";tabs="(.*?)";type="(.*?)";version="(.*?)";symbols="(.*?)";prefix="(.*?)";suffix="(.*?)"$)regex");
-    const regex cursorRegex(
-            R"regex(^lnFirst="(.*?)";ichFirst="(.*?)";lnLast="(.*?)";ichLim="(.*?)";fExtended="(.*?)";fRect="(.*?)"$)regex");
+//    const regex cursorRegex(
+//            R"regex(^lnFirst="(.*?)";ichFirst="(.*?)";lnLast="(.*?)";ichLim="(.*?)";fExtended="(.*?)";fRect="(.*?)"$)regex");
 
     optional<string> generateCompletion(const string &editorInfo, const string &projectId) {
         nlohmann::json requestBody = {
