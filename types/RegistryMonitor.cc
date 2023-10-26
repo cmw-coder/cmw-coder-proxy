@@ -1,5 +1,6 @@
 #include <chrono>
 #include <regex>
+#include  <ctime>
 
 #include <magic_enum.hpp>
 #include <nlohmann/json.hpp>
@@ -9,6 +10,7 @@
 #include <types/RegistryMonitor.h>
 #include <types/UserAction.h>
 #include <types/WindowInterceptor.h>
+#include <types/Statistics.h>
 #include <utils/crypto.h>
 #include <utils/inputbox.h>
 #include <utils/logger.h>
@@ -317,30 +319,50 @@ void RegistryMonitor::_insertCompletion(const string &data) {
 
 void RegistryMonitor::_reactToCompletion(CompletionCache::Completion &&completion) {
     try {
+        
         nlohmann::json requestBody;
-        auto lines = 1;
-        if (completion.isSnippet()) {
-            const auto &content = completion.content();
-            auto pos = content.find(R"(\n)", 0);
-            while (pos != string::npos) {
-                ++lines;
-                pos = content.find(R"(\n)", pos + 1);
-            }
-        }
-        requestBody = {
-                {"code_line",   lines},
-                {"mode",        completion.isSnippet()},
-                {"project_id",  _projectId},
-                {"tab_output",  true},
-                {"total_lines", lines},
-                {"text_length", completion.content().length()},
-                {"username",    Configurator::GetInstance()->username()},
-                {"version",     "SI-0.6.1"},
-        };
+
+//         auto lines = 1;
+//         if (completion.isSnippet()) {
+//             const auto &content = completion.content();
+//             auto pos = content.find(R"(\n)", 0);
+//             while (pos != string::npos) {
+//                 ++lines;
+//                 pos = content.find(R"(\n)", pos + 1);
+//             }
+//         }
+//         requestBody = {
+//                 {"code_line",   lines},
+//                 {"mode",        completion.isSnippet()},
+//                 {"project_id",  _projectId},
+//                 {"tab_output",  true},
+//                 {"total_lines", lines},
+//                 {"text_length", completion.content().length()},
+//                 {"username",    Configurator::GetInstance()->username()},
+//                 {"version",     "SI-0.6.1"},
+//         };
+//         logger::log(requestBody.dump());
+//         auto client = httplib::Client("http://10.113.10.68:4322");
+
+        SKU lineData(Configurator::GetInstance()->username(), _projectId, completion.stringify(), false);
+        // requestBody = {
+        //         {"code_line",   lines},
+        //         {"mode",        isSnippet},
+        //         {"project_id",  _projectId},
+        //         {"tab_output",  true},
+        //         {"total_lines", lines},
+        //         {"text_length", _currentCompletion.length() - 1},
+        //         {"username",    Configurator::GetInstance()->username()},
+        //         {"version",     "SI-0.6.0"},
+        // };
+        lineData.to_json(requestBody);
+        SKU charData(Configurator::GetInstance()->username(), _projectId, completion.stringify(), true);
+        charData.to_json(requestBody);
         logger::log(requestBody.dump());
-        auto client = httplib::Client("http://10.113.10.68:4322");
+        auto client = httplib::Client("http://ipAddress/kong/RdTestResourceStatistic/");
+
         client.set_connection_timeout(3);
-        client.Post("/code/statistical", requestBody.dump(), "application/json");
+        client.Post("/report/summary", requestBody.dump(), "application/json");
     } catch (...) {}
 }
 
