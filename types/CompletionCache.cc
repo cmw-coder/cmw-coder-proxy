@@ -31,13 +31,13 @@ optional<pair<char, optional<CompletionCache::Completion>>> CompletionCache::nex
     return make_pair(currentChar, nullopt);
 }
 
-string CompletionCache::reset(bool isSnippet, string content) {
-    _isSnippet = isSnippet;
+CompletionCache::Completion CompletionCache::reset(bool isSnippet, string content) {
     _currentIndex = content.empty() ? -1 : 0;
     unique_lock<shared_mutex> lock(_shared_mutex);
-    const auto old_content = ::move(_content);
+    const auto oldCompletion = Completion{_isSnippet, _content};
+    _isSnippet = isSnippet;
     _content = ::move(content);
-    return old_content;
+    return oldCompletion;
 }
 
 bool CompletionCache::valid() const {

@@ -42,7 +42,7 @@ namespace types {
 
         void _insertCompletion(const std::string &data);
 
-        void _reactToCompletion(std::string completion);
+        void _reactToCompletion(CompletionCache::Completion&& completion);
 
         void _retrieveCompletion(const std::string &editorInfoString);
 

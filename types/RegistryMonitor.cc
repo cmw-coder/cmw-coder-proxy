@@ -175,10 +175,10 @@ RegistryMonitor::~RegistryMonitor() {
 void RegistryMonitor::acceptByTab(unsigned int) {
     _justInserted = true;
     const auto completion = _completionCache.reset();
-    logger::log(format("Accepted completion: {}", completion));
-    if (!completion.empty()) {
+    logger::log(format("Accepted completion: {}", completion.stringify()));
+    if (!completion.content().empty()) {
         WindowInterceptor::GetInstance()->sendAcceptCompletion();
-        thread(&RegistryMonitor::_reactToCompletion, this, completion).detach();
+        thread(&RegistryMonitor::_reactToCompletion, this, ::move(completion)).detach();
         logger::log("Accepted completion");
     }
 }
@@ -315,31 +315,29 @@ void RegistryMonitor::_insertCompletion(const string &data) {
     WindowInterceptor::GetInstance()->sendInsertCompletion();
 }
 
-void RegistryMonitor::_reactToCompletion(string completion) {
+void RegistryMonitor::_reactToCompletion(CompletionCache::Completion &&completion) {
     try {
         nlohmann::json requestBody;
-        {
-            const auto isSnippet = completion[0] == '1';
-            auto lines = 1;
-            if (isSnippet) {
-                auto pos = completion.find(R"(\n)", 0);
-                while (pos != string::npos) {
-                    ++lines;
-                    pos = completion.find(R"(\n)", pos + 1);
-                }
+        auto lines = 1;
+        if (completion.isSnippet()) {
+            const auto &content = completion.content();
+            auto pos = content.find(R"(\n)", 0);
+            while (pos != string::npos) {
+                ++lines;
+                pos = content.find(R"(\n)", pos + 1);
             }
-            requestBody = {
-                    {"code_line",   lines},
-                    {"mode",        isSnippet},
-                    {"project_id",  _projectId},
-                    {"tab_output",  true},
-                    {"total_lines", lines},
-                    {"text_length", completion.length() - 1},
-                    {"username",    Configurator::GetInstance()->username()},
-                    {"version",     "SI-0.6.1"},
-            };
-            logger::log(requestBody.dump());
         }
+        requestBody = {
+                {"code_line",   lines},
+                {"mode",        completion.isSnippet()},
+                {"project_id",  _projectId},
+                {"tab_output",  true},
+                {"total_lines", lines},
+                {"text_length", completion.content().length()},
+                {"username",    Configurator::GetInstance()->username()},
+                {"version",     "SI-0.6.1"},
+        };
+        logger::log(requestBody.dump());
         auto client = httplib::Client("http://10.113.10.68:4322");
         client.set_connection_timeout(3);
         client.Post("/code/statistical", requestBody.dump(), "application/json");

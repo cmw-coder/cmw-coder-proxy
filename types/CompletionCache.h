@@ -11,6 +11,14 @@ namespace types {
         public:
             Completion(bool isSnippet, std::string content) : _isSnippet(isSnippet), _content(std::move(content)) {}
 
+            [[nodiscard]] bool isSnippet() const {
+                return _isSnippet;
+            }
+
+            [[nodiscard]] const std::string &content() const {
+                return _content;
+            }
+
             [[nodiscard]] std::string stringify() const {
                 using namespace std::string_literals;
                 return (_isSnippet ? "1"s : "0"s).append(_content);
@@ -25,7 +33,7 @@ namespace types {
 
         std::optional<std::pair<char, std::optional<Completion>>> next();
 
-        std::string reset(bool isSnippet = false, std::string content = {});
+        Completion reset(bool isSnippet = false, std::string content = {});
 
         bool valid() const;
 
