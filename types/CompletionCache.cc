@@ -3,49 +3,43 @@
 using namespace std;
 using namespace types;
 
-bool CompletionCache::empty() const {
+optional<pair<char, optional<CompletionCache::Completion>>> CompletionCache::previous() {
+    if (!valid()) {
+        return nullopt;
+    }
+
     shared_lock<shared_mutex> lock(_shared_mutex);
-    return _content.empty();
+    const auto currentChar = _content[_currentIndex];
+    if (_currentIndex > 0) {
+        --_currentIndex;
+        return make_pair(currentChar, Completion{_isSnippet.load(), _content.substr(_currentIndex)});
+    }
+    return make_pair(currentChar, nullopt);
 }
 
-optional<string> CompletionCache::get() const {
+optional<pair<char, optional<CompletionCache::Completion>>> CompletionCache::next() {
+    if (!valid()) {
+        return nullopt;
+    }
+
     shared_lock<shared_mutex> lock(_shared_mutex);
-    if (_currentIndex >= _content.length()) {
-        return nullopt;
+    const auto currentChar = _content[_currentIndex];
+    if (_currentIndex < _content.length() - 1) {
+        ++_currentIndex;
+        return make_pair(currentChar, Completion{_isSnippet.load(), _content.substr(_currentIndex)});
     }
-    return _content[0] + _content.substr(_currentIndex);
+    return make_pair(currentChar, nullopt);
 }
 
-optional<string> CompletionCache::getPrevious() {
-    --_currentIndex;
-    if (_currentIndex < 1) {
-        reset();
-        return nullopt;
-    }
-    return get();
-}
-
-std::optional<std::string> CompletionCache::getNext() {
-    ++_currentIndex;
-    if (_currentIndex >= _content.length()) {
-        reset();
-        return nullopt;
-    }
-    return get();
-}
-
-string CompletionCache::reset(string content) {
+string CompletionCache::reset(bool isSnippet, string content) {
+    _isSnippet = isSnippet;
+    _currentIndex = content.empty() ? -1 : 0;
     unique_lock<shared_mutex> lock(_shared_mutex);
     const auto old_content = ::move(_content);
     _content = ::move(content);
-    _currentIndex = 1;
     return old_content;
 }
 
-bool CompletionCache::test(char c) const {
-    shared_lock<shared_mutex> lock(_shared_mutex);
-    if (_currentIndex >= _content.length()) {
-        return false;
-    }
-    return _content[_currentIndex] == c;
+bool CompletionCache::valid() const {
+    return _currentIndex >= 0;
 }

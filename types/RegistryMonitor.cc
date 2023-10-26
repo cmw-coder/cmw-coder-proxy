@@ -164,6 +164,7 @@ RegistryMonitor::~RegistryMonitor() {
 void RegistryMonitor::acceptByTab(unsigned int) {
     _justInserted = true;
     const auto completion = _completionCache.reset();
+    logger::log(format("Accepted completion: {}", completion));
     if (!completion.empty()) {
         WindowInterceptor::GetInstance()->sendAcceptCompletion();
         thread(&RegistryMonitor::_reactToCompletion, this, completion).detach();
@@ -177,20 +178,19 @@ void RegistryMonitor::cancelByCursorNavigate(CursorPosition, CursorPosition) {
 
 void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorPosition newPosition) {
     if (oldPosition.line == newPosition.line) {
-        if (!_completionCache.empty()) {
-            const auto previousCache = _completionCache.getPrevious();
+        const auto previousCacheOpt = _completionCache.previous();
+        if (previousCacheOpt.has_value()) {
+            // Has valid cache
+            const auto [_, completionOpt] = previousCacheOpt.value();
             try {
-                if (previousCache.has_value()) {
-                    system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::DeleteBackward)));
-                    WindowInterceptor::GetInstance()->sendCancelCompletion();
-                    system::setRegValue(_subKey, "completionGenerated", previousCache.value());
-                    WindowInterceptor::GetInstance()->sendInsertCompletion();
+                if (completionOpt.has_value()) {
+                    // In cache
+                    _cancelCompletion(UserAction::DeleteBackward, false);
+                    _insertCompletion(completionOpt.value().stringify());
                     logger::log("Insert previous cached completion");
                 } else {
-                    // out of cache
-                    system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::DeleteBackward)));
-                    WindowInterceptor::GetInstance()->sendCancelCompletion();
-                    _completionCache.reset();
+                    // Out of cache
+                    _cancelCompletion();
                     logger::log("Canceled by delete backward.");
                 }
             } catch (runtime_error &e) {
@@ -203,11 +203,9 @@ void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorP
 }
 
 void RegistryMonitor::cancelByKeycodeNavigate(unsigned int) {
-    if (!_completionCache.empty()) {
+    if (_completionCache.valid()) {
         try {
-            system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::Navigate)));
-            WindowInterceptor::GetInstance()->sendCancelCompletion();
-            _completionCache.reset();
+            _cancelCompletion(UserAction::Navigate);
             logger::log("Canceled by navigate.");
         } catch (runtime_error &e) {
             logger::log(e.what());
@@ -218,11 +216,9 @@ void RegistryMonitor::cancelByKeycodeNavigate(unsigned int) {
 void RegistryMonitor::cancelByModifyLine(unsigned int keycode) {
     const auto windowInterceptor = WindowInterceptor::GetInstance();
     _justInserted = false;
-    if (!_completionCache.empty()) {
+    if (_completionCache.valid()) {
         try {
-            system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::ModifyLine)));
-            windowInterceptor->sendCancelCompletion();
-            _completionCache.reset();
+            _cancelCompletion(UserAction::ModifyLine);
             logger::log(format("Canceled by {}", keycode == enum_integer(Key::BackSpace) ? "backspace" : "enter"));
         } catch (runtime_error &e) {
             logger::log(e.what());
@@ -235,13 +231,10 @@ void RegistryMonitor::cancelByModifyLine(unsigned int keycode) {
 }
 
 void RegistryMonitor::cancelBySave() {
-    if (!_completionCache.empty()) {
-        const auto windowInterceptor = WindowInterceptor::GetInstance();
-        system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::Navigate)));
-        windowInterceptor->sendCancelCompletion();
-        _completionCache.reset();
+    if (_completionCache.valid()) {
+        _cancelCompletion(UserAction::Navigate);
         logger::log("Canceled by save.");
-        windowInterceptor->sendSave();
+        WindowInterceptor::GetInstance()->sendSave();
     }
 }
 
@@ -251,7 +244,7 @@ void RegistryMonitor::cancelByUndo() {
         _justInserted = false;
         windowInterceptor->sendUndo();
         windowInterceptor->sendUndo();
-    } else if (!_completionCache.empty()) {
+    } else if (_completionCache.valid()) {
         _completionCache.reset();
         logger::log(("Canceled by undo"));
         windowInterceptor->sendUndo();
@@ -261,32 +254,54 @@ void RegistryMonitor::cancelByUndo() {
 void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
     const auto windowInterceptor = WindowInterceptor::GetInstance();
     _justInserted = false;
-    if (_completionCache.empty()) {
+
+    const auto nextCacheOpt = _completionCache.next();
+    if (nextCacheOpt.has_value()) {
+        // Has valid cache
+        const auto [currentChar, completionOpt] = nextCacheOpt.value();
+        try {
+            if (keycode == currentChar) {
+                // Cache hit
+                if (completionOpt.has_value()) {
+                    // In cache
+                    _cancelCompletion(UserAction::DeleteBackward, false);
+                    logger::log("Canceled due to update cache");
+                    _insertCompletion(completionOpt.value().stringify());
+//                    logger::log(format("Insert next cached completion: {}", completionOpt.value().stringify()));
+                } else {
+                    // Out of cache
+                    logger::log("Accept due to fill in cache");
+                    acceptByTab(keycode);
+                }
+            } else {
+                // Cache miss
+                _cancelCompletion();
+                logger::log(format("Canceled due to cache miss (keycode: {})", keycode));
+                windowInterceptor->sendRetrieveInfo();
+                logger::log(format("Retrieving editor info... (keycode: {})", keycode));
+            }
+        } catch (runtime_error &e) {
+            logger::log(e.what());
+        }
+    } else {
+        // No valid cache
         windowInterceptor->sendRetrieveInfo();
         logger::log(format("Retrieving editor info... (keycode: {})", keycode));
         return;
     }
+}
 
-    const auto nextCache = _completionCache.getNext();
-    if (nextCache.has_value()) {
-        system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::DeleteBackward)));
-        windowInterceptor->sendCancelCompletion();
-        if (keycode == nextCache.value()[0]) {
-            logger::log("Canceled due to update cache");
-            system::setRegValue(_subKey, "completionGenerated", nextCache.value());
-            windowInterceptor->sendInsertCompletion();
-            logger::log(format("Insert next cached completion: {}", nextCache.value()));
-        } else {
-            logger::log("Canceled due to cache miss");
-            _completionCache.reset();
-            windowInterceptor->sendRetrieveInfo();
-            logger::log(format("Retrieving editor info... (keycode: {})", keycode));
-        }
-    } else {
-        // out of cache
-        logger::log("Accept due to fill in cache");
-        acceptByTab(keycode);
+void RegistryMonitor::_cancelCompletion(UserAction action, bool resetCache) {
+    system::setRegValue(_subKey, "cancelType", to_string(enum_integer(action)));
+    WindowInterceptor::GetInstance()->sendCancelCompletion();
+    if (resetCache) {
+        _completionCache.reset();
     }
+}
+
+void RegistryMonitor::_insertCompletion(const string &data) {
+    system::setRegValue(_subKey, "completionGenerated", data);
+    WindowInterceptor::GetInstance()->sendInsertCompletion();
 }
 
 void RegistryMonitor::_reactToCompletion(string completion) {
@@ -327,13 +342,12 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
         const optional<std::string> completionGenerated = "0Generated";
         if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
             try {
-                system::setRegValue(_subKey, "completionGenerated", completionGenerated.value());
-                _completionCache.reset(completionGenerated.value());
+                _completionCache.reset(completionGenerated.value()[0] == '1', completionGenerated.value().substr(1));
+                _insertCompletion(completionGenerated.value());
+                logger::log("Inserted completion");
             } catch (runtime_error &e) {
                 logger::log(e.what());
             }
-            WindowInterceptor::GetInstance()->sendInsertCompletion();
-            logger::log("Inserted completion");
         }
     }).detach();
 }

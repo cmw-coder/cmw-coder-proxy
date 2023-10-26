@@ -7,22 +7,33 @@
 namespace types {
     class CompletionCache {
     public:
-        bool empty() const;
+        class Completion {
+        public:
+            Completion(bool isSnippet, std::string content) : _isSnippet(isSnippet), _content(std::move(content)) {}
 
-        std::optional<std::string> get() const;
+            [[nodiscard]] std::string stringify() const {
+                using namespace std::string_literals;
+                return (_isSnippet ? "1"s : "0"s).append(_content);
+            }
 
-        std::optional<std::string> getPrevious();
+        private:
+            const bool _isSnippet;
+            const std::string _content;
+        };
 
-        std::optional<std::string> getNext();
+        std::optional<std::pair<char, std::optional<Completion>>> previous();
 
-        std::string reset(std::string content = {});
+        std::optional<std::pair<char, std::optional<Completion>>> next();
 
-        bool test(char c) const;
+        std::string reset(bool isSnippet = false, std::string content = {});
+
+        bool valid() const;
 
     private:
         mutable std::shared_mutex _shared_mutex;
 
+        std::atomic<bool> _isSnippet = false;
         std::string _content;
-        std::atomic<int64_t> _currentIndex = 1;
+        std::atomic<int64_t> _currentIndex = -1;
     };
 }

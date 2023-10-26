@@ -57,7 +57,7 @@ CursorMonitor::CursorMonitor() :
                 }
                 this->_lastPosition.store(cursorPosition);
             }
-            this_thread::sleep_for(chrono::milliseconds(10));
+            this_thread::sleep_for(chrono::milliseconds(1));
         }
     }).detach();
 }
