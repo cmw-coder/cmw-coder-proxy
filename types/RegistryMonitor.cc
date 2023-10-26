@@ -151,7 +151,19 @@ RegistryMonitor::RegistryMonitor() {
             } catch (...) {
                 logger::log("Unknown exception.");
             }
-            this_thread::sleep_for(chrono::milliseconds(5));
+            this_thread::sleep_for(chrono::milliseconds(1));
+        }
+    }).detach();
+    thread([this] {
+        const auto debugLogKey = "CMWCODER_logDebug";
+        while (this->_isRunning.load()) {
+            try {
+                const auto logDebugString = system::getRegValue(_subKey, debugLogKey);
+                logger::log(format("[SI] {}", logDebugString));
+                system::deleteRegValue(_subKey, debugLogKey);
+            } catch (runtime_error &e) {
+            }
+            this_thread::sleep_for(chrono::milliseconds(1));
         }
     }).detach();
 }

@@ -38,7 +38,7 @@ namespace types {
 
     private:
         std::shared_ptr<void> _windowHook = nullptr;
-        std::atomic<void *> _codeWindow = nullptr;
+        std::atomic<int64_t> _codeWindow = -1, _popListWindow = -1;
         std::unordered_map<UserAction, CallBackFunction> _handlers;
 
         static long __stdcall _windowProcedureHook(int nCode, unsigned int wParam, long lParam);

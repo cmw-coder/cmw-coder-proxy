@@ -9,5 +9,5 @@ namespace utils::window {
 
     std::string getWindowText(void *hwnd);
 
-    bool sendKeycode(void *hwnd, int keycode);
+    bool sendKeycode(int64_t hwnd, int keycode);
 }
