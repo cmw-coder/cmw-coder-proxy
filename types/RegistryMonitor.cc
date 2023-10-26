@@ -1,5 +1,4 @@
 #include <chrono>
-//#include <ranges>
 #include <regex>
 
 #include <magic_enum.hpp>
@@ -325,7 +324,7 @@ void RegistryMonitor::_reactToCompletion(string completion) {
                     {"total_lines", lines},
                     {"text_length", completion.length() - 1},
                     {"username",    Configurator::GetInstance()->username()},
-                    {"version",     "SI-0.6.0"},
+                    {"version",     "SI-0.6.1"},
             };
             logger::log(requestBody.dump());
         }
@@ -338,8 +337,8 @@ void RegistryMonitor::_reactToCompletion(string completion) {
 void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
     _lastTriggerTime = chrono::high_resolution_clock::now();
     thread([this, editorInfoString, currentTriggerName = _lastTriggerTime.load()] {
-        // const auto completionGenerated = generateCompletion(editorInfoString, _projectId);
-        const optional<std::string> completionGenerated = R"(1Multi-Line\r\nTest)";
+        const auto completionGenerated = generateCompletion(editorInfoString, _projectId);
+        logger::log(format("Generated completion: {}", completionGenerated.value_or("null")));
         if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
             try {
                 _completionCache.reset(completionGenerated.value()[0] == '1', completionGenerated.value().substr(1));

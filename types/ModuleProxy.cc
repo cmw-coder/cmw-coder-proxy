@@ -1,5 +1,4 @@
 #include <types/ModuleProxy.h>
-#include <utils/logger.h>
 #include <utils/system.h>
 
 #include <windows.h>
@@ -7,10 +6,6 @@
 using namespace std;
 using namespace types;
 using namespace utils;
-
-namespace {
-    const auto UM_KEYCODE = WM_USER + 0x03E9;
-}
 
 ModuleProxy::ModuleProxy() :
         _hModule(LoadLibrary(system::getSystemPath(PROXY_MODULE_NAME).c_str()), FreeLibrary) {
