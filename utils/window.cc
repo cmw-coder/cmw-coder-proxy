@@ -23,9 +23,12 @@ std::string window::getWindowText(void *hwnd) {
     return text.substr(0, GetWindowText(reinterpret_cast<HWND>(hwnd), text.data(), 256));
 }
 
-bool window::sendKeycode(void *hwnd, int keycode) {
+bool window::sendKeycode(int64_t hwnd, int keycode) {
 //    if (siVersion == SiVersion::New) {
 //        offset = offset << 8;
 //    }
-    return PostMessage(reinterpret_cast<HWND>(hwnd), UM_KEYCODE, keycode, 0) != 0;
+    if (hwnd < 0) {
+        return false;
+    }
+    return PostMessage((HWND__ *) hwnd, UM_KEYCODE, keycode, 0) != 0;
 }

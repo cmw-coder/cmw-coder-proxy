@@ -152,7 +152,19 @@ RegistryMonitor::RegistryMonitor() {
             } catch (...) {
                 logger::log("Unknown exception.");
             }
-            this_thread::sleep_for(chrono::milliseconds(5));
+            this_thread::sleep_for(chrono::milliseconds(1));
+        }
+    }).detach();
+    thread([this] {
+        const auto debugLogKey = "CMWCODER_logDebug";
+        while (this->_isRunning.load()) {
+            try {
+                const auto logDebugString = system::getRegValue(_subKey, debugLogKey);
+                logger::log(format("[SI] {}", logDebugString));
+                system::deleteRegValue(_subKey, debugLogKey);
+            } catch (runtime_error &e) {
+            }
+            this_thread::sleep_for(chrono::milliseconds(1));
         }
     }).detach();
 }
@@ -183,8 +195,6 @@ void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorP
         try {
             system::setRegValue(_subKey, "cancelType", to_string(enum_integer(UserAction::DeleteBackward)));
             WindowInterceptor::GetInstance()->sendCancelCompletion();
-            _hasCompletion = false;
-            logger::log("Canceled by delete backward.");
         } catch (runtime_error &e) {
             logger::log(e.what());
         }
@@ -305,6 +315,7 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
     _lastTriggerTime = chrono::high_resolution_clock::now();
     thread([this, editorInfoString, currentTriggerName = _lastTriggerTime.load()] {
         const auto completionGenerated = generateCompletion(editorInfoString, _projectId);
+//        const auto completionGenerated = optional<string>("0GenerateCompletion");
         if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
             try {
                 unique_lock<shared_mutex> lock(_completionMutex);
