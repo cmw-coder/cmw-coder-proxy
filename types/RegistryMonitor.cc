@@ -9,6 +9,7 @@
 #include <types/RegistryMonitor.h>
 #include <types/UserAction.h>
 #include <types/WindowInterceptor.h>
+#include <types/Statistics.h>
 #include <utils/crypto.h>
 #include <utils/inputbox.h>
 #include <utils/logger.h>
@@ -21,36 +22,9 @@ using namespace utils;
 
 namespace {
     const regex editorInfoRegex(
-            R"regex(^cursor="(.*?)";path="(.*?)";project="(.*?)";tabs="(.*?)";type="(.*?)";version="(.*?)";symbols="(.*?)";prefix="(.*?)";suffix="(.*?)"$)regex");
+            R"regex(^cursor="(.*?)";path="(.*?)";project="(.*?)";tabs="(.*?)";version="(.*?)";symbols="(.*?)";prefix="(.*?)";suffix="(.*?)"$)regex");
 //    const regex cursorRegex(
 //            R"regex(^lnFirst="(.*?)";ichFirst="(.*?)";lnLast="(.*?)";ichLim="(.*?)";fExtended="(.*?)";fRect="(.*?)"$)regex");
-
-    optional<string> generateCompletion(const string &editorInfo, const string &projectId) {
-        nlohmann::json requestBody = {
-                {"info",      crypto::encode(editorInfo, crypto::Encoding::Base64)},
-                {"projectId", projectId},
-        };
-        auto client = httplib::Client("http://localhost:3000");
-        client.set_connection_timeout(10);
-        client.set_read_timeout(10);
-        client.set_write_timeout(10);
-        if (auto res = client.Post(
-                "/generate",
-                requestBody.dump(),
-                "application/json"
-        )) {
-            const auto responseBody = nlohmann::json::parse(res->body);
-            const auto result = responseBody["result"].get<string>();
-            const auto &contents = responseBody["contents"];
-            if (result == "success" && contents.is_array() && !contents.empty()) {
-                return crypto::decode(contents[0].get<string>(), crypto::Encoding::Base64);
-            }
-            logger::log(format("HTTP result: {}", result));
-        } else {
-            logger::log(format("HTTP error: {}", httplib::to_string(res.error())));
-        }
-        return nullopt;
-    }
 }
 
 RegistryMonitor::RegistryMonitor() {
@@ -59,22 +33,27 @@ RegistryMonitor::RegistryMonitor() {
             try {
                 const auto editorInfoString = system::getRegValue(_subKey, "editorInfo");
 
-//                logger::log(editorInfoString);
+                // logger::log(editorInfoString);
+                system::deleteRegValue(_subKey, "editorInfo");
 
                 smatch editorInfoRegexResults;
                 if (!regex_match(editorInfoString, editorInfoRegexResults, editorInfoRegex) ||
-                    editorInfoRegexResults.size() != 10) {
+                    editorInfoRegexResults.size() != 9) {
                     logger::log("Invalid editorInfoString");
                     continue;
                 }
 
                 const auto projectFolder = regex_replace(editorInfoRegexResults[3].str(), regex(R"(\\\\)"), "/");
 
-                system::deleteRegValue(_subKey, "editorInfo");
-
                 _retrieveProjectId(projectFolder);
 
                 _retrieveCompletion(editorInfoString);
+
+                const auto version = editorInfoRegexResults[5].str();
+                if (_pluginVersion.empty()) {
+                    _pluginVersion = Configurator::GetInstance()->pluginVersion(version);
+                    logger::log(format("Plugin version: {}", _pluginVersion));
+                }
 
                 // TODO: Finish completionType
                 /*nlohmann::json editorInfo = {
@@ -312,41 +291,58 @@ void RegistryMonitor::_insertCompletion(const string &data) {
     WindowInterceptor::GetInstance()->sendInsertCompletion();
 }
 
-void RegistryMonitor::_reactToCompletion(CompletionCache::Completion &&completion) {
+void RegistryMonitor::_reactToCompletion(Completion &&completion) {
     try {
-        nlohmann::json requestBody;
-        auto lines = 1;
-        if (completion.isSnippet()) {
-            const auto &content = completion.content();
-            auto pos = content.find(R"(\n)", 0);
-            while (pos != string::npos) {
-                ++lines;
-                pos = content.find(R"(\n)", pos + 1);
-            }
-        }
-        requestBody = {
-                {"code_line",   lines},
-                {"mode",        completion.isSnippet()},
-                {"project_id",  _projectId},
-                {"tab_output",  true},
-                {"total_lines", lines},
-                {"text_length", completion.content().length()},
-                {"username",    Configurator::GetInstance()->username()},
-                {"version",     "SI-0.6.1"},
-        };
-        logger::log(requestBody.dump());
-        auto client = httplib::Client("http://10.113.10.68:4322");
+        const auto requestBody = Statistics{completion, _pluginVersion, _projectId}.parse();
+        logger::log(format("Statistics: {}", requestBody.dump()));
+        auto client = httplib::Client("http://10.113.36.121");
         client.set_connection_timeout(3);
-        client.Post("/code/statistical", requestBody.dump(), "application/json");
-    } catch (...) {}
+        if (auto res = client.Post(
+                "/kong/RdTestResourceStatistic/report/summary",
+                requestBody.dump(),
+                "application/json"
+        )) {
+            logger::log(format("Statistics result: {}", res->status));
+        } else {
+            logger::log(format("Statistics error: {}", httplib::to_string(res.error())));
+        }
+    } catch (exception &e) {
+        logger::log(e.what());
+    }
 }
 
 void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
     _lastTriggerTime = chrono::high_resolution_clock::now();
     thread([this, editorInfoString, currentTriggerName = _lastTriggerTime.load()] {
-        const auto completionGenerated = generateCompletion(editorInfoString, _projectId);
-//        const auto completionGenerated = optional<string>("0Generated");
-        logger::log(format("Generated completion: {}", completionGenerated.value_or("null")));
+        optional<string> completionGenerated;
+        {
+            nlohmann::json requestBody = {
+                    {"info",      crypto::encode(editorInfoString, crypto::Encoding::Base64)},
+                    {"projectId", _projectId},
+                    {"version", _pluginVersion},
+            };
+            auto client = httplib::Client("http://localhost:3000");
+            client.set_connection_timeout(10);
+            client.set_read_timeout(10);
+            client.set_write_timeout(10);
+            if (auto res = client.Post(
+                    "/generate",
+                    requestBody.dump(),
+                    "application/json"
+            )) {
+                const auto responseBody = nlohmann::json::parse(res->body);
+                const auto result = responseBody["result"].get<string>();
+                const auto &contents = responseBody["contents"];
+                if (result == "success" && contents.is_array() && !contents.empty()) {
+                    completionGenerated.emplace(crypto::decode(contents[0].get<string>(), crypto::Encoding::Base64));
+                    logger::log(format("Generated completion: {}", completionGenerated.value_or("null")));
+                } else {
+                    logger::log(format("Completion is invalid: {}", result));
+                }
+            } else {
+                logger::log(format("Completion request error: {}", httplib::to_string(res.error())));
+            }
+        }
         if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
             try {
                 _completionCache.reset(completionGenerated.value()[0] == '1', completionGenerated.value().substr(1));

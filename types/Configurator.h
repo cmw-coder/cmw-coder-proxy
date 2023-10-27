@@ -15,6 +15,8 @@ namespace types {
 
         [[nodiscard]] SiVersion version() const;
 
+        [[nodiscard]] std::string pluginVersion(const std::string &version) const;
+
     private:
         std::string _userName;
         SiVersion _version = SiVersion::Unknown;
