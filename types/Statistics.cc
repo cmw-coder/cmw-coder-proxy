@@ -1,4 +1,4 @@
-#include <ctime>
+#include <utility>
 
 #include <types/Statistics.h>
 #include <types/Configurator.h>
@@ -7,25 +7,29 @@
 using namespace types;
 using namespace utils;
 
-SKU::SKU(std::string user, std::string projectId, std::string completion, bool mode):begin(time(0)), end(time(0)), subType(projectId), 
-user(Configurator::GetInstance()->username()), count(0){
+Statistics::Statistics(std::string projectId, std::string completion, bool mode) :
+        _projectId(std::move(projectId)),
+        user(Configurator::GetInstance()->username()) {
+    const auto nowTime = std::chrono::system_clock::now().time_since_epoch();
+    _beginEpochSeconds = std::chrono::duration_cast<std::chrono::seconds>(nowTime).count();
+    _endEpochSeconds = std::chrono::duration_cast<std::chrono::seconds>(nowTime).count();
+
     //mode == true时 此时是CharData
-    if (mode == true){
+    if (mode) {
         firstClass = "ADOPT_CHAR";
         skuName = "";
         const auto isSnippet = completion[0] == '1';
         if (isSnippet) {
-           count = completion.length() - 1;
+            count = completion.length() - 1;
         } else {
-            int index = completion.find(R"(\n)", 0);
+            const auto index = completion.find(R"(\n)", 0);
             logger::log(std::format("index: {}", index));
-            if (index > 1){
-                count =  index - 1;
+            if (index > 1) {
+                count = index - 1;
             } else {
                 count = completion.length() - 1;
             }
         }
-        
     } else {
         const auto isSnippet = completion[0] == '1';
         auto lines = 1;
@@ -40,23 +44,21 @@ user(Configurator::GetInstance()->username()), count(0){
         skuName = "ADOPT";
         count = lines;
     }
-    
 }
-void SKU::to_json(nlohmann::json& request){
-    nlohmann::json temp_json;
-    temp_json = {
-        {"begin", begin},
-        {"end", end},
-        {"user", user},
-        {"userType", userType},
-        {"count", count},
-        {"extra", extra},
-        {"type", type},
-        {"product", product},
-        {"firstClass", firstClass},
-        {"secondClass", secondClass},
-        {"skuName", skuName},
-        {"subType", subType},
+
+nlohmann::json Statistics::parse() {
+    return {
+            {"begin",       _beginEpochSeconds},
+            {"end",         _endEpochSeconds},
+            {"user",        user},
+            {"userType",    "USER"},
+            {"count",       count},
+            {"extra",       extra},
+            {"type",        "AIGC"},
+            {"product",     "Source Insight 3"},
+            {"firstClass",  firstClass},
+            {"secondClass", "CMW"},
+            {"skuName",     skuName},
+            {"subType",     _projectId},
     };
-    request.push_back(temp_json);
 }
