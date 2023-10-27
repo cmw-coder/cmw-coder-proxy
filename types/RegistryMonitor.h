@@ -33,7 +33,7 @@ namespace types {
 
     private:
         const std::string _subKey = R"(SOFTWARE\Source Dynamics\Source Insight\3.0)";
-        std::string _projectId, _projectHash;
+        std::string _projectId, _projectHash, _pluginVersion;
         CompletionCache _completionCache;
         std::atomic<bool> _isRunning = true, _justInserted = false;
         std::atomic<std::chrono::time_point<std::chrono::high_resolution_clock>> _lastTriggerTime;

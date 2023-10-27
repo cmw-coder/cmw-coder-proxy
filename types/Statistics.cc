@@ -4,14 +4,17 @@
 #include <types/Configurator.h>
 #include <utils/logger.h>
 
+using namespace std;
 using namespace types;
 using namespace utils;
 
-Statistics::Statistics(Completion completion, std::string projectId) :
-        _completion(std::move(completion)), _projectId(std::move(projectId)) {
-    const auto nowTime = std::chrono::system_clock::now().time_since_epoch();
-    _beginEpochSeconds = std::chrono::duration_cast<std::chrono::seconds>(nowTime).count();
-    _endEpochSeconds = std::chrono::duration_cast<std::chrono::seconds>(nowTime).count();
+Statistics::Statistics(Completion completion, string pluginVersion, string projectId) :
+        _completion(std::move(completion)),
+        _pluginVersion(std::move(pluginVersion)),
+        _projectId(std::move(projectId)) {
+    const auto nowTime = chrono::system_clock::now().time_since_epoch();
+    _beginEpochSeconds = chrono::duration_cast<chrono::seconds>(nowTime).count();
+    _endEpochSeconds = chrono::duration_cast<chrono::seconds>(nowTime).count();
 }
 
 /**
@@ -35,7 +38,7 @@ nlohmann::json Statistics::parse() {
     const nlohmann::json basicInfo = {
             {"begin",       _beginEpochSeconds},
             {"end",         _endEpochSeconds},
-            {"extra",       Configurator::GetInstance()->pluginVersion()},
+            {"extra",       _pluginVersion},
             {"product",     "SI"},
             {"secondClass", "CMW"},
             {"subType",     _projectId},
@@ -57,7 +60,7 @@ nlohmann::json Statistics::parse() {
         auto lineCount = 1;
         if (_completion.isSnippet()) {
             auto pos = completionContent.find(R"(\n)", 0);
-            while (pos != std::string::npos) {
+            while (pos != string::npos) {
                 ++lineCount;
                 pos = completionContent.find(R"(\n)", pos + 1);
             }
