@@ -1,5 +1,3 @@
-#include <format>
-
 #include <magic_enum.hpp>
 
 #include <helpers/KeyHelper.h>
@@ -18,16 +16,14 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
-namespace {}
-
 WindowInterceptor::WindowInterceptor() {
-    this->_windowHook = shared_ptr<void>(SetWindowsHookEx(
+    _windowHook = shared_ptr<void>(SetWindowsHookEx(
             WH_CALLWNDPROC,
             WindowInterceptor::_windowProcedureHook,
             nullptr,
             GetCurrentThreadId()
     ), UnhookWindowsHookEx);
-    if (!this->_windowHook) {
+    if (!_windowHook) {
         throw runtime_error("Failed to set window hook.");
     }
 }
@@ -49,20 +45,20 @@ void WindowInterceptor::_processWindowMessage(long lParam) {
             case WM_KILLFOCUS: {
                 const auto targetWindowClass = window::getWindowClassName(
                         reinterpret_cast<HWND>(windowProcData->wParam));
-                if (this->_codeWindow >= 0 && targetWindowClass != "si_Poplist") {
-                    logger::log(format(
+                if (_codeWindow >= 0 && targetWindowClass != "si_Poplist") {
+                    /*logger::log(format(
                             "Coding window '{}' lost focus. (0x{:08X} '{}') to (0x{:08X} '{}')",
                             window::getWindowText(currentWindow),
                             reinterpret_cast<uint64_t>(currentWindow),
                             window::getWindowClassName(currentWindow),
                             static_cast<uint64_t>(windowProcData->wParam),
                             targetWindowClass
-                    ));
+                    ));*/
                     _handlers.at(UserAction::Navigate)(-1);
-                    this->_codeWindow.store(-1);
+                    _codeWindow.store(-1);
                 } else if (targetWindowClass == "si_Poplist") {
+                    _popListWindow.store(windowProcData->wParam);
                     logger::log("PopList show up.");
-                    this->_popListWindow.store(windowProcData->wParam);
                 }
                 break;
             }
@@ -71,26 +67,31 @@ void WindowInterceptor::_processWindowMessage(long lParam) {
                 break;
             }
             case WM_SETFOCUS: {
-                const auto fromWindowClass = window::getWindowClassName(
-                        reinterpret_cast<HWND>(windowProcData->wParam));
-                if (this->_codeWindow < 0 && fromWindowClass != "si_Poplist") {
-                    logger::log(format(
-                            "Coding window '{}' gained focus. (0x{:08X} '{}')",
-                            window::getWindowText(currentWindow),
-                            reinterpret_cast<uint64_t>(currentWindow),
-                            window::getWindowClassName(currentWindow)
-                    ));
-                    this->_codeWindow.store(reinterpret_cast<int64_t>(currentWindow));
-                } else if (fromWindowClass == "si_Poplist") {
+                /*logger::log(format(
+                        "Coding window '{}' set focus. (0x{:08X} '{}') from (0x{:08X} '{}')",
+                        window::getWindowText(currentWindow),
+                        reinterpret_cast<uint64_t>(currentWindow),
+                        window::getWindowClassName(currentWindow),
+                        static_cast<uint64_t>(windowProcData->wParam),
+                        window::getWindowClassName(reinterpret_cast<HWND>(windowProcData->wParam))
+                ));*/
+                if (_codeWindow < 0) {
+                    _codeWindow.store(reinterpret_cast<int64_t>(currentWindow));
+                }
+                if (_popListWindow > 0) {
                     logger::log("PopList disappeared.");
-                    this->_popListWindow.store(-1);
+                    _popListWindow.store(-1);
+                    sendCancelCompletion();
+                    /*thread([this] {
+                        this_thread::sleep_for(chrono::milliseconds(10));
+                        sendCancelCompletion();
+                    }).detach();*/
                 }
                 break;
             }
             case UM_KEYCODE: {
-                if (this->_codeWindow >= 0) {
-                    _handleKeycode(windowProcData->wParam);
-                }
+                _handleKeycode(windowProcData->wParam);
+                logger::log("Processing keycode...");
                 break;
             }
             default: {
@@ -104,10 +105,8 @@ void WindowInterceptor::_handleKeycode(unsigned int keycode) noexcept {
     try {
         switch (keycode) {
             case enum_integer(Key::BackSpace): {
-                if (this->_popListWindow >= 0) {
-                    window::sendKeycode(this->_codeWindow.load(), KeyHelper::toKeycode(Key::Insert));
-                    window::sendKeycode(this->_codeWindow.load(), KeyHelper::toKeycode(Key::Insert));
-                }
+                window::sendKeycode(_codeWindow, KeyHelper::toKeycode(Key::Insert));
+                window::sendKeycode(_codeWindow, KeyHelper::toKeycode(Key::Insert));
                 CursorMonitor::GetInstance()->setAction(UserAction::DeleteBackward);
                 break;
             }
@@ -138,10 +137,8 @@ void WindowInterceptor::_handleKeycode(unsigned int keycode) noexcept {
             default: {
                 if (keycode >= enum_integer(Key::Space) && keycode <= enum_integer(Key::Tilde) &&
                     keycode != enum_integer(Key::RightCurlyBracket)) {
-                    if (this->_popListWindow >= 0) {
-                        window::sendKeycode(this->_codeWindow.load(), KeyHelper::toKeycode(Key::Insert));
-                        window::sendKeycode(this->_codeWindow.load(), KeyHelper::toKeycode(Key::Insert));
-                    }
+                    window::sendKeycode(_codeWindow, KeyHelper::toKeycode(Key::Insert));
+                    window::sendKeycode(_codeWindow, KeyHelper::toKeycode(Key::Insert));
                     _handlers.at(UserAction::Normal)(keycode);
                 } else if (((keycode & 0x802F) >= 0x8021 && (keycode & 0x802F) <= 0x8029)) {
                     /// See "WinUser.h" Line 515
@@ -155,43 +152,42 @@ void WindowInterceptor::_handleKeycode(unsigned int keycode) noexcept {
 
 bool WindowInterceptor::sendAcceptCompletion() {
     return window::postKeycode(
-            this->_codeWindow,
+            _codeWindow,
             KeyHelper::toKeycode(Key::F10, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
     );
 }
 
 bool WindowInterceptor::sendCancelCompletion() {
     return window::postKeycode(
-            this->_codeWindow,
+            _codeWindow,
             KeyHelper::toKeycode(Key::F9, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
     );
 }
 
 bool WindowInterceptor::sendInsertCompletion() {
     return window::postKeycode(
-            this->_codeWindow,
+            _codeWindow,
             KeyHelper::toKeycode(Key::F12, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
     );
 }
 
 bool WindowInterceptor::sendRetrieveInfo() {
-    logger::log("Retrieving editor info...");
     return window::postKeycode(
-            this->_codeWindow,
+            _codeWindow,
             KeyHelper::toKeycode(Key::F11, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
     );
 }
 
 bool WindowInterceptor::sendSave() {
     return window::postKeycode(
-            this->_codeWindow,
+            _codeWindow,
             KeyHelper::toKeycode(Key::S, Modifier::Ctrl)
     );
 }
 
 bool WindowInterceptor::sendUndo() {
     return window::postKeycode(
-            this->_codeWindow,
+            _codeWindow,
             KeyHelper::toKeycode(Key::Z, Modifier::Ctrl)
     );
 }

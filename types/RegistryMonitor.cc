@@ -17,7 +17,6 @@
 
 using namespace magic_enum;
 using namespace std;
-using namespace std::ranges;
 using namespace types;
 using namespace utils;
 
@@ -30,7 +29,7 @@ namespace {
 
 RegistryMonitor::RegistryMonitor() {
     thread([this] {
-        while (this->_isRunning.load()) {
+        while (_isRunning.load()) {
             try {
                 const auto editorInfoString = system::getRegValue(_subKey, "editorInfo");
 
@@ -123,7 +122,6 @@ RegistryMonitor::RegistryMonitor() {
                 }
 
                 logger::log(editorInfo.dump());*/
-
             } catch (runtime_error &e) {
             } catch (exception &e) {
                 logger::log(e.what());
@@ -135,7 +133,7 @@ RegistryMonitor::RegistryMonitor() {
     }).detach();
     thread([this] {
         const auto debugLogKey = "CMWCODER_logDebug";
-        while (this->_isRunning.load()) {
+        while (_isRunning.load()) {
             try {
                 const auto logDebugString = system::getRegValue(_subKey, debugLogKey);
                 logger::log(format("[SI] {}", logDebugString));
@@ -148,12 +146,12 @@ RegistryMonitor::RegistryMonitor() {
 }
 
 RegistryMonitor::~RegistryMonitor() {
-    this->_isRunning.store(false);
+    _isRunning.store(false);
 }
 
 void RegistryMonitor::acceptByTab(unsigned int) {
     _justInserted = true;
-    const auto completion = _completionCache.reset();
+    auto completion = _completionCache.reset();
     logger::log(format("Accepted completion: {}", completion.stringify()));
     if (!completion.content().empty()) {
         WindowInterceptor::GetInstance()->sendAcceptCompletion();
@@ -268,7 +266,6 @@ void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
                 _cancelCompletion();
                 logger::log(format("Canceled due to cache miss (keycode: {})", keycode));
                 windowInterceptor->sendRetrieveInfo();
-                logger::log(format("Retrieving editor info... (keycode: {})", keycode));
             }
         } catch (runtime_error &e) {
             logger::log(e.what());
@@ -346,7 +343,6 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
                 logger::log(format("Completion request error: {}", httplib::to_string(res.error())));
             }
         }
-
         if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
             try {
                 _completionCache.reset(completionGenerated.value()[0] == '1', completionGenerated.value().substr(1));
