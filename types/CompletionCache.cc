@@ -3,7 +3,7 @@
 using namespace std;
 using namespace types;
 
-optional<pair<char, optional<CompletionCache::Completion>>> CompletionCache::previous() {
+optional<pair<char, optional<Completion>>> CompletionCache::previous() {
     if (!valid()) {
         return nullopt;
     }
@@ -17,7 +17,7 @@ optional<pair<char, optional<CompletionCache::Completion>>> CompletionCache::pre
     return make_pair(currentChar, nullopt);
 }
 
-optional<pair<char, optional<CompletionCache::Completion>>> CompletionCache::next() {
+optional<pair<char, optional<Completion>>> CompletionCache::next() {
     if (!valid()) {
         return nullopt;
     }
@@ -31,7 +31,7 @@ optional<pair<char, optional<CompletionCache::Completion>>> CompletionCache::nex
     return make_pair(currentChar, nullopt);
 }
 
-CompletionCache::Completion CompletionCache::reset(bool isSnippet, string content) {
+Completion CompletionCache::reset(bool isSnippet, string content) {
     _currentIndex = content.empty() ? -1 : 0;
     unique_lock<shared_mutex> lock(_shared_mutex);
     const auto oldCompletion = Completion{_isSnippet, _content};

@@ -316,17 +316,24 @@ void RegistryMonitor::_insertCompletion(const string &data) {
     WindowInterceptor::GetInstance()->sendInsertCompletion();
 }
 
-void RegistryMonitor::_reactToCompletion(CompletionCache::Completion &&completion) {
+void RegistryMonitor::_reactToCompletion(Completion &&completion) {
     try {
-        auto requestBody = nlohmann::json::array();
-
-        requestBody.push_back(Statistics{_projectId, completion.stringify(), false}.parse());
-        requestBody.push_back(Statistics{_projectId, completion.stringify(), true}.parse());
-        logger::log(requestBody.dump());
-        auto client = httplib::Client("http://ipAddress/kong/RdTestResourceStatistic/");
+        const auto requestBody = Statistics{completion, _projectId}.parse();
+        logger::log(format("Statistics: {}", requestBody.dump()));
+        auto client = httplib::Client("http://10.113.36.121");
         client.set_connection_timeout(3);
-        client.Post("/report/summary", requestBody.dump(), "application/json");
-    } catch (...) {}
+        if (auto res = client.Post(
+                "/kong/RdTestResourceStatistic/report/summary",
+                requestBody.dump(),
+                "application/json"
+        )) {
+            logger::log(format("Statistics result: {}", res->body));
+        } else {
+            logger::log(format("Statistics error: {}", httplib::to_string(res.error())));
+        }
+    } catch (exception &e) {
+        logger::log(e.what());
+    }
 }
 
 void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {

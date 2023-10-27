@@ -31,7 +31,9 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     )
 endif ()
 
-add_library(${PROXY_MODULE_NAME} SHARED proxy.cc main.cc)
+add_library(${PROXY_MODULE_NAME} SHARED proxy.cc main.cc
+        types/Completion.cc
+        types/Completion.h)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_singleton.cmake)
 
