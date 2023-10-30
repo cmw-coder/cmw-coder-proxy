@@ -58,7 +58,6 @@ void WindowInterceptor::_processWindowMessage(long lParam) {
                     _codeWindow.store(-1);
                 } else if (targetWindowClass == "si_Poplist") {
                     _popListWindow.store(windowProcData->wParam);
-                    logger::log("PopList show up.");
                 }
                 break;
             }
@@ -79,19 +78,13 @@ void WindowInterceptor::_processWindowMessage(long lParam) {
                     _codeWindow.store(reinterpret_cast<int64_t>(currentWindow));
                 }
                 if (_popListWindow > 0) {
-                    logger::log("PopList disappeared.");
                     _popListWindow.store(-1);
                     sendCancelCompletion();
-                    /*thread([this] {
-                        this_thread::sleep_for(chrono::milliseconds(10));
-                        sendCancelCompletion();
-                    }).detach();*/
                 }
                 break;
             }
             case UM_KEYCODE: {
                 _handleKeycode(windowProcData->wParam);
-                logger::log("Processing keycode...");
                 break;
             }
             default: {

@@ -293,7 +293,7 @@ void RegistryMonitor::_insertCompletion(const string &data) {
 
 void RegistryMonitor::_reactToCompletion(Completion &&completion) {
     try {
-        const auto requestBody = Statistics{completion, _pluginVersion, _projectId}.parse();
+        const auto requestBody = Statistics{completion, _currentModel, _pluginVersion, _projectId}.parse();
         logger::log(format("Statistics: {}", requestBody.dump()));
         auto client = httplib::Client("http://10.113.36.121");
         client.set_connection_timeout(3);
@@ -319,7 +319,7 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
             nlohmann::json requestBody = {
                     {"info",      crypto::encode(editorInfoString, crypto::Encoding::Base64)},
                     {"projectId", _projectId},
-                    {"version", _pluginVersion},
+                    {"version",   _pluginVersion},
             };
             auto client = httplib::Client("http://localhost:3000");
             client.set_connection_timeout(10);
@@ -335,6 +335,14 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
                 const auto &contents = responseBody["contents"];
                 if (result == "success" && contents.is_array() && !contents.empty()) {
                     completionGenerated.emplace(crypto::decode(contents[0].get<string>(), crypto::Encoding::Base64));
+                    logger::log(format("modelType: '{}'", responseBody["modelType"].get<string>()));
+                    const auto modelType = enum_cast<ModelType>(
+                            responseBody["modelType"].get<string>()
+                    ).value_or(ModelType::CMW);
+                    if (_currentModel != modelType) {
+                        _currentModel = modelType;
+                        logger::log(format("Switch to model: {}", enum_name(_currentModel.load())));
+                    }
                     logger::log(format("Generated completion: {}", completionGenerated.value_or("null")));
                 } else {
                     logger::log(format("Completion is invalid: {}", result));

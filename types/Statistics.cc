@@ -1,15 +1,17 @@
-#include <utility>
+#include <magic_enum.hpp>
 
 #include <types/Statistics.h>
 #include <types/Configurator.h>
 #include <utils/logger.h>
 
+using namespace magic_enum;
 using namespace std;
 using namespace types;
 using namespace utils;
 
-Statistics::Statistics(Completion completion, string pluginVersion, string projectId) :
+Statistics::Statistics(Completion completion, ModelType modelType, string pluginVersion, string projectId) :
         _completion(std::move(completion)),
+        _modelType(modelType),
         _pluginVersion(std::move(pluginVersion)),
         _projectId(std::move(projectId)) {
     const auto nowTime = chrono::system_clock::now().time_since_epoch();
@@ -40,7 +42,7 @@ nlohmann::json Statistics::parse() {
             {"end",         _endEpochSeconds},
             {"extra",       _pluginVersion},
             {"product",     "SI"},
-            {"secondClass", "CMW"},
+            {"secondClass", enum_name(_modelType)},
             {"subType",     _projectId},
             {"type",        "AIGC"},
             {"user",        Configurator::GetInstance()->username()},

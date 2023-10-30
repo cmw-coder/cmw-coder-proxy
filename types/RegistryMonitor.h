@@ -4,6 +4,7 @@
 
 #include <singleton_dclp.hpp>
 
+#include <types/common.h>
 #include <types/CompletionCache.h>
 #include <types/CursorPosition.h>
 #include <types/UserAction.h>
@@ -36,13 +37,14 @@ namespace types {
         std::string _projectId, _projectHash, _pluginVersion;
         CompletionCache _completionCache;
         std::atomic<bool> _isRunning = true, _justInserted = false;
+        std::atomic<ModelType> _currentModel = ModelType::CMW;
         std::atomic<std::chrono::time_point<std::chrono::high_resolution_clock>> _lastTriggerTime;
 
         void _cancelCompletion(UserAction action = UserAction::DeleteBackward, bool resetCache = true);
 
         void _insertCompletion(const std::string &data);
 
-        void _reactToCompletion(Completion&& completion);
+        void _reactToCompletion(Completion &&completion);
 
         void _retrieveCompletion(const std::string &editorInfoString);
 
