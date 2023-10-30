@@ -335,7 +335,6 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
                 const auto &contents = responseBody["contents"];
                 if (result == "success" && contents.is_array() && !contents.empty()) {
                     completionGenerated.emplace(crypto::decode(contents[0].get<string>(), crypto::Encoding::Base64));
-                    logger::log(format("modelType: '{}'", responseBody["modelType"].get<string>()));
                     const auto modelType = enum_cast<ModelType>(
                             responseBody["modelType"].get<string>()
                     ).value_or(ModelType::CMW);
