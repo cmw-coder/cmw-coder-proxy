@@ -9,7 +9,6 @@
 #include <types/RegistryMonitor.h>
 #include <types/UserAction.h>
 #include <types/WindowInterceptor.h>
-#include <types/Statistics.h>
 #include <utils/crypto.h>
 #include <utils/inputbox.h>
 #include <utils/logger.h>
@@ -293,16 +292,19 @@ void RegistryMonitor::_insertCompletion(const string &data) {
 
 void RegistryMonitor::_reactToCompletion(Completion &&completion) {
     try {
-        const auto requestBody = Statistics{completion, _currentModel, _pluginVersion, _projectId}.parse();
-        logger::log(format("Statistics: {}", requestBody.dump()));
-        auto client = httplib::Client("http://10.113.36.121");
+        auto client = httplib::Client("http://localhost:3000");
         client.set_connection_timeout(3);
         if (auto res = client.Post(
-                "/kong/RdTestResourceStatistic/report/summary",
-                requestBody.dump(),
+                "/completion/accept",
+                nlohmann::json{
+                        {"completion", completion.stringify()},
+                        {"projectId",  _projectId},
+                        {"version",    _pluginVersion},
+                }.dump(),
                 "application/json"
         )) {
-            logger::log(format("Statistics result: {}", res->status));
+            const auto responseBody = nlohmann::json::parse(res->body);
+            logger::log(format("/: {}", responseBody["result"].get<string>()));
         } else {
             logger::log(format("Statistics error: {}", httplib::to_string(res.error())));
         }
@@ -316,18 +318,17 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
     thread([this, editorInfoString, currentTriggerName = _lastTriggerTime.load()] {
         optional<string> completionGenerated;
         {
-            nlohmann::json requestBody = {
-                    {"info",      crypto::encode(editorInfoString, crypto::Encoding::Base64)},
-                    {"projectId", _projectId},
-                    {"version",   _pluginVersion},
-            };
             auto client = httplib::Client("http://localhost:3000");
             client.set_connection_timeout(10);
             client.set_read_timeout(10);
             client.set_write_timeout(10);
             if (auto res = client.Post(
                     "/generate",
-                    requestBody.dump(),
+                    nlohmann::json{
+                            {"info",      crypto::encode(editorInfoString, crypto::Encoding::Base64)},
+                            {"projectId", _projectId},
+                            {"version",   _pluginVersion},
+                    }.dump(),
                     "application/json"
             )) {
                 const auto responseBody = nlohmann::json::parse(res->body);
