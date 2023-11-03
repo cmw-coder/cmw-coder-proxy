@@ -123,10 +123,10 @@ void WindowInterceptor::_handleKeycode(unsigned int keycode) noexcept {
                 RegistryMonitor::GetInstance()->cancelBySave();
                 break;
             }
-            case enum_integer(Modifier::Ctrl) + enum_integer(Key::Z): {
-                RegistryMonitor::GetInstance()->cancelByUndo();
-                break;
-            }
+//            case enum_integer(Modifier::Ctrl) + enum_integer(Key::Z): {
+//                RegistryMonitor::GetInstance()->cancelByUndo();
+//                break;
+//            }
             default: {
                 if (keycode >= enum_integer(Key::Space) && keycode <= enum_integer(Key::Tilde) &&
                     keycode != enum_integer(Key::RightCurlyBracket)) {
