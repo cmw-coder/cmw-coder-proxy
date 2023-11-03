@@ -226,18 +226,18 @@ void RegistryMonitor::cancelBySave() {
     }
 }
 
-void RegistryMonitor::cancelByUndo() {
-    const auto windowInterceptor = WindowInterceptor::GetInstance();
-    if (_justInserted.load()) {
-        _justInserted = false;
-        windowInterceptor->sendUndo();
-        windowInterceptor->sendUndo();
-    } else if (_completionCache.valid()) {
-        _completionCache.reset();
-        logger::log(("Canceled by undo"));
-        windowInterceptor->sendUndo();
-    }
-}
+//void RegistryMonitor::cancelByUndo() {
+//    const auto windowInterceptor = WindowInterceptor::GetInstance();
+//    if (_justInserted.load()) {
+//        _justInserted = false;
+//        windowInterceptor->sendUndo();
+//        windowInterceptor->sendUndo();
+//    } else if (_completionCache.valid()) {
+//        _completionCache.reset();
+//        logger::log(("Canceled by undo"));
+//        windowInterceptor->sendUndo();
+//    }
+//}
 
 void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
     const auto windowInterceptor = WindowInterceptor::GetInstance();

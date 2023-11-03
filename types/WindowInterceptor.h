@@ -34,7 +34,7 @@ namespace types {
 
         bool sendSave();
 
-        bool sendUndo();
+//        bool sendUndo();
 
     private:
         std::shared_ptr<void> _windowHook = nullptr;

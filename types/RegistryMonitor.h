@@ -28,7 +28,7 @@ namespace types {
 
         void cancelBySave();
 
-        void cancelByUndo();
+//        void cancelByUndo();
 
         void retrieveEditorInfo(unsigned int keycode);
 
