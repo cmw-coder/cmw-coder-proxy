@@ -178,9 +178,9 @@ bool WindowInterceptor::sendSave() {
     );
 }
 
-//bool WindowInterceptor::sendUndo() {
-//    return window::postKeycode(
-//            _codeWindow,
-//            KeyHelper::toKeycode(Key::Z, Modifier::Ctrl)
-//    );
-//}
+bool WindowInterceptor::sendUndo() {
+    return window::postKeycode(
+            _codeWindow,
+            KeyHelper::toKeycode(Key::Z, Modifier::Ctrl)
+    );
+}

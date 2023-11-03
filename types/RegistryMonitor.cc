@@ -225,18 +225,18 @@ void RegistryMonitor::cancelBySave() {
     }
 }
 
-//void RegistryMonitor::cancelByUndo() {
-//    const auto windowInterceptor = WindowInterceptor::GetInstance();
-//    if (_justInserted.load()) {
-//        _justInserted = false;
-//        windowInterceptor->sendUndo();
-//        windowInterceptor->sendUndo();
-//    } else if (_completionCache.valid()) {
-//        _completionCache.reset();
-//        logger::log(("Canceled by undo"));
-//        windowInterceptor->sendUndo();
-//    }
-//}
+void RegistryMonitor::cancelByUndo() {
+    const auto windowInterceptor = WindowInterceptor::GetInstance();
+    if (_justInserted.load()) {
+        _justInserted = false;
+        windowInterceptor->sendUndo();
+        windowInterceptor->sendUndo();
+    } else if (_completionCache.valid()) {
+        _completionCache.reset();
+        logger::log(("Canceled by undo"));
+        windowInterceptor->sendUndo();
+    }
+}
 
 void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
     const auto windowInterceptor = WindowInterceptor::GetInstance();
@@ -304,12 +304,12 @@ void RegistryMonitor::_reactToCompletion(Completion &&completion) {
                 "application/json"
         )) {
             const auto responseBody = nlohmann::json::parse(res->body);
-            logger::log(format("/: {}", responseBody["result"].get<string>()));
+            logger::log(format("(/completion/accept) Result: {}", responseBody["result"].get<string>()));
         } else {
-            logger::log(format("Statistics error: {}", httplib::to_string(res.error())));
+            logger::log(format("(/completion/accept) Http error: {}", httplib::to_string(res.error())));
         }
     } catch (exception &e) {
-        logger::log(e.what());
+        logger::log(format("(/completion/accept) Exception: {}", e.what()));
     }
 }
 
@@ -317,13 +317,13 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
     _lastTriggerTime = chrono::high_resolution_clock::now();
     thread([this, editorInfoString, currentTriggerName = _lastTriggerTime.load()] {
         optional<string> completionGenerated;
-        {
+        try {
             auto client = httplib::Client("http://localhost:3000");
             client.set_connection_timeout(10);
             client.set_read_timeout(10);
             client.set_write_timeout(10);
             if (auto res = client.Post(
-                    "/generate",
+                    "/completion/generate",
                     nlohmann::json{
                             {"info",      crypto::encode(editorInfoString, crypto::Encoding::Base64)},
                             {"projectId", _projectId},
@@ -336,20 +336,15 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
                 const auto &contents = responseBody["contents"];
                 if (result == "success" && contents.is_array() && !contents.empty()) {
                     completionGenerated.emplace(crypto::decode(contents[0].get<string>(), crypto::Encoding::Base64));
-                    const auto modelType = enum_cast<ModelType>(
-                            responseBody["modelType"].get<string>()
-                    ).value_or(ModelType::CMW);
-                    if (_currentModel != modelType) {
-                        _currentModel = modelType;
-                        logger::log(format("Switch to model: {}", enum_name(_currentModel.load())));
-                    }
-                    logger::log(format("Generated completion: {}", completionGenerated.value_or("null")));
+                    logger::log(format("(/completion/generate) Completion: {}", completionGenerated.value_or("null")));
                 } else {
-                    logger::log(format("Completion is invalid: {}", result));
+                    logger::log(format("(/completion/generate) Completion is invalid: {}", result));
                 }
             } else {
-                logger::log(format("Completion request error: {}", httplib::to_string(res.error())));
+                logger::log(format("(/completion/generate) HTTP error: {}", httplib::to_string(res.error())));
             }
+        } catch (exception &e) {
+            logger::log(format("(/completion/generate) Exception: {}", e.what()));
         }
         if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
             try {

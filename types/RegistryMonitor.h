@@ -28,7 +28,7 @@ namespace types {
 
         void cancelBySave();
 
-//        void cancelByUndo();
+        void cancelByUndo();
 
         void retrieveEditorInfo(unsigned int keycode);
 
@@ -37,7 +37,6 @@ namespace types {
         std::string _projectId, _projectHash, _pluginVersion;
         CompletionCache _completionCache;
         std::atomic<bool> _isRunning = true, _justInserted = false;
-        std::atomic<ModelType> _currentModel = ModelType::CMW;
         std::atomic<std::chrono::time_point<std::chrono::high_resolution_clock>> _lastTriggerTime;
 
         void _cancelCompletion(UserAction action = UserAction::DeleteBackward, bool resetCache = true);
