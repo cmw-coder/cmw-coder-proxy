@@ -21,18 +21,20 @@ using namespace utils;
 
 namespace {
     const regex editorInfoRegex(
-            R"regex(^cursor="(.*?)";path="(.*?)";project="(.*?)";tabs="(.*?)";version="(.*?)";symbols="(.*?)";prefix="(.*?)";suffix="(.*?)"$)regex");
+            R"regex(^cursor="(.*?)";path="(.*?)";project="(.*?)";tabs="(.*?)";version="(.*?)";)regex");
 //    const regex cursorRegex(
 //            R"regex(^lnFirst="(.*?)";ichFirst="(.*?)";lnLast="(.*?)";ichLim="(.*?)";fExtended="(.*?)";fRect="(.*?)"$)regex");
 }
 
-RegistryMonitor::RegistryMonitor() {
+RegistryMonitor::RegistryMonitor() :
+        _subKey(Configurator::GetInstance()->version().first == SiVersion::Major::V35
+                ? R"(SOFTWARE\Source Dynamics\Source Insight\3.0)"
+                : R"(SOFTWARE\Source Dynamics\Source Insight\4.0)") {
     thread([this] {
         while (_isRunning.load()) {
             try {
                 const auto editorInfoString = system::getRegValue(_subKey, "editorInfo");
-
-                // logger::log(editorInfoString);
+                logger::log(format("editorInfoString: {}", editorInfoString));
                 system::deleteRegValue(_subKey, "editorInfo");
 
                 smatch editorInfoRegexResults;
@@ -50,7 +52,7 @@ RegistryMonitor::RegistryMonitor() {
 
                 const auto version = editorInfoRegexResults[5].str();
                 if (_pluginVersion.empty()) {
-                    _pluginVersion = Configurator::GetInstance()->pluginVersion(version);
+                    _pluginVersion = Configurator::GetInstance()->reportVersion(version);
                     logger::log(format("Plugin version: {}", _pluginVersion));
                 }
 

@@ -11,14 +11,12 @@ namespace types {
     public:
         Configurator();
 
-        [[nodiscard]] std::string username() const;
+        [[nodiscard]] std::pair<SiVersion::Major, SiVersion::Minor> version() const;
 
-        [[nodiscard]] SiVersion version() const;
-
-        [[nodiscard]] std::string pluginVersion(const std::string &version) const;
+        [[nodiscard]] std::string reportVersion(const std::string &version) const;
 
     private:
-        std::string _userName;
-        SiVersion _version = SiVersion::Unknown;
+        std::string _siVersionString;
+        std::pair<SiVersion::Major, SiVersion::Minor> _siVersion;
     };
 }

@@ -33,7 +33,7 @@ namespace types {
         void retrieveEditorInfo(unsigned int keycode);
 
     private:
-        const std::string _subKey = R"(SOFTWARE\Source Dynamics\Source Insight\3.0)";
+        const std::string _subKey;
         std::string _projectId, _projectHash, _pluginVersion;
         CompletionCache _completionCache;
         std::atomic<bool> _isRunning = true, _justInserted = false;
