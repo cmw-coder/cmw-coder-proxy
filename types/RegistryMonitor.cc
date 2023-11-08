@@ -21,7 +21,7 @@ using namespace utils;
 
 namespace {
     const regex editorInfoRegex(
-            R"regex(^cursor="(.*?)";path="(.*?)";project="(.*?)";tabs="(.*?)";version="(.*?)";)regex");
+            R"regex(^cursor="(.*?)";path="(.*?)";project="(.*?)";tabs="(.*?)";type="(.*?)";version="(.*?)";symbols="(.*?)";prefix="(.*?)";suffix="(.*?)"$)regex");
 //    const regex cursorRegex(
 //            R"regex(^lnFirst="(.*?)";ichFirst="(.*?)";lnLast="(.*?)";ichLim="(.*?)";fExtended="(.*?)";fRect="(.*?)"$)regex");
 }
@@ -39,8 +39,8 @@ RegistryMonitor::RegistryMonitor() :
 
                 smatch editorInfoRegexResults;
                 if (!regex_match(editorInfoString, editorInfoRegexResults, editorInfoRegex) ||
-                    editorInfoRegexResults.size() != 9) {
-                    logger::log("Invalid editorInfoString");
+                    editorInfoRegexResults.size() != 10) {
+                    logger::log(format("Invalid editorInfoString, size: {}", editorInfoRegexResults.size()));
                     continue;
                 }
 
