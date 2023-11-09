@@ -40,7 +40,7 @@ RegistryMonitor::RegistryMonitor() :
                 smatch editorInfoRegexResults;
                 if (!regex_match(editorInfoString, editorInfoRegexResults, editorInfoRegex) ||
                     editorInfoRegexResults.size() != 10) {
-                    logger::log(format("Invalid editorInfoString, size: {}", editorInfoRegexResults.size()));
+                    logger::log(format("Invalid editorInfoString, original string: {}, result size: {}", editorInfoString, editorInfoRegexResults.size()));
                     continue;
                 }
 
