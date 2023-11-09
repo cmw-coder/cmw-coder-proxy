@@ -19,8 +19,8 @@ namespace {
                                             {SiVersion::Minor::V0086, {0x1BE0CC, 0x1CD3E0}}
                                     }},
             {SiVersion::Major::V40, {
+                                            {SiVersion::Minor::V0084, {0x268A60, 0x268A64}},
                                             {SiVersion::Minor::V0086, {0x26D938, 0x26D93C}},
-                                            {SiVersion::Minor::V0113, {0x27D040, 0x27E35C}},
                                             {SiVersion::Minor::V0132, {0x28B2FC, 0x28B300}}
                                     }},
     };
