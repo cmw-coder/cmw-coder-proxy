@@ -40,7 +40,9 @@ RegistryMonitor::RegistryMonitor() :
                 smatch editorInfoRegexResults;
                 if (!regex_match(editorInfoString, editorInfoRegexResults, editorInfoRegex) ||
                     editorInfoRegexResults.size() != 10) {
-                    logger::log(format("Invalid editorInfoString, original string: {}, result size: {}", editorInfoString, editorInfoRegexResults.size()));
+                    logger::log(
+                            format("Invalid editorInfoString, original string: {}, result size: {}", editorInfoString,
+                                   editorInfoRegexResults.size()));
                     continue;
                 }
 
@@ -132,18 +134,8 @@ RegistryMonitor::RegistryMonitor() :
             this_thread::sleep_for(chrono::milliseconds(1));
         }
     }).detach();
-    thread([this] {
-        const auto debugLogKey = "CMWCODER_logDebug";
-        while (_isRunning.load()) {
-            try {
-                const auto logDebugString = system::getRegValue(_subKey, debugLogKey);
-                logger::log(format("[SI] {}", logDebugString));
-                system::deleteRegValue(_subKey, debugLogKey);
-            } catch (runtime_error &e) {
-            }
-            this_thread::sleep_for(chrono::milliseconds(1));
-        }
-    }).detach();
+    _threadLogDebug();
+    _threadDebounceRetrieveInfo();
 }
 
 RegistryMonitor::~RegistryMonitor() {
@@ -214,7 +206,7 @@ void RegistryMonitor::cancelByModifyLine(Keycode keycode) {
     }
 
     if (keycode != enum_integer(Key::BackSpace)) {
-        windowInterceptor->RequestRetrieveInfo();
+        windowInterceptor->sendRetrieveInfo();
     }
 }
 
@@ -239,8 +231,7 @@ void RegistryMonitor::cancelByUndo() {
     }
 }
 
-void RegistryMonitor::retrieveEditorInfo(Keycode keycode) {
-    const auto windowInterceptor = WindowInterceptor::GetInstance();
+void RegistryMonitor::processNormalKey(Keycode keycode) {
     _justInserted = false;
 
     const auto nextCacheOpt = _completionCache.next();
@@ -264,14 +255,14 @@ void RegistryMonitor::retrieveEditorInfo(Keycode keycode) {
                 // Cache miss
                 _cancelCompletion();
                 logger::log(format("Canceled due to cache miss (keycode: {})", keycode));
-                windowInterceptor->RequestRetrieveInfo();
+                _requestEditorInfo();
             }
         } catch (runtime_error &e) {
             logger::log(e.what());
         }
     } else {
         // No valid cache
-        windowInterceptor->RequestRetrieveInfo();
+        _requestEditorInfo();
         return;
     }
 }
@@ -309,6 +300,13 @@ void RegistryMonitor::_reactToCompletion(Completion &&completion) {
         }
     } catch (exception &e) {
         logger::log(format("(/completion/accept) Exception: {}", e.what()));
+    }
+}
+
+void RegistryMonitor::_requestEditorInfo() {
+    if (_isAutoCompletion) {
+        _debounceTime.store(chrono::high_resolution_clock::now() + chrono::milliseconds(250));
+        _needRetrieveInfo.store(true);
     }
 }
 
@@ -379,4 +377,54 @@ void RegistryMonitor::_retrieveProjectId(const string &projectFolder) {
             }
         }
     }
+}
+
+void RegistryMonitor::_threadCompletionMode() {
+    thread([this] {
+        const auto autoCompletionKey = "autoCompletion";
+        while (_isRunning.load()) {
+            try {
+                const bool isAutoCompletion = stoi(system::getRegValue(_subKey, autoCompletionKey));
+                if (_isAutoCompletion != isAutoCompletion) {
+                    _isAutoCompletion = isAutoCompletion;
+                    logger::log(format("Auto completion: {}", _isAutoCompletion.load() ? "on" : "off"));
+                }
+            } catch (runtime_error &e) {
+            }
+            this_thread::sleep_for(chrono::milliseconds(10));
+        }
+    }).detach();
+}
+
+void RegistryMonitor::_threadDebounceRetrieveInfo() {
+    thread([this] {
+        while (_isRunning.load()) {
+            if (_needRetrieveInfo.load()) {
+                const auto deltaTime = _debounceTime.load() - chrono::high_resolution_clock::now();
+                if (deltaTime <= chrono::nanoseconds(0)) {
+                    WindowInterceptor::GetInstance()->sendRetrieveInfo();
+                    _needRetrieveInfo.store(false);
+                } else {
+                    this_thread::sleep_for(deltaTime);
+                }
+            } else {
+                this_thread::sleep_for(chrono::milliseconds(10));
+            }
+        }
+    }).detach();
+}
+
+void RegistryMonitor::_threadLogDebug() {
+    thread([this] {
+        const auto debugLogKey = "CMWCODER_logDebug";
+        while (_isRunning.load()) {
+            try {
+                const auto logDebugString = system::getRegValue(_subKey, debugLogKey);
+                logger::log(format("[SI] {}", logDebugString));
+                system::deleteRegValue(_subKey, debugLogKey);
+            } catch (runtime_error &e) {
+            }
+            this_thread::sleep_for(chrono::milliseconds(1));
+        }
+    }).detach();
 }
