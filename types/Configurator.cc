@@ -32,5 +32,5 @@ pair<SiVersion::Major, SiVersion::Minor> Configurator::version() const {
 }
 
 string Configurator::reportVersion(const string &version) const {
-    return _siVersionString + version;
+    return version + _siVersionString;
 }

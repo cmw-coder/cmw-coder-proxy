@@ -51,7 +51,7 @@ RegistryMonitor::RegistryMonitor() :
                 _retrieveCompletion(editorInfoString);
 
                 const auto version = editorInfoRegexResults[5].str();
-                if (_pluginVersion.empty()) {
+                if (!version.empty() && _pluginVersion.empty()) {
                     _pluginVersion = Configurator::GetInstance()->reportVersion(version);
                     logger::log(format("Plugin version: {}", _pluginVersion));
                 }

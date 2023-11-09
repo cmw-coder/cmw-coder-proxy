@@ -36,7 +36,7 @@ WindowInterceptor::addHandler(UserAction userAction, WindowInterceptor::CallBack
 }
 
 void WindowInterceptor::RequestRetrieveInfo() {
-    _debounceTime.store(chrono::high_resolution_clock::now() + chrono::milliseconds(200));
+    _debounceTime.store(chrono::high_resolution_clock::now() + chrono::milliseconds(250));
     _needRetrieveInfo.store(true);
 }
 
@@ -172,14 +172,14 @@ void WindowInterceptor::_processWindowMessage(long lParam) {
                 const auto targetWindowClass = window::getWindowClassName(
                         reinterpret_cast<HWND>(windowProcData->wParam));
                 if (_codeWindow >= 0 && targetWindowClass != "si_Poplist") {
-                    logger::log(format(
-                            "Coding window '{}' lost focus. (0x{:08X} '{}') to (0x{:08X} '{}')",
-                            window::getWindowText(currentWindow),
-                            reinterpret_cast<uint64_t>(currentWindow),
-                            window::getWindowClassName(currentWindow),
-                            static_cast<uint64_t>(windowProcData->wParam),
-                            targetWindowClass
-                    ));
+//                    logger::log(format(
+//                            "Coding window '{}' lost focus. (0x{:08X} '{}') to (0x{:08X} '{}')",
+//                            window::getWindowText(currentWindow),
+//                            reinterpret_cast<uint64_t>(currentWindow),
+//                            window::getWindowClassName(currentWindow),
+//                            static_cast<uint64_t>(windowProcData->wParam),
+//                            targetWindowClass
+//                    ));
                     _handlers.at(UserAction::Navigate)(-1);
                     _codeWindow.store(-1);
                 } else if (targetWindowClass == "si_Poplist") {
@@ -192,14 +192,14 @@ void WindowInterceptor::_processWindowMessage(long lParam) {
                 break;
             }
             case WM_SETFOCUS: {
-                logger::log(format(
-                        "Coding window '{}' set focus. (0x{:08X} '{}') from (0x{:08X} '{}')",
-                        window::getWindowText(currentWindow),
-                        reinterpret_cast<uint64_t>(currentWindow),
-                        window::getWindowClassName(currentWindow),
-                        static_cast<uint64_t>(windowProcData->wParam),
-                        window::getWindowClassName(reinterpret_cast<HWND>(windowProcData->wParam))
-                ));
+//                logger::log(format(
+//                        "Coding window '{}' set focus. (0x{:08X} '{}') from (0x{:08X} '{}')",
+//                        window::getWindowText(currentWindow),
+//                        reinterpret_cast<uint64_t>(currentWindow),
+//                        window::getWindowClassName(currentWindow),
+//                        static_cast<uint64_t>(windowProcData->wParam),
+//                        window::getWindowClassName(reinterpret_cast<HWND>(windowProcData->wParam))
+//                ));
                 if (_codeWindow < 0) {
                     _codeWindow.store(reinterpret_cast<int64_t>(currentWindow));
                 }
