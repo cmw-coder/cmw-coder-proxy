@@ -34,7 +34,7 @@ RegistryMonitor::RegistryMonitor() :
         while (_isRunning.load()) {
             try {
                 const auto editorInfoString = system::getRegValue(_subKey, "editorInfo");
-                logger::log(format("editorInfoString: {}", editorInfoString));
+//                logger::log(format("editorInfoString: {}", editorInfoString));
                 system::deleteRegValue(_subKey, "editorInfo");
 
                 smatch editorInfoRegexResults;

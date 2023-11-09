@@ -32,21 +32,22 @@ CursorMonitor::CursorMonitor() :
         throw runtime_error("Failed to get current process handle");
     }
     thread([this]() {
+        const auto baseAddress = reinterpret_cast<uint32_t>(GetModuleHandle(nullptr));
+        const auto [majorVersion, minorVersion] = Configurator::GetInstance()->version();
         try {
-            const auto [majorVersion, minorVersion] = Configurator::GetInstance()->version();
             const auto [lineAddress, charAddress] = addressMap.at(majorVersion).at(minorVersion);
             while (this->_isRunning.load()) {
                 CursorPosition cursorPosition{};
                 ReadProcessMemory(
                         this->_sharedProcessHandle.get(),
-                        reinterpret_cast<LPCVOID>(lineAddress),
+                        reinterpret_cast<LPCVOID>(baseAddress + lineAddress),
                         &cursorPosition.line,
                         sizeof(cursorPosition.line),
                         nullptr
                 );
                 ReadProcessMemory(
                         this->_sharedProcessHandle.get(),
-                        reinterpret_cast<LPCVOID>(charAddress),
+                        reinterpret_cast<LPCVOID>(baseAddress + charAddress),
                         &cursorPosition.character,
                         sizeof(cursorPosition.character),
                         nullptr
@@ -65,7 +66,7 @@ CursorMonitor::CursorMonitor() :
             }
         } catch (out_of_range &e) {
             logger::error(format("Unsupported Source Insight Version: ", e.what()));
-            return;
+            exit(1);
         }
     }).detach();
 }
