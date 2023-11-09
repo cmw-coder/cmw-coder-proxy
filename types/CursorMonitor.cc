@@ -36,7 +36,7 @@ CursorMonitor::CursorMonitor() :
         const auto [majorVersion, minorVersion] = Configurator::GetInstance()->version();
         try {
             const auto [lineAddress, charAddress] = addressMap.at(majorVersion).at(minorVersion);
-            while (this->_isRunning.load()) {
+            while (_isRunning.load()) {
                 CursorPosition cursorPosition{};
                 ReadProcessMemory(
                         this->_sharedProcessHandle.get(),

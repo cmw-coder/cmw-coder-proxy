@@ -16,21 +16,21 @@ namespace types {
 
         ~RegistryMonitor() override;
 
-        void acceptByTab(unsigned int);
+        void acceptByTab(Keycode);
 
         void cancelByCursorNavigate(CursorPosition, CursorPosition);
 
         void cancelByDeleteBackward(CursorPosition oldPosition, CursorPosition newPosition);
 
-        void cancelByKeycodeNavigate(unsigned int);
+        void cancelByKeycodeNavigate(Keycode);
 
-        void cancelByModifyLine(unsigned int keycode);
+        void cancelByModifyLine(Keycode keycode);
 
         void cancelBySave();
 
         void cancelByUndo();
 
-        void retrieveEditorInfo(unsigned int keycode);
+        void retrieveEditorInfo(Keycode keycode);
 
     private:
         const std::string _subKey;

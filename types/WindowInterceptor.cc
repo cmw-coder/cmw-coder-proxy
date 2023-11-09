@@ -27,11 +27,17 @@ WindowInterceptor::WindowInterceptor() :
     if (!_windowHook) {
         throw runtime_error("Failed to set window hook.");
     }
+    _debounceRetrieveInfo();
 }
 
 [[maybe_unused]] void
 WindowInterceptor::addHandler(UserAction userAction, WindowInterceptor::CallBackFunction function) {
     _handlers[userAction] = std::move(function);
+}
+
+void WindowInterceptor::RequestRetrieveInfo() {
+    _debounceTime.store(chrono::high_resolution_clock::now() + chrono::milliseconds(200));
+    _needRetrieveInfo.store(true);
 }
 
 bool WindowInterceptor::sendAcceptCompletion() {
@@ -55,15 +61,6 @@ bool WindowInterceptor::sendInsertCompletion() {
     );
 }
 
-bool WindowInterceptor::sendRetrieveInfo() {
-    logger::log(format("Sending retrieve info...: {}",
-                       _keyHelper.toKeycode(Key::F11, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})));
-    return window::postKeycode(
-            _codeWindow,
-            _keyHelper.toKeycode(Key::F11, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
-    );
-}
-
 bool WindowInterceptor::sendSave() {
     return window::postKeycode(
             _codeWindow,
@@ -78,7 +75,29 @@ bool WindowInterceptor::sendUndo() {
     );
 }
 
-void WindowInterceptor::_handleKeycode(int keycode) noexcept {
+void WindowInterceptor::_debounceRetrieveInfo() {
+    thread([this] {
+        while (_isRunning.load()) {
+            if (_needRetrieveInfo.load()) {
+                const auto deltaTime = _debounceTime.load() - chrono::high_resolution_clock::now();
+                if (deltaTime <= chrono::nanoseconds(0)) {
+                    logger::log("Sending retrieve info...");
+                    window::postKeycode(
+                            _codeWindow,
+                            _keyHelper.toKeycode(Key::F11, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
+                    );
+                    _needRetrieveInfo.store(false);
+                } else {
+                    this_thread::sleep_for(deltaTime);
+                }
+            } else {
+                this_thread::sleep_for(chrono::milliseconds(10));
+            }
+        }
+    }).detach();
+}
+
+void WindowInterceptor::_handleKeycode(Keycode keycode) noexcept {
     if (_keyHelper.isNavigate(keycode)) {
         CursorMonitor::GetInstance()->setAction(UserAction::Navigate);
         return;

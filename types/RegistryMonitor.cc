@@ -150,14 +150,13 @@ RegistryMonitor::~RegistryMonitor() {
     _isRunning.store(false);
 }
 
-void RegistryMonitor::acceptByTab(unsigned int) {
+void RegistryMonitor::acceptByTab(Keycode) {
     _justInserted = true;
     auto completion = _completionCache.reset();
-    logger::log(format("Accepted completion: {}", completion.stringify()));
     if (!completion.content().empty()) {
         WindowInterceptor::GetInstance()->sendAcceptCompletion();
+        logger::log(format("Accepted completion: {}", completion.stringify()));
         thread(&RegistryMonitor::_reactToCompletion, this, std::move(completion)).detach();
-        logger::log("Accepted completion");
     }
 }
 
@@ -191,7 +190,7 @@ void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorP
     }
 }
 
-void RegistryMonitor::cancelByKeycodeNavigate(unsigned int) {
+void RegistryMonitor::cancelByKeycodeNavigate(Keycode) {
     if (_completionCache.valid()) {
         try {
             _cancelCompletion(UserAction::Navigate);
@@ -202,7 +201,7 @@ void RegistryMonitor::cancelByKeycodeNavigate(unsigned int) {
     }
 }
 
-void RegistryMonitor::cancelByModifyLine(unsigned int keycode) {
+void RegistryMonitor::cancelByModifyLine(Keycode keycode) {
     const auto windowInterceptor = WindowInterceptor::GetInstance();
     _justInserted = false;
     if (_completionCache.valid()) {
@@ -215,7 +214,7 @@ void RegistryMonitor::cancelByModifyLine(unsigned int keycode) {
     }
 
     if (keycode != enum_integer(Key::BackSpace)) {
-        windowInterceptor->sendRetrieveInfo();
+        windowInterceptor->RequestRetrieveInfo();
     }
 }
 
@@ -240,7 +239,7 @@ void RegistryMonitor::cancelByUndo() {
     }
 }
 
-void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
+void RegistryMonitor::retrieveEditorInfo(Keycode keycode) {
     const auto windowInterceptor = WindowInterceptor::GetInstance();
     _justInserted = false;
 
@@ -256,7 +255,6 @@ void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
                     _cancelCompletion(UserAction::DeleteBackward, false);
                     logger::log("Canceled due to update cache");
                     _insertCompletion(completionOpt.value().stringify());
-//                    logger::log(format("Insert next cached completion: {}", completionOpt.value().stringify()));
                 } else {
                     // Out of cache
                     logger::log("Accept due to fill in cache");
@@ -266,15 +264,14 @@ void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
                 // Cache miss
                 _cancelCompletion();
                 logger::log(format("Canceled due to cache miss (keycode: {})", keycode));
-                windowInterceptor->sendRetrieveInfo();
+                windowInterceptor->RequestRetrieveInfo();
             }
         } catch (runtime_error &e) {
             logger::log(e.what());
         }
     } else {
         // No valid cache
-        windowInterceptor->sendRetrieveInfo();
-        logger::log(format("Retrieving editor info... (keycode: {})", keycode));
+        windowInterceptor->RequestRetrieveInfo();
         return;
     }
 }
