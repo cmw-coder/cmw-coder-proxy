@@ -4,6 +4,7 @@
 #include <magic_enum.hpp>
 #include <nlohmann/json.hpp>
 #include <httplib.h>
+#include <wintoastlib.h>
 
 #include <types/Configurator.h>
 #include <types/RegistryMonitor.h>
@@ -18,6 +19,7 @@ using namespace magic_enum;
 using namespace std;
 using namespace types;
 using namespace utils;
+using namespace WinToastLib;
 
 namespace {
     const regex editorInfoRegex(
@@ -134,8 +136,9 @@ RegistryMonitor::RegistryMonitor() :
             this_thread::sleep_for(chrono::milliseconds(1));
         }
     }).detach();
-    _threadLogDebug();
+    _threadCompletionMode();
     _threadDebounceRetrieveInfo();
+    _threadLogDebug();
 }
 
 RegistryMonitor::~RegistryMonitor() {
@@ -388,6 +391,10 @@ void RegistryMonitor::_threadCompletionMode() {
                 if (_isAutoCompletion != isAutoCompletion) {
                     _isAutoCompletion = isAutoCompletion;
                     logger::log(format("Auto completion: {}", _isAutoCompletion.load() ? "on" : "off"));
+                    Configurator::GetInstance()->showToast(
+                            L"Completion Mode",
+                            L"Changed to '" + wstring(_isAutoCompletion.load() ? L"Auto" : L"Manual") + L"' mode"
+                    );
                 }
             } catch (runtime_error &e) {
             }

@@ -6,12 +6,17 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake"
         CACHE STRING "Vcpkg toolchain file")
 
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg.json VCPKG_JSON)
+string(JSON VERSION_STRING GET ${VCPKG_JSON} version-string)
+message(STATUS "Project version: ${VERSION_STRING}")
+
 project(cmw-coder-proxy CXX)
 
 set(PROXY_MODULE_NAME "msimg32")
 
 add_compile_definitions(CMAKE_PROJECT_NAME="${PROJECT_NAME}")
 add_compile_definitions(PROXY_MODULE_NAME="${PROXY_MODULE_NAME}")
+add_compile_definitions(VERSION_STRING="${VERSION_STRING}")
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     message(STATUS "Compiler is Clang")
@@ -36,6 +41,7 @@ add_library(${PROXY_MODULE_NAME} SHARED proxy.cc main.cc
         types/Completion.h)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_singleton.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_wintoast.cmake)
 
 find_package(cryptopp CONFIG REQUIRED)
 find_package(httplib CONFIG REQUIRED)
@@ -49,6 +55,7 @@ target_link_libraries(${PROXY_MODULE_NAME} PRIVATE
         nlohmann_json::nlohmann_json
         singleton::singleton
         Version.lib
+        WinToast
 )
 
 target_include_directories(${PROXY_MODULE_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

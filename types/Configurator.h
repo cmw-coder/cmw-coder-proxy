@@ -15,8 +15,13 @@ namespace types {
 
         [[nodiscard]] std::string reportVersion(const std::string &version) const;
 
+        bool showToast(const std::wstring &title, const std::wstring &content) const;
+
     private:
+        bool _canToast;
         std::string _siVersionString;
         std::pair<SiVersion::Major, SiVersion::Minor> _siVersion;
+
+        void _initWinToast();
     };
 }
