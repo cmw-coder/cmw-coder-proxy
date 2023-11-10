@@ -7,6 +7,7 @@ namespace types {
         Enter,
         Escape,
         S,
+        V,
         Z,
         RightCurlyBracket,
         F9,

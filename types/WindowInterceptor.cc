@@ -138,6 +138,10 @@ void WindowInterceptor::_handleKeycode(Keycode keycode) noexcept {
                             RegistryMonitor::GetInstance()->cancelBySave();
                             break;
                         }
+                        case Key::V: {
+                            RegistryMonitor::GetInstance()->cancelBySave();
+                            break;
+                        }
                         case Key::Z: {
                             RegistryMonitor::GetInstance()->cancelByUndo();
                             break;
