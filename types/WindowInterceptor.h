@@ -6,8 +6,7 @@
 
 #include <singleton_dclp.hpp>
 
-#include <types/Key.h>
-#include <types/SiVersion.h>
+#include <helpers/KeyHelper.h>
 #include <types/UserAction.h>
 
 namespace types {
@@ -22,7 +21,7 @@ namespace types {
             _handlers[userAction] = std::bind_front(memberFunction, other);
         }
 
-        void addHandler(UserAction userAction, CallBackFunction function);
+        [[maybe_unused]] void addHandler(UserAction userAction, CallBackFunction function);
 
         bool sendAcceptCompletion();
 
@@ -37,14 +36,17 @@ namespace types {
         bool sendUndo();
 
     private:
-        std::shared_ptr<void> _windowHook = nullptr;
+        helpers::KeyHelper _keyHelper;
+        std::atomic<bool> _isRunning = true;
         std::atomic<int64_t> _codeWindow = -1, _popListWindow = -1;
+        std::shared_ptr<void> _windowHook = nullptr;
+        std::string _popListWindowName;
         std::unordered_map<UserAction, CallBackFunction> _handlers;
 
-        static long __stdcall _windowProcedureHook(int nCode, unsigned int wParam, long lParam);
+        void _handleKeycode(Keycode keycode) noexcept;
 
         void _processWindowMessage(long lParam);
 
-        void _handleKeycode(unsigned int keycode) noexcept;
+        static long __stdcall _windowProcedureHook(int nCode, unsigned int wParam, long lParam);
     };
 }

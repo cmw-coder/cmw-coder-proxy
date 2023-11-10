@@ -16,28 +16,28 @@ namespace types {
 
         ~RegistryMonitor() override;
 
-        void acceptByTab(unsigned int);
+        void acceptByTab(Keycode);
 
         void cancelByCursorNavigate(CursorPosition, CursorPosition);
 
         void cancelByDeleteBackward(CursorPosition oldPosition, CursorPosition newPosition);
 
-        void cancelByKeycodeNavigate(unsigned int);
+        void cancelByKeycodeNavigate(Keycode);
 
-        void cancelByModifyLine(unsigned int keycode);
+        void cancelByModifyLine(Keycode keycode);
 
         void cancelBySave();
 
         void cancelByUndo();
 
-        void retrieveEditorInfo(unsigned int keycode);
+        void processNormalKey(Keycode keycode);
 
     private:
-        const std::string _subKey = R"(SOFTWARE\Source Dynamics\Source Insight\3.0)";
+        const std::string _subKey;
         std::string _projectId, _projectHash, _pluginVersion;
         CompletionCache _completionCache;
-        std::atomic<bool> _isRunning = true, _justInserted = false;
-        std::atomic<std::chrono::time_point<std::chrono::high_resolution_clock>> _lastTriggerTime;
+        std::atomic<bool> _isAutoCompletion = true, _isRunning = true, _justInserted = false, _needRetrieveInfo = false;
+        std::atomic<std::chrono::time_point<std::chrono::high_resolution_clock>> _debounceTime, _lastTriggerTime;
 
         void _cancelCompletion(UserAction action = UserAction::DeleteBackward, bool resetCache = true);
 
@@ -45,8 +45,17 @@ namespace types {
 
         void _reactToCompletion(Completion &&completion);
 
+        void _requestEditorInfo();
+
         void _retrieveCompletion(const std::string &editorInfoString);
 
         void _retrieveProjectId(const std::string &projectFolder);
+
+        void _threadCompletionMode();
+
+        void _threadDebounceRetrieveInfo();
+
+        void _threadLogDebug();
+
     };
 }

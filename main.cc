@@ -76,13 +76,13 @@ extern "C" {
             WindowInterceptor::GetInstance()->addHandler(
                     UserAction::Normal,
                     RegistryMonitor::GetInstance(),
-                    &RegistryMonitor::retrieveEditorInfo
+                    &RegistryMonitor::processNormalKey
             );
 
             const auto mainThreadId = system::getMainThreadId();
             logger::log(std::format(
-                    "MinorVersion: {}, PID: {}, currentTID: {}, mainTID: {}, mainModuleName: {}",
-                    get<2>(system::getVersion()),
+                    "siVersion: {}, PID: {}, currentTID: {}, mainTID: {}, mainModuleName: {}",
+                    Configurator::GetInstance()->reportVersion(""),
                     GetCurrentProcessId(),
                     GetCurrentThreadId(),
                     mainThreadId,

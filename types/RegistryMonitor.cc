@@ -21,24 +21,32 @@ using namespace utils;
 
 namespace {
     const regex editorInfoRegex(
-            R"regex(^cursor="(.*?)";path="(.*?)";project="(.*?)";tabs="(.*?)";version="(.*?)";symbols="(.*?)";prefix="(.*?)";suffix="(.*?)"$)regex");
+            R"regex(^cursor="(.*?)";path="(.*?)";project="(.*?)";tabs="(.*?)";type="(.*?)";version="(.*?)";symbols="(.*?)";prefix="(.*?)";suffix="(.*?)"$)regex");
 //    const regex cursorRegex(
 //            R"regex(^lnFirst="(.*?)";ichFirst="(.*?)";lnLast="(.*?)";ichLim="(.*?)";fExtended="(.*?)";fRect="(.*?)"$)regex");
 }
 
-RegistryMonitor::RegistryMonitor() {
+RegistryMonitor::RegistryMonitor() :
+        _subKey(Configurator::GetInstance()->version().first == SiVersion::Major::V35
+                ? R"(SOFTWARE\Source Dynamics\Source Insight\3.0)"
+                : R"(SOFTWARE\Source Dynamics\Source Insight\4.0)") {
+    try {
+        _isAutoCompletion = stoi(system::getRegValue(_subKey, "autoCompletion"));
+    } catch (...) {}
+
     thread([this] {
         while (_isRunning.load()) {
             try {
                 const auto editorInfoString = system::getRegValue(_subKey, "editorInfo");
-
-                // logger::log(editorInfoString);
+//                logger::log(format("editorInfoString: {}", editorInfoString));
                 system::deleteRegValue(_subKey, "editorInfo");
 
                 smatch editorInfoRegexResults;
                 if (!regex_match(editorInfoString, editorInfoRegexResults, editorInfoRegex) ||
-                    editorInfoRegexResults.size() != 9) {
-                    logger::log("Invalid editorInfoString");
+                    editorInfoRegexResults.size() != 10) {
+                    logger::log(
+                            format("Invalid editorInfoString, original string: {}, result size: {}", editorInfoString,
+                                   editorInfoRegexResults.size()));
                     continue;
                 }
 
@@ -49,8 +57,8 @@ RegistryMonitor::RegistryMonitor() {
                 _retrieveCompletion(editorInfoString);
 
                 const auto version = editorInfoRegexResults[5].str();
-                if (_pluginVersion.empty()) {
-                    _pluginVersion = Configurator::GetInstance()->pluginVersion(version);
+                if (!version.empty() && _pluginVersion.empty()) {
+                    _pluginVersion = Configurator::GetInstance()->reportVersion(version);
                     logger::log(format("Plugin version: {}", _pluginVersion));
                 }
 
@@ -130,32 +138,22 @@ RegistryMonitor::RegistryMonitor() {
             this_thread::sleep_for(chrono::milliseconds(1));
         }
     }).detach();
-    thread([this] {
-        const auto debugLogKey = "CMWCODER_logDebug";
-        while (_isRunning.load()) {
-            try {
-                const auto logDebugString = system::getRegValue(_subKey, debugLogKey);
-                logger::log(format("[SI] {}", logDebugString));
-                system::deleteRegValue(_subKey, debugLogKey);
-            } catch (runtime_error &e) {
-            }
-            this_thread::sleep_for(chrono::milliseconds(1));
-        }
-    }).detach();
+    _threadCompletionMode();
+    _threadDebounceRetrieveInfo();
+    _threadLogDebug();
 }
 
 RegistryMonitor::~RegistryMonitor() {
     _isRunning.store(false);
 }
 
-void RegistryMonitor::acceptByTab(unsigned int) {
+void RegistryMonitor::acceptByTab(Keycode) {
     _justInserted = true;
     auto completion = _completionCache.reset();
-    logger::log(format("Accepted completion: {}", completion.stringify()));
     if (!completion.content().empty()) {
         WindowInterceptor::GetInstance()->sendAcceptCompletion();
+        logger::log(format("Accepted completion: {}", completion.stringify()));
         thread(&RegistryMonitor::_reactToCompletion, this, std::move(completion)).detach();
-        logger::log("Accepted completion");
     }
 }
 
@@ -189,7 +187,7 @@ void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorP
     }
 }
 
-void RegistryMonitor::cancelByKeycodeNavigate(unsigned int) {
+void RegistryMonitor::cancelByKeycodeNavigate(Keycode) {
     if (_completionCache.valid()) {
         try {
             _cancelCompletion(UserAction::Navigate);
@@ -200,7 +198,7 @@ void RegistryMonitor::cancelByKeycodeNavigate(unsigned int) {
     }
 }
 
-void RegistryMonitor::cancelByModifyLine(unsigned int keycode) {
+void RegistryMonitor::cancelByModifyLine(Keycode keycode) {
     const auto windowInterceptor = WindowInterceptor::GetInstance();
     _justInserted = false;
     if (_completionCache.valid()) {
@@ -238,8 +236,7 @@ void RegistryMonitor::cancelByUndo() {
     }
 }
 
-void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
-    const auto windowInterceptor = WindowInterceptor::GetInstance();
+void RegistryMonitor::processNormalKey(Keycode keycode) {
     _justInserted = false;
 
     const auto nextCacheOpt = _completionCache.next();
@@ -254,7 +251,6 @@ void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
                     _cancelCompletion(UserAction::DeleteBackward, false);
                     logger::log("Canceled due to update cache");
                     _insertCompletion(completionOpt.value().stringify());
-//                    logger::log(format("Insert next cached completion: {}", completionOpt.value().stringify()));
                 } else {
                     // Out of cache
                     logger::log("Accept due to fill in cache");
@@ -264,15 +260,14 @@ void RegistryMonitor::retrieveEditorInfo(unsigned int keycode) {
                 // Cache miss
                 _cancelCompletion();
                 logger::log(format("Canceled due to cache miss (keycode: {})", keycode));
-                windowInterceptor->sendRetrieveInfo();
+                _requestEditorInfo();
             }
         } catch (runtime_error &e) {
             logger::log(e.what());
         }
     } else {
         // No valid cache
-        windowInterceptor->sendRetrieveInfo();
-        logger::log(format("Retrieving editor info... (keycode: {})", keycode));
+        _requestEditorInfo();
         return;
     }
 }
@@ -310,6 +305,13 @@ void RegistryMonitor::_reactToCompletion(Completion &&completion) {
         }
     } catch (exception &e) {
         logger::log(format("(/completion/accept) Exception: {}", e.what()));
+    }
+}
+
+void RegistryMonitor::_requestEditorInfo() {
+    if (_isAutoCompletion) {
+        _debounceTime.store(chrono::high_resolution_clock::now() + chrono::milliseconds(250));
+        _needRetrieveInfo.store(true);
     }
 }
 
@@ -380,4 +382,52 @@ void RegistryMonitor::_retrieveProjectId(const string &projectFolder) {
             }
         }
     }
+}
+
+void RegistryMonitor::_threadCompletionMode() {
+    thread([this] {
+        while (_isRunning.load()) {
+            try {
+                const bool isAutoCompletion = stoi(system::getRegValue(_subKey, "autoCompletion"));
+                if (_isAutoCompletion != isAutoCompletion) {
+                    _isAutoCompletion = isAutoCompletion;
+                    logger::log(format("Auto completion: {}", _isAutoCompletion.load() ? "on" : "off"));
+                }
+            } catch (runtime_error &e) {}
+            this_thread::sleep_for(chrono::milliseconds(10));
+        }
+    }).detach();
+}
+
+void RegistryMonitor::_threadDebounceRetrieveInfo() {
+    thread([this] {
+        while (_isRunning.load()) {
+            if (_needRetrieveInfo.load()) {
+                const auto deltaTime = _debounceTime.load() - chrono::high_resolution_clock::now();
+                if (deltaTime <= chrono::nanoseconds(0)) {
+                    WindowInterceptor::GetInstance()->sendRetrieveInfo();
+                    _needRetrieveInfo.store(false);
+                } else {
+                    this_thread::sleep_for(deltaTime);
+                }
+            } else {
+                this_thread::sleep_for(chrono::milliseconds(10));
+            }
+        }
+    }).detach();
+}
+
+void RegistryMonitor::_threadLogDebug() {
+    thread([this] {
+        const auto debugLogKey = "CMWCODER_logDebug";
+        while (_isRunning.load()) {
+            try {
+                const auto logDebugString = system::getRegValue(_subKey, debugLogKey);
+                logger::log(format("[SI] {}", logDebugString));
+                system::deleteRegValue(_subKey, debugLogKey);
+            } catch (runtime_error &e) {
+            }
+            this_thread::sleep_for(chrono::milliseconds(1));
+        }
+    }).detach();
 }

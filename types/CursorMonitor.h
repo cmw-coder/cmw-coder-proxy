@@ -33,7 +33,6 @@ namespace types {
         }
 
     private:
-        const uint64_t _baseAddress;
         std::shared_ptr<void> _sharedProcessHandle;
         std::atomic<bool> _isRunning = true;
         std::atomic<CursorPosition> _lastPosition{};

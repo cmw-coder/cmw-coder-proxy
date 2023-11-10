@@ -1,60 +1,37 @@
-#include <unordered_map>
+#include <format>
+
+#include <magic_enum.hpp>
 
 #include <types/Configurator.h>
+#include <utils/logger.h>
 #include <utils/system.h>
 
+using namespace magic_enum;
 using namespace std;
 using namespace types;
 using namespace utils;
 
-namespace {
-    const unordered_map<SiVersion, tuple<uint64_t, uint64_t>> addressMap = {
-            {SiVersion::V350076, {0x1CBEFC, 0x1CBF00}},
-            {SiVersion::V350086, {0x1BE0CC, 0x1CD3E0}},
-            {SiVersion::V400113, {0x27D040, 0x27E35C}},
-    };
-}
-
-Configurator::Configurator() : _userName(system::getUserName()) {
+Configurator::Configurator() {
     const auto [major, minor, build, _] = system::getVersion();
     if (major == 3 && minor == 5) {
-        if (build == 76) {
-            _version = SiVersion::V350076;
-        } else if (build == 86) {
-            _version = SiVersion::V350086;
-        }
-    } else if (major == 4 && minor == 0) {
-        if (build == 113) {
-            _version = SiVersion::V400113;
-        }
+        _siVersion = make_pair(
+                SiVersion::Major::V35,
+                enum_cast<SiVersion::Minor>(build).value_or(SiVersion::Minor::Unknown)
+        );
+        _siVersionString = "_3.50." + format("{:0>{}}", build, 4);
+    } else {
+        _siVersion = make_pair(
+                SiVersion::Major::V40,
+                enum_cast<SiVersion::Minor>(build).value_or(SiVersion::Minor::Unknown)
+        );
+        _siVersionString = "_4.00." + format("{:0>{}}", build, 4);
     }
 }
 
-string Configurator::username() const {
-    return _userName;
+pair<SiVersion::Major, SiVersion::Minor> Configurator::version() const {
+    return _siVersion;
 }
 
-SiVersion Configurator::version() const {
-    return _version;
-}
-
-std::string Configurator::pluginVersion(const string &version) const {
-    switch (_version) {
-        case SiVersion::V350076:
-            return version + "_3.50.0076";
-        case SiVersion::V350086:
-            return version + "_3.50.0086";
-        case SiVersion::V400084:
-            return version + "_4.00.0084";
-        case SiVersion::V400096:
-            return version + "_4.00.0096";
-        case SiVersion::V400099:
-            return version + "_4.00.0099";
-        case SiVersion::V400113:
-            return version + "_4.00.0113";
-        case SiVersion::V400116:
-            return version + "_4.00.0116";
-        default:
-            return version + "_0.00.0000";
-    }
+string Configurator::reportVersion(const string &version) const {
+    return version + _siVersionString;
 }

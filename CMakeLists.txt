@@ -6,12 +6,17 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake"
         CACHE STRING "Vcpkg toolchain file")
 
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg.json VCPKG_JSON)
+string(JSON VERSION_STRING GET ${VCPKG_JSON} version-string)
+message(STATUS "Project version: ${VERSION_STRING}")
+
 project(cmw-coder-proxy CXX)
 
 set(PROXY_MODULE_NAME "msimg32")
 
 add_compile_definitions(CMAKE_PROJECT_NAME="${PROJECT_NAME}")
 add_compile_definitions(PROXY_MODULE_NAME="${PROXY_MODULE_NAME}")
+add_compile_definitions(VERSION_STRING="${VERSION_STRING}")
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     message(STATUS "Compiler is Clang")
@@ -61,4 +66,5 @@ target_sources(${PROXY_MODULE_NAME} PRIVATE ${HELPERS} ${TYPES} ${UTILS})
 
 add_custom_command(TARGET ${PROXY_MODULE_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/${PROXY_MODULE_NAME}.dll "C:/Program Files (x86)/Source Insight 3/"
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/${PROXY_MODULE_NAME}.dll "C:/Program Files (x86)/Source Insight 4.0/"
 )
