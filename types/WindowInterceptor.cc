@@ -111,7 +111,16 @@ void WindowInterceptor::_handleKeycode(Keycode keycode) noexcept {
                         break;
                     }
                     case Key::Escape: {
-                        _handlers.at(UserAction::Navigate)(keycode);
+                        if (Configurator::GetInstance()->version().first == SiVersion::Major::V40) {
+                            thread([this, keycode] {
+                                try {
+                                    this_thread::sleep_for(chrono::milliseconds(150));
+                                    _handlers.at(UserAction::Navigate)(keycode);
+                                } catch (...) {}
+                            }).detach();
+                        } else {
+                            _handlers.at(UserAction::Navigate)(keycode);
+                        }
                         break;
                     }
                     case Key::Delete: {
