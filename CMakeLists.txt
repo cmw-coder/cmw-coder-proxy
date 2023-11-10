@@ -41,7 +41,6 @@ add_library(${PROXY_MODULE_NAME} SHARED proxy.cc main.cc
         types/Completion.h)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_singleton.cmake)
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_wintoast.cmake)
 
 find_package(cryptopp CONFIG REQUIRED)
 find_package(httplib CONFIG REQUIRED)
@@ -55,7 +54,6 @@ target_link_libraries(${PROXY_MODULE_NAME} PRIVATE
         nlohmann_json::nlohmann_json
         singleton::singleton
         Version.lib
-        WinToast
 )
 
 target_include_directories(${PROXY_MODULE_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

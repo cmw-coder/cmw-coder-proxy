@@ -1,5 +1,7 @@
 #pragma once
 
+#include <magic_enum.hpp>
+
 namespace types::SiVersion {
     enum class Major {
         V35 = 35,
@@ -20,3 +22,10 @@ namespace types::SiVersion {
         V0132 = 132,
     };
 }
+
+template <>
+struct [[maybe_unused]] magic_enum::customize::enum_range<types::SiVersion::Minor> {
+    [[maybe_unused]] static constexpr int min = 0;
+    [[maybe_unused]] static constexpr int max = 256;
+    /// (max - min) must be less than UINT16_MAX.
+};

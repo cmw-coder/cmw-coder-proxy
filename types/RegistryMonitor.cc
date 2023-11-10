@@ -4,7 +4,6 @@
 #include <magic_enum.hpp>
 #include <nlohmann/json.hpp>
 #include <httplib.h>
-#include <wintoastlib.h>
 
 #include <types/Configurator.h>
 #include <types/RegistryMonitor.h>
@@ -19,7 +18,6 @@ using namespace magic_enum;
 using namespace std;
 using namespace types;
 using namespace utils;
-using namespace WinToastLib;
 
 namespace {
     const regex editorInfoRegex(
@@ -32,6 +30,10 @@ RegistryMonitor::RegistryMonitor() :
         _subKey(Configurator::GetInstance()->version().first == SiVersion::Major::V35
                 ? R"(SOFTWARE\Source Dynamics\Source Insight\3.0)"
                 : R"(SOFTWARE\Source Dynamics\Source Insight\4.0)") {
+    try {
+        _isAutoCompletion = stoi(system::getRegValue(_subKey, "autoCompletion"));
+    } catch (...) {}
+
     thread([this] {
         while (_isRunning.load()) {
             try {
@@ -384,22 +386,14 @@ void RegistryMonitor::_retrieveProjectId(const string &projectFolder) {
 
 void RegistryMonitor::_threadCompletionMode() {
     thread([this] {
-        const auto autoCompletionKey = "autoCompletion";
         while (_isRunning.load()) {
             try {
-                const bool isAutoCompletion = stoi(system::getRegValue(_subKey, autoCompletionKey));
+                const bool isAutoCompletion = stoi(system::getRegValue(_subKey, "autoCompletion"));
                 if (_isAutoCompletion != isAutoCompletion) {
                     _isAutoCompletion = isAutoCompletion;
-                    const auto result = Configurator::GetInstance()->showToast(
-                            L"Completion Mode",
-                            L"Changed to '" + wstring(_isAutoCompletion.load() ? L"Auto" : L"Manual") + L"' mode"
-                    );
-                    if (!result) {
-                        logger::log(format("Auto completion: {}", _isAutoCompletion.load() ? "on" : "off"));
-                    }
+                    logger::log(format("Auto completion: {}", _isAutoCompletion.load() ? "on" : "off"));
                 }
-            } catch (runtime_error &e) {
-            }
+            } catch (runtime_error &e) {}
             this_thread::sleep_for(chrono::milliseconds(10));
         }
     }).detach();
