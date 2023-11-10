@@ -390,11 +390,13 @@ void RegistryMonitor::_threadCompletionMode() {
                 const bool isAutoCompletion = stoi(system::getRegValue(_subKey, autoCompletionKey));
                 if (_isAutoCompletion != isAutoCompletion) {
                     _isAutoCompletion = isAutoCompletion;
-                    logger::log(format("Auto completion: {}", _isAutoCompletion.load() ? "on" : "off"));
-                    Configurator::GetInstance()->showToast(
+                    const auto result = Configurator::GetInstance()->showToast(
                             L"Completion Mode",
                             L"Changed to '" + wstring(_isAutoCompletion.load() ? L"Auto" : L"Manual") + L"' mode"
                     );
+                    if (!result) {
+                        logger::log(format("Auto completion: {}", _isAutoCompletion.load() ? "on" : "off"));
+                    }
                 }
             } catch (runtime_error &e) {
             }

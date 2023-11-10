@@ -1,7 +1,6 @@
 #include <format>
 
 #include <magic_enum.hpp>
-#include <wintoastlib.h>
 
 #include <types/Configurator.h>
 #include <utils/logger.h>
@@ -12,6 +11,22 @@ using namespace std;
 using namespace types;
 using namespace utils;
 using namespace WinToastLib;
+
+void Configurator::WinToastHandler::toastActivated() const {
+    logger::log("Toast activated");
+}
+
+void Configurator::WinToastHandler::toastActivated(int actionIndex) const {
+    logger::log(format("Toast activated: {}", actionIndex));
+}
+
+void Configurator::WinToastHandler::toastDismissed(WinToastDismissalReason state) const {
+    logger::log(format("Toast dismissed: {}", enum_name(state)));
+}
+
+void Configurator::WinToastHandler::toastFailed() const {
+    logger::log("Toast failed");
+}
 
 Configurator::Configurator() {
     const auto [major, minor, build, _] = system::getVersion();
@@ -44,10 +59,11 @@ bool Configurator::showToast(const wstring &title, const wstring &content) const
     if (!_canToast) {
         return false;
     }
+    WinToastHandler winToastHandler;
     auto toast = WinToastTemplate(WinToastTemplate::Text02);
     toast.setTextField(title, WinToastTemplate::FirstLine);
     toast.setTextField(content, WinToastTemplate::SecondLine);
-    WinToast::instance()->showToast(toast, nullptr);
+    return WinToast::instance()->showToast(toast, &winToastHandler) > 0;
 }
 
 void Configurator::_initWinToast() {
@@ -55,12 +71,11 @@ void Configurator::_initWinToast() {
         logger::log("WinToast is not compatible with current system");
         _canToast = false;
     }
-    const string versionString = VERSION_STRING;
     WinToast::instance()->setAppName(L"Comware Coder Proxy");
     WinToast::instance()->setAppUserModelId(WinToast::configureAUMI(
-            L"H3C", L"Comware Coder", L"Comware Coder Proxy",
-            {versionString.begin(), versionString.end()}
+            L"h3c", L"cmw-coder", L"cmw-coder-proxy"
     ));
+    WinToast::instance()->setShortcutPolicy(WinToast::SHORTCUT_POLICY_IGNORE);
 
     if (!WinToast::instance()->initialize()) {
         logger::log("Failed to initialize WinToast");
