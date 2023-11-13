@@ -23,13 +23,15 @@ namespace types {
 
         [[maybe_unused]] void addHandler(UserAction userAction, CallBackFunction function);
 
+        void cancelRetrieveInfo();
+
+        void requestRetrieveInfo();
+
         bool sendAcceptCompletion();
 
         bool sendCancelCompletion();
 
         bool sendInsertCompletion();
-
-        bool sendRetrieveInfo();
 
         bool sendSave();
 
@@ -37,8 +39,9 @@ namespace types {
 
     private:
         helpers::KeyHelper _keyHelper;
-        std::atomic<bool> _isRunning = true;
+        std::atomic<bool> _isRunning = true, _needRetrieveInfo = false;
         std::atomic<int64_t> _codeWindow = -1, _popListWindow = -1;
+        std::atomic<std::chrono::time_point<std::chrono::high_resolution_clock>> _debounceTime;
         std::shared_ptr<void> _windowHook = nullptr;
         std::string _popListWindowName;
         std::unordered_map<UserAction, CallBackFunction> _handlers;
@@ -46,6 +49,8 @@ namespace types {
         void _handleKeycode(Keycode keycode) noexcept;
 
         void _processWindowMessage(long lParam);
+
+        void _threadDebounceRetrieveInfo();
 
         static long __stdcall _windowProcedureHook(int nCode, unsigned int wParam, long lParam);
     };

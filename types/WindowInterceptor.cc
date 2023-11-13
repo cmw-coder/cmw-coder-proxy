@@ -27,11 +27,22 @@ WindowInterceptor::WindowInterceptor() :
     if (!_windowHook) {
         throw runtime_error("Failed to set window hook.");
     }
+
+    _threadDebounceRetrieveInfo();
 }
 
 [[maybe_unused]] void
 WindowInterceptor::addHandler(UserAction userAction, WindowInterceptor::CallBackFunction function) {
     _handlers[userAction] = std::move(function);
+}
+
+void WindowInterceptor::cancelRetrieveInfo() {
+    _needRetrieveInfo.store(false);
+}
+
+void WindowInterceptor::requestRetrieveInfo() {
+    _debounceTime.store(chrono::high_resolution_clock::now() + chrono::milliseconds(250));
+    _needRetrieveInfo.store(true);
 }
 
 bool WindowInterceptor::sendAcceptCompletion() {
@@ -52,14 +63,6 @@ bool WindowInterceptor::sendInsertCompletion() {
     return window::postKeycode(
             _codeWindow,
             _keyHelper.toKeycode(Key::F12, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
-    );
-}
-
-bool WindowInterceptor::sendRetrieveInfo() {
-    logger::log("Sending retrieve info...");
-    return window::postKeycode(
-            _codeWindow,
-            _keyHelper.toKeycode(Key::F11, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
     );
 }
 
@@ -139,7 +142,7 @@ void WindowInterceptor::_handleKeycode(Keycode keycode) noexcept {
                             break;
                         }
                         case Key::V: {
-                            RegistryMonitor::GetInstance()->cancelBySave();
+                            cancelRetrieveInfo();
                             break;
                         }
                         case Key::Z: {
@@ -211,6 +214,28 @@ void WindowInterceptor::_processWindowMessage(long lParam) {
             }
         }
     }
+}
+
+void WindowInterceptor::_threadDebounceRetrieveInfo() {
+    thread([this] {
+        while (_isRunning.load()) {
+            if (_needRetrieveInfo.load()) {
+                const auto deltaTime = _debounceTime.load() - chrono::high_resolution_clock::now();
+                if (deltaTime <= chrono::nanoseconds(0)) {
+                    logger::log("Sending retrieve info...");
+                    window::postKeycode(
+                            _codeWindow,
+                            _keyHelper.toKeycode(Key::F11, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
+                    );
+                    _needRetrieveInfo.store(false);
+                } else {
+                    this_thread::sleep_for(deltaTime);
+                }
+            } else {
+                this_thread::sleep_for(chrono::milliseconds(10));
+            }
+        }
+    }).detach();
 }
 
 long WindowInterceptor::_windowProcedureHook(int nCode, unsigned int wParam, long lParam) {
