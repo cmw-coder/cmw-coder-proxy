@@ -95,7 +95,6 @@ void RegistryMonitor::cancelByKeycodeNavigate(Keycode) {
 }
 
 void RegistryMonitor::cancelByModifyLine(Keycode keycode) {
-    const auto windowInterceptor = WindowInterceptor::GetInstance();
     _justInserted = false;
     if (_completionCache.valid()) {
         try {
@@ -107,7 +106,7 @@ void RegistryMonitor::cancelByModifyLine(Keycode keycode) {
     }
 
     if (keycode != enum_integer(Key::BackSpace)) {
-        windowInterceptor->requestRetrieveInfo();
+        _retrieveEditorInfo();
     }
 }
 
@@ -135,7 +134,6 @@ void RegistryMonitor::cancelByUndo() {
 void RegistryMonitor::processNormalKey(Keycode keycode) {
     _justInserted = false;
 
-    const auto windowInterceptor = WindowInterceptor::GetInstance();
     const auto nextCacheOpt = _completionCache.next();
     if (nextCacheOpt.has_value()) {
         // Has valid cache
@@ -157,14 +155,14 @@ void RegistryMonitor::processNormalKey(Keycode keycode) {
                 // Cache miss
                 _cancelCompletion();
                 logger::log(format("Canceled due to cache miss (keycode: {})", keycode));
-                windowInterceptor->requestRetrieveInfo();
+                _retrieveEditorInfo();
             }
         } catch (runtime_error &e) {
             logger::log(e.what());
         }
     } else {
         // No valid cache
-        windowInterceptor->requestRetrieveInfo();
+        _retrieveEditorInfo();
     }
 }
 
@@ -247,6 +245,12 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
             }
         }
     }).detach();
+}
+
+void RegistryMonitor::_retrieveEditorInfo() {
+    if (_isAutoCompletion) {
+        WindowInterceptor::GetInstance()->requestRetrieveInfo();
+    }
 }
 
 void RegistryMonitor::_retrieveProjectId(const string &projectFolder) {

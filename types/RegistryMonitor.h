@@ -47,6 +47,8 @@ namespace types {
 
         void _retrieveCompletion(const std::string &editorInfoString);
 
+        void _retrieveEditorInfo();
+
         void _retrieveProjectId(const std::string &projectFolder);
 
         void _threadCompletionMode();
