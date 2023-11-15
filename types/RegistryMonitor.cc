@@ -48,11 +48,13 @@ RegistryMonitor::~RegistryMonitor() {
 
 void RegistryMonitor::acceptByTab(Keycode) {
     _justInserted = true;
-    auto completion = _completionCache.reset();
-    if (!completion.content().empty()) {
+    auto oldCompletion = _completionCache.reset();
+    if (!oldCompletion.content().empty()) {
         WindowInterceptor::GetInstance()->sendAcceptCompletion();
-        logger::log(format("Accepted completion: {}", completion.stringify()));
-        thread(&RegistryMonitor::_reactToCompletion, this, std::move(completion)).detach();
+        logger::log(format("Accepted completion: {}", oldCompletion.stringify()));
+        thread(&RegistryMonitor::_reactToCompletion, this, std::move(oldCompletion)).detach();
+    } else {
+        _retrieveEditorInfo();
     }
 }
 
@@ -240,7 +242,14 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
         }
         if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
             try {
-                _completionCache.reset(completionGenerated.value()[0] == '1', completionGenerated.value().substr(1));
+                const auto oldCompletion = _completionCache.reset(
+                        completionGenerated.value()[0] == '1',
+                        completionGenerated.value().substr(1)
+                );
+                if (!oldCompletion.content().empty()) {
+                    _cancelCompletion(UserAction::DeleteBackward, false);
+                    logger::log(format("Cancel old cached completion: {}", oldCompletion.stringify()));
+                }
                 _insertCompletion(completionGenerated.value());
                 logger::log("Inserted completion");
             } catch (runtime_error &e) {
@@ -322,7 +331,7 @@ void RegistryMonitor::_threadProcessInfo() {
                 if (!regex_match(editorInfoString, editorInfoRegexResults, editorInfoRegex) ||
                     editorInfoRegexResults.size() != 10) {
                     logger::log(
-                            format("Invalid editorInfoString, original string: {}, result size: {}", editorInfoString,
+                            format("Invalid editorInfoString: {}, result size: {}", editorInfoString,
                                    editorInfoRegexResults.size()));
                     continue;
                 }

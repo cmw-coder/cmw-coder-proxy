@@ -23,8 +23,6 @@ namespace types {
 
         [[maybe_unused]] void addHandler(UserAction userAction, CallBackFunction function);
 
-        void cancelRetrieveInfo();
-
         void requestRetrieveInfo();
 
         bool sendAcceptCompletion();
@@ -45,6 +43,8 @@ namespace types {
         std::shared_ptr<void> _windowHook = nullptr;
         std::string _popListWindowName;
         std::unordered_map<UserAction, CallBackFunction> _handlers;
+
+        void _cancelRetrieveInfo();
 
         void _handleKeycode(Keycode keycode) noexcept;
 

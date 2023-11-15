@@ -36,16 +36,13 @@ WindowInterceptor::addHandler(UserAction userAction, WindowInterceptor::CallBack
     _handlers[userAction] = std::move(function);
 }
 
-void WindowInterceptor::cancelRetrieveInfo() {
-    _needRetrieveInfo.store(false);
-}
-
 void WindowInterceptor::requestRetrieveInfo() {
     _debounceTime.store(chrono::high_resolution_clock::now() + chrono::milliseconds(250));
     _needRetrieveInfo.store(true);
 }
 
 bool WindowInterceptor::sendAcceptCompletion() {
+    _cancelRetrieveInfo();
     return window::postKeycode(
             _codeWindow,
             _keyHelper.toKeycode(Key::F10, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
@@ -53,6 +50,7 @@ bool WindowInterceptor::sendAcceptCompletion() {
 }
 
 bool WindowInterceptor::sendCancelCompletion() {
+    _cancelRetrieveInfo();
     return window::postKeycode(
             _codeWindow,
             _keyHelper.toKeycode(Key::F9, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
@@ -60,6 +58,7 @@ bool WindowInterceptor::sendCancelCompletion() {
 }
 
 bool WindowInterceptor::sendInsertCompletion() {
+    _cancelRetrieveInfo();
     return window::postKeycode(
             _codeWindow,
             _keyHelper.toKeycode(Key::F12, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
@@ -67,6 +66,7 @@ bool WindowInterceptor::sendInsertCompletion() {
 }
 
 bool WindowInterceptor::sendSave() {
+    _cancelRetrieveInfo();
     return window::postKeycode(
             _codeWindow,
             _keyHelper.toKeycode(Key::S, Modifier::Ctrl)
@@ -74,10 +74,15 @@ bool WindowInterceptor::sendSave() {
 }
 
 bool WindowInterceptor::sendUndo() {
+    _cancelRetrieveInfo();
     return window::postKeycode(
             _codeWindow,
             _keyHelper.toKeycode(Key::Z, Modifier::Ctrl)
     );
+}
+
+void WindowInterceptor::_cancelRetrieveInfo() {
+    _needRetrieveInfo.store(false);
 }
 
 void WindowInterceptor::_handleKeycode(Keycode keycode) noexcept {
@@ -142,7 +147,7 @@ void WindowInterceptor::_handleKeycode(Keycode keycode) noexcept {
                             break;
                         }
                         case Key::V: {
-                            cancelRetrieveInfo();
+                            _cancelRetrieveInfo();
                             break;
                         }
                         case Key::Z: {
