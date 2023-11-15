@@ -48,11 +48,11 @@ RegistryMonitor::~RegistryMonitor() {
 
 void RegistryMonitor::acceptByTab(Keycode) {
     _justInserted = true;
-    auto oldCompletion = _completionCache.reset();
+    const auto oldCompletion = _completionCache.reset();
     if (!oldCompletion.content().empty()) {
         WindowInterceptor::GetInstance()->sendAcceptCompletion();
         logger::log(format("Accepted completion: {}", oldCompletion.stringify()));
-        thread(&RegistryMonitor::_reactToCompletion, this, std::move(oldCompletion)).detach();
+        thread(&RegistryMonitor::_reactToCompletion, this, std::move(oldCompletion), true).detach();
     } else {
         _retrieveEditorInfo();
     }
@@ -120,6 +120,8 @@ void RegistryMonitor::cancelBySave() {
         _cancelCompletion(UserAction::Navigate);
         logger::log("Canceled by save.");
         WindowInterceptor::GetInstance()->sendSave();
+    } else {
+        _needInsert.store(false);
     }
 }
 
@@ -133,6 +135,8 @@ void RegistryMonitor::cancelByUndo() {
         _completionCache.reset();
         logger::log(("Canceled by undo"));
         windowInterceptor->sendUndo();
+    } else {
+        _needInsert.store(false);
     }
 }
 
@@ -184,12 +188,12 @@ void RegistryMonitor::_insertCompletion(const string &data) {
     WindowInterceptor::GetInstance()->sendInsertCompletion();
 }
 
-void RegistryMonitor::_reactToCompletion(Completion &&completion) {
+void RegistryMonitor::_reactToCompletion(Completion &&completion, bool isAccept) {
     try {
         auto client = httplib::Client("http://localhost:3000");
         client.set_connection_timeout(3);
         if (auto res = client.Post(
-                "/completion/accept",
+                isAccept ? "/completion/accept" : "/completion/insert",
                 nlohmann::json{
                         {"completion", completion.stringify()},
                         {"projectId",  _projectId},
@@ -210,6 +214,7 @@ void RegistryMonitor::_reactToCompletion(Completion &&completion) {
 void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
     _lastTriggerTime = chrono::high_resolution_clock::now();
     thread([this, editorInfoString, currentTriggerName = _lastTriggerTime.load()] {
+        _needInsert.store(true);
         optional<string> completionGenerated;
         try {
             auto client = httplib::Client("http://localhost:3000");
@@ -240,7 +245,7 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
         } catch (exception &e) {
             logger::log(format("(/completion/generate) Exception: {}", e.what()));
         }
-        if (completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
+        if (_needInsert.load() && completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
             try {
                 const auto oldCompletion = _completionCache.reset(
                         completionGenerated.value()[0] == '1',
@@ -252,6 +257,7 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
                 }
                 _insertCompletion(completionGenerated.value());
                 logger::log("Inserted completion");
+                thread(&RegistryMonitor::_reactToCompletion, this, std::move(oldCompletion), false).detach();
             } catch (runtime_error &e) {
                 logger::log(e.what());
             }

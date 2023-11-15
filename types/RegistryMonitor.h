@@ -36,14 +36,14 @@ namespace types {
         const std::string _subKey;
         std::string _projectId, _projectHash, _pluginVersion;
         CompletionCache _completionCache;
-        std::atomic<bool> _isAutoCompletion = true, _isRunning = true, _justInserted = false;
+        std::atomic<bool> _isAutoCompletion = true, _isRunning = true, _needInsert = false, _justInserted = false;
         std::atomic<std::chrono::time_point<std::chrono::high_resolution_clock>> _lastTriggerTime;
 
         void _cancelCompletion(UserAction action = UserAction::DeleteBackward, bool resetCache = true);
 
         void _insertCompletion(const std::string &data);
 
-        void _reactToCompletion(Completion &&completion);
+        void _reactToCompletion(Completion &&completion, bool isAccept);
 
         void _retrieveCompletion(const std::string &editorInfoString);
 
