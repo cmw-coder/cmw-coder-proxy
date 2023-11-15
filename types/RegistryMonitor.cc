@@ -31,9 +31,12 @@ RegistryMonitor::RegistryMonitor() :
                 ? R"(SOFTWARE\Source Dynamics\Source Insight\3.0)"
                 : R"(SOFTWARE\Source Dynamics\Source Insight\4.0)") {
     try {
-        _isAutoCompletion = stoi(system::getRegValue(_subKey, "autoCompletion"));
+        _isAutoCompletion.store(stoi(system::getRegValue(_subKey, "autoCompletion")));
     } catch (...) {}
 
+    logger::log(format("Auto completion: {}", _isAutoCompletion.load() ? "on" : "off"));
+
+    _threadProcessInfo();
     _threadProcessInfo();
     _threadCompletionMode();
     _threadLogDebug();
@@ -248,7 +251,7 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
 }
 
 void RegistryMonitor::_retrieveEditorInfo() {
-    if (_isAutoCompletion) {
+    if (_isAutoCompletion.load()) {
         WindowInterceptor::GetInstance()->requestRetrieveInfo();
     }
 }
@@ -282,8 +285,8 @@ void RegistryMonitor::_threadCompletionMode() {
         while (_isRunning.load()) {
             try {
                 const bool isAutoCompletion = stoi(system::getRegValue(_subKey, "autoCompletion"));
-                if (_isAutoCompletion != isAutoCompletion) {
-                    _isAutoCompletion = isAutoCompletion;
+                if (_isAutoCompletion.load() != isAutoCompletion) {
+                    _isAutoCompletion.store(isAutoCompletion);
                     logger::log(format("Auto completion: {}", _isAutoCompletion.load() ? "on" : "off"));
                 }
             } catch (runtime_error &e) {}

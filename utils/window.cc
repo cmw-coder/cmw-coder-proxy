@@ -9,15 +9,13 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
-namespace {}
-
-std::string window::getWindowClassName(void *hwnd) {
+std::string window::getWindowClassName(int64_t hwnd) {
     std::string text;
     text.resize(256);
     return text.substr(0, GetClassName(reinterpret_cast<HWND>(hwnd), text.data(), 256));
 }
 
-std::string window::getWindowText(void *hwnd) {
+std::string window::getWindowText(int64_t hwnd) {
     std::string text;
     text.resize(256);
     return text.substr(0, GetWindowText(reinterpret_cast<HWND>(hwnd), text.data(), 256));
@@ -27,12 +25,12 @@ bool window::postKeycode(int64_t hwnd, Keycode keycode) {
     if (hwnd < 0) {
         return false;
     }
-    return PostMessage((HWND__ *) hwnd, UM_KEYCODE, keycode, 0) != 0;
+    return PostMessage(reinterpret_cast<HWND>(hwnd), UM_KEYCODE, keycode, 0) != 0;
 }
 
 bool window::sendKeycode(int64_t hwnd, Keycode keycode) {
     if (hwnd < 0) {
         return false;
     }
-    return SendMessage((HWND__ *) hwnd, UM_KEYCODE, keycode, 0) != 0;
+    return SendMessage(reinterpret_cast<HWND>(hwnd), UM_KEYCODE, keycode, 0) != 0;
 }

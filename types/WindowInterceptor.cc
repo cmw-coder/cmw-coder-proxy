@@ -161,18 +161,18 @@ void WindowInterceptor::_handleKeycode(Keycode keycode) noexcept {
 
 void WindowInterceptor::_processWindowMessage(long lParam) {
     const auto windowProcData = reinterpret_cast<PCWPSTRUCT>(lParam);
-    const auto currentWindow = windowProcData->hwnd;
-    if (window::getWindowClassName(currentWindow) == "si_Sw") {
+    const auto currentWindow = reinterpret_cast<int64_t>(windowProcData->hwnd);
+    const auto currentWindowClass = window::getWindowClassName(currentWindow);
+    if (currentWindowClass == "si_Sw") {
         switch (windowProcData->message) {
             case WM_KILLFOCUS: {
-                const auto targetWindowClass = window::getWindowClassName(
-                        reinterpret_cast<HWND>(windowProcData->wParam));
+                const auto targetWindowClass = window::getWindowClassName(windowProcData->wParam);
                 if (_codeWindow >= 0 && targetWindowClass != "si_Poplist") {
 //                    logger::log(format(
 //                            "Coding window '{}' lost focus. (0x{:08X} '{}') to (0x{:08X} '{}')",
 //                            window::getWindowText(currentWindow),
-//                            reinterpret_cast<uint64_t>(currentWindow),
-//                            window::getWindowClassName(currentWindow),
+//                            currentWindow,
+//                            currentWindowClass,
 //                            static_cast<uint64_t>(windowProcData->wParam),
 //                            targetWindowClass
 //                    ));
@@ -188,16 +188,17 @@ void WindowInterceptor::_processWindowMessage(long lParam) {
                 break;
             }
             case WM_SETFOCUS: {
+//                const auto targetWindowClass = window::getWindowClassName(windowProcData->wParam);
 //                logger::log(format(
 //                        "Coding window '{}' set focus. (0x{:08X} '{}') from (0x{:08X} '{}')",
 //                        window::getWindowText(currentWindow),
-//                        reinterpret_cast<uint64_t>(currentWindow),
-//                        window::getWindowClassName(currentWindow),
+//                        currentWindow,
+//                        currentWindowClass,
 //                        static_cast<uint64_t>(windowProcData->wParam),
-//                        window::getWindowClassName(reinterpret_cast<HWND>(windowProcData->wParam))
+//                        targetWindowClass
 //                ));
                 if (_codeWindow < 0) {
-                    _codeWindow.store(reinterpret_cast<int64_t>(currentWindow));
+                    _codeWindow.store(currentWindow);
                 }
                 if (_popListWindow > 0) {
                     _popListWindow.store(-1);
