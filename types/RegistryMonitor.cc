@@ -207,7 +207,7 @@ void RegistryMonitor::_reactToCompletion(Completion&&completion, const bool isAc
         if (auto res = client.Post(
             isAccept ? "/completion/accept" : "/completion/insert",
             nlohmann::json{
-                {"completion", completion.stringify()},
+                {"completion", encode(completion.stringify(), crypto::Encoding::Base64)},
                 {"projectId", _projectId},
                 {"version", _pluginVersion},
             }.dump(),
