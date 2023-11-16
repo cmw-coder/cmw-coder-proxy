@@ -21,18 +21,19 @@ using namespace utils;
 
 namespace {
     const regex editorInfoRegex(
-            R"regex(^cursor="(.*?)";path="(.*?)";project="(.*?)";tabs="(.*?)";type="(.*?)";version="(.*?)";symbols="(.*?)";prefix="(.*?)";suffix="(.*?)"$)regex");
-//    const regex cursorRegex(
-//            R"regex(^lnFirst="(.*?)";ichFirst="(.*?)";lnLast="(.*?)";ichLim="(.*?)";fExtended="(.*?)";fRect="(.*?)"$)regex");
+        R"regex(^cursor="(.*?)";path="(.*?)";project="(.*?)";tabs="(.*?)";type="(.*?)";version="(.*?)";symbols="(.*?)";prefix="(.*?)";suffix="(.*?)"$)regex");
+    //    const regex cursorRegex(
+    //            R"regex(^lnFirst="(.*?)";ichFirst="(.*?)";lnLast="(.*?)";ichLim="(.*?)";fExtended="(.*?)";fRect="(.*?)"$)regex");
 }
 
-RegistryMonitor::RegistryMonitor() :
-        _subKey(Configurator::GetInstance()->version().first == SiVersion::Major::V35
-                ? R"(SOFTWARE\Source Dynamics\Source Insight\3.0)"
-                : R"(SOFTWARE\Source Dynamics\Source Insight\4.0)") {
+RegistryMonitor::RegistryMonitor() : _subKey(Configurator::GetInstance()->version().first == SiVersion::Major::V35
+                                                 ? R"(SOFTWARE\Source Dynamics\Source Insight\3.0)"
+                                                 : R"(SOFTWARE\Source Dynamics\Source Insight\4.0)") {
     try {
         _isAutoCompletion.store(stoi(system::getRegValue(_subKey, "autoCompletion")));
-    } catch (...) {}
+    }
+    catch (...) {
+    }
 
     logger::log(format("Auto completion: {}", _isAutoCompletion.load() ? "on" : "off"));
 
@@ -53,7 +54,8 @@ void RegistryMonitor::acceptByTab(Keycode) {
         WindowInterceptor::GetInstance()->sendAcceptCompletion();
         logger::log(format("Accepted completion: {}", oldCompletion.stringify()));
         thread(&RegistryMonitor::_reactToCompletion, this, std::move(oldCompletion), true).detach();
-    } else {
+    }
+    else {
         _retrieveEditorInfo();
     }
 }
@@ -72,18 +74,22 @@ void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorP
                 if (completionOpt.has_value()) {
                     // In cache
                     _cancelCompletion(UserAction::DeleteBackward, false);
+                    logger::log("Cancel previous cached completion");
                     _insertCompletion(completionOpt.value().stringify());
                     logger::log("Insert previous cached completion");
-                } else {
+                }
+                else {
                     // Out of cache
                     _cancelCompletion();
                     logger::log("Canceled by delete backward.");
                 }
-            } catch (runtime_error &e) {
+            }
+            catch (runtime_error&e) {
                 logger::log(e.what());
             }
         }
-    } else {
+    }
+    else {
         cancelByModifyLine(enum_integer(Key::BackSpace));
     }
 }
@@ -93,7 +99,8 @@ void RegistryMonitor::cancelByKeycodeNavigate(Keycode) {
         try {
             _cancelCompletion(UserAction::Navigate);
             logger::log("Canceled by navigate.");
-        } catch (runtime_error &e) {
+        }
+        catch (runtime_error&e) {
             logger::log(e.what());
         }
     }
@@ -105,7 +112,8 @@ void RegistryMonitor::cancelByModifyLine(Keycode keycode) {
         try {
             _cancelCompletion(UserAction::ModifyLine);
             logger::log(format("Canceled by {}", keycode == enum_integer(Key::BackSpace) ? "backspace" : "enter"));
-        } catch (runtime_error &e) {
+        }
+        catch (runtime_error&e) {
             logger::log(e.what());
         }
     }
@@ -120,7 +128,8 @@ void RegistryMonitor::cancelBySave() {
         _cancelCompletion(UserAction::Navigate);
         logger::log("Canceled by save.");
         WindowInterceptor::GetInstance()->sendSave();
-    } else {
+    }
+    else {
         _needInsert.store(false);
     }
 }
@@ -131,11 +140,13 @@ void RegistryMonitor::cancelByUndo() {
         _justInserted = false;
         windowInterceptor->sendUndo();
         windowInterceptor->sendUndo();
-    } else if (_completionCache.valid()) {
+    }
+    else if (_completionCache.valid()) {
         _completionCache.reset();
         logger::log(("Canceled by undo"));
         windowInterceptor->sendUndo();
-    } else {
+    }
+    else {
         _needInsert.store(false);
     }
 }
@@ -155,21 +166,25 @@ void RegistryMonitor::processNormalKey(Keycode keycode) {
                     _cancelCompletion(UserAction::DeleteBackward, false);
                     logger::log("Canceled due to update cache");
                     _insertCompletion(completionOpt.value().stringify());
-                } else {
+                }
+                else {
                     // Out of cache
                     logger::log("Accept due to fill in cache");
                     acceptByTab(keycode);
                 }
-            } else {
+            }
+            else {
                 // Cache miss
                 _cancelCompletion();
                 logger::log(format("Canceled due to cache miss (keycode: {})", keycode));
                 _retrieveEditorInfo();
             }
-        } catch (runtime_error &e) {
+        }
+        catch (runtime_error&e) {
             logger::log(e.what());
         }
-    } else {
+    }
+    else {
         // No valid cache
         _retrieveEditorInfo();
     }
@@ -183,35 +198,37 @@ void RegistryMonitor::_cancelCompletion(UserAction action, bool resetCache) {
     }
 }
 
-void RegistryMonitor::_insertCompletion(const string &data) {
+void RegistryMonitor::_insertCompletion(const string&data) {
     system::setRegValue(_subKey, "completionGenerated", data);
     WindowInterceptor::GetInstance()->sendInsertCompletion();
 }
 
-void RegistryMonitor::_reactToCompletion(Completion &&completion, bool isAccept) {
+void RegistryMonitor::_reactToCompletion(Completion&&completion, bool isAccept) {
     try {
         auto client = httplib::Client("http://localhost:3000");
         client.set_connection_timeout(3);
         if (auto res = client.Post(
-                isAccept ? "/completion/accept" : "/completion/insert",
-                nlohmann::json{
-                        {"completion", completion.stringify()},
-                        {"projectId",  _projectId},
-                        {"version",    _pluginVersion},
-                }.dump(),
-                "application/json"
+            isAccept ? "/completion/accept" : "/completion/insert",
+            nlohmann::json{
+                {"completion", completion.stringify()},
+                {"projectId", _projectId},
+                {"version", _pluginVersion},
+            }.dump(),
+            "application/json"
         )) {
             const auto responseBody = nlohmann::json::parse(res->body);
             logger::log(format("(/completion/accept) Result: {}", responseBody["result"].get<string>()));
-        } else {
+        }
+        else {
             logger::log(format("(/completion/accept) Http error: {}", httplib::to_string(res.error())));
         }
-    } catch (exception &e) {
+    }
+    catch (exception&e) {
         logger::log(format("(/completion/accept) Exception: {}", e.what()));
     }
 }
 
-void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
+void RegistryMonitor::_retrieveCompletion(const string&editorInfoString) {
     _lastTriggerTime = chrono::high_resolution_clock::now();
     thread([this, editorInfoString, currentTriggerName = _lastTriggerTime.load()] {
         _needInsert.store(true);
@@ -222,34 +239,37 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
             client.set_read_timeout(10);
             client.set_write_timeout(10);
             if (auto res = client.Post(
-                    "/completion/generate",
-                    nlohmann::json{
-                            {"info",      crypto::encode(editorInfoString, crypto::Encoding::Base64)},
-                            {"projectId", _projectId},
-                            {"version",   _pluginVersion},
-                    }.dump(),
-                    "application/json"
+                "/completion/generate",
+                nlohmann::json{
+                    {"info", crypto::encode(editorInfoString, crypto::Encoding::Base64)},
+                    {"projectId", _projectId},
+                    {"version", _pluginVersion},
+                }.dump(),
+                "application/json"
             )) {
                 const auto responseBody = nlohmann::json::parse(res->body);
                 const auto result = responseBody["result"].get<string>();
-                const auto &contents = responseBody["contents"];
+                const auto&contents = responseBody["contents"];
                 if (result == "success" && contents.is_array() && !contents.empty()) {
                     completionGenerated.emplace(crypto::decode(contents[0].get<string>(), crypto::Encoding::Base64));
                     logger::log(format("(/completion/generate) Completion: {}", completionGenerated.value_or("null")));
-                } else {
+                }
+                else {
                     logger::log(format("(/completion/generate) Completion is invalid: {}", result));
                 }
-            } else {
+            }
+            else {
                 logger::log(format("(/completion/generate) HTTP error: {}", httplib::to_string(res.error())));
             }
-        } catch (exception &e) {
+        }
+        catch (exception&e) {
             logger::log(format("(/completion/generate) Exception: {}", e.what()));
         }
         if (_needInsert.load() && completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
             try {
                 const auto oldCompletion = _completionCache.reset(
-                        completionGenerated.value()[0] == '1',
-                        completionGenerated.value().substr(1)
+                    completionGenerated.value()[0] == '1',
+                    completionGenerated.value().substr(1)
                 );
                 if (!oldCompletion.content().empty()) {
                     _cancelCompletion(UserAction::DeleteBackward, false);
@@ -258,7 +278,8 @@ void RegistryMonitor::_retrieveCompletion(const string &editorInfoString) {
                 _insertCompletion(completionGenerated.value());
                 logger::log("Inserted completion");
                 thread(&RegistryMonitor::_reactToCompletion, this, std::move(oldCompletion), false).detach();
-            } catch (runtime_error &e) {
+            }
+            catch (runtime_error&e) {
                 logger::log(e.what());
             }
         }
@@ -271,7 +292,7 @@ void RegistryMonitor::_retrieveEditorInfo() {
     }
 }
 
-void RegistryMonitor::_retrieveProjectId(const string &projectFolder) {
+void RegistryMonitor::_retrieveProjectId(const string&projectFolder) {
     const auto currentProjectHash = crypto::sha1(projectFolder);
     if (_projectHash != currentProjectHash) {
         _projectId.clear();
@@ -283,11 +304,13 @@ void RegistryMonitor::_retrieveProjectId(const string &projectFolder) {
         while (_projectId.empty()) {
             try {
                 _projectId = system::getRegValue(projectListKey, _projectHash);
-            } catch (...) {
+            }
+            catch (...) {
                 _projectId = InputBox("Please input current project's iSoft ID", "Input Project ID");
                 if (_projectId.empty()) {
                     logger::error("Project ID is empty.");
-                } else {
+                }
+                else {
                     system::setRegValue(projectListKey, _projectHash, _projectId);
                 }
             }
@@ -304,7 +327,9 @@ void RegistryMonitor::_threadCompletionMode() {
                     _isAutoCompletion.store(isAutoCompletion);
                     logger::log(format("Auto completion: {}", _isAutoCompletion.load() ? "on" : "off"));
                 }
-            } catch (runtime_error &e) {}
+            }
+            catch (runtime_error&e) {
+            }
             this_thread::sleep_for(chrono::milliseconds(10));
         }
     }).detach();
@@ -318,7 +343,8 @@ void RegistryMonitor::_threadLogDebug() {
                 const auto logDebugString = system::getRegValue(_subKey, debugLogKey);
                 logger::log(format("[SI] {}", logDebugString));
                 system::deleteRegValue(_subKey, debugLogKey);
-            } catch (runtime_error &e) {
+            }
+            catch (runtime_error&e) {
             }
             this_thread::sleep_for(chrono::milliseconds(1));
         }
@@ -330,15 +356,15 @@ void RegistryMonitor::_threadProcessInfo() {
         while (_isRunning.load()) {
             try {
                 const auto editorInfoString = system::getRegValue(_subKey, "editorInfo");
-//                logger::log(format("editorInfoString: {}", editorInfoString));
+                //                logger::log(format("editorInfoString: {}", editorInfoString));
                 system::deleteRegValue(_subKey, "editorInfo");
 
                 smatch editorInfoRegexResults;
                 if (!regex_match(editorInfoString, editorInfoRegexResults, editorInfoRegex) ||
                     editorInfoRegexResults.size() != 10) {
                     logger::log(
-                            format("Invalid editorInfoString: {}, result size: {}", editorInfoString,
-                                   editorInfoRegexResults.size()));
+                        format("Invalid editorInfoString: {}, result size: {}", editorInfoString,
+                               editorInfoRegexResults.size()));
                     continue;
                 }
 
@@ -348,8 +374,7 @@ void RegistryMonitor::_threadProcessInfo() {
 
                 _retrieveCompletion(editorInfoString);
 
-                const auto version = editorInfoRegexResults[5].str();
-                if (!version.empty() && _pluginVersion.empty()) {
+                if (const auto version = editorInfoRegexResults[5].str(); !version.empty() && _pluginVersion.empty()) {
                     _pluginVersion = Configurator::GetInstance()->reportVersion(version);
                     logger::log(format("Plugin version: {}", _pluginVersion));
                 }
@@ -421,8 +446,9 @@ void RegistryMonitor::_threadProcessInfo() {
                 }
 
                 logger::log(editorInfo.dump());*/
-            } catch (runtime_error &e) {
-            } catch (exception &e) {
+            }
+            catch (runtime_error&e) {
+            } catch (exception&e) {
                 logger::log(e.what());
             } catch (...) {
                 logger::log("Unknown exception.");
