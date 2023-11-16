@@ -17,21 +17,27 @@ using std::string;
 using std::wstring;
 using std::vector;
 
-static wstring StringWiden(string Str) {
+static wstring StringWiden(const string&Str) {
     const size_t szCount = Str.size() + 1;
     vector<wchar_t> Buffer(szCount);
-    return wstring{Buffer.data(), (size_t) MultiByteToWideChar(CP_UTF8, 0, Str.c_str(), -1, Buffer.data(), szCount)};
+    return wstring{
+        Buffer.data(), static_cast<size_t>(MultiByteToWideChar(CP_UTF8, 0, Str.c_str(), -1, Buffer.data(), szCount))
+    };
 }
 
-static string StringNarrow(wstring Str) {
-    int nBytes = (size_t) WideCharToMultiByte(CP_UTF8, 0, Str.c_str(), (int) Str.length(), NULL, 0, NULL, NULL);
-    vector<char> Buffer((size_t) nBytes);
-    return string{Buffer.data(),
-                  (size_t) WideCharToMultiByte(CP_UTF8, 0, Str.c_str(), (int) Str.length(), Buffer.data(), nBytes, NULL,
-                                               NULL)};
+static string StringNarrow(const wstring&Str) {
+    const int nBytes = static_cast<size_t>(WideCharToMultiByte(CP_UTF8, 0, Str.c_str(), (int)Str.length(), nullptr, 0,
+                                                               nullptr, nullptr));
+    vector<char> Buffer(static_cast<size_t>(nBytes));
+    return string{
+        Buffer.data(),
+        static_cast<size_t>(WideCharToMultiByte(CP_UTF8, 0, Str.c_str(), (int)Str.length(), Buffer.data(), nBytes,
+                                                nullptr,
+                                                nullptr))
+    };
 }
 
-static string StringReplaceAll(string Str, string SubStr, string NewStr) {
+static string StringReplaceAll(string Str, const string&SubStr, const string&NewStr) {
     size_t Position = 0;
     const size_t SubLen = SubStr.length(), NewLen = NewStr.length();
     while ((Position = Str.find(SubStr, Position)) != string::npos) {
@@ -51,45 +57,46 @@ static string CPPNewLineToVBSNewLine(string NewLine) {
     return NewLine;
 }
 
-class CSimpleScriptSite :
+class CSimpleScriptSite final :
         public IActiveScriptSite,
         public IActiveScriptSiteWindow {
 public:
-    CSimpleScriptSite() : m_cRefCount(1), m_hWnd(NULL) {}
+    CSimpleScriptSite() : m_cRefCount(1), m_hWnd(nullptr) {
+    }
 
     // IUnknown
     STDMETHOD_(ULONG, AddRef)();
 
     STDMETHOD_(ULONG, Release)();
 
-    STDMETHOD(QueryInterface)(REFIID riid, void **ppvObject);
+    STDMETHOD(QueryInterface)(REFIID riid, void** ppvObject);
 
     // IActiveScriptSite
-    STDMETHOD(GetLCID)(LCID *plcid) {
+    STDMETHOD(GetLCID)(LCID* plcid) {
         *plcid = 0;
         return S_OK;
     }
 
-    STDMETHOD(GetItemInfo)(LPCOLESTR pstrName, DWORD dwReturnMask, IUnknown **ppiunkItem,
-                           ITypeInfo **ppti) { return TYPE_E_ELEMENTNOTFOUND; }
+    STDMETHOD(GetItemInfo)(LPCOLESTR pstrName, DWORD dwReturnMask, IUnknown** ppiunkItem,
+                           ITypeInfo** ppti) { return TYPE_E_ELEMENTNOTFOUND; }
 
-    STDMETHOD(GetDocVersionString)(BSTR *pbstrVersion) {
+    STDMETHOD(GetDocVersionString)(BSTR* pbstrVersion) {
         *pbstrVersion = SysAllocString(L"1.0");
         return S_OK;
     }
 
-    STDMETHOD(OnScriptTerminate)(const VARIANT *pvarResult, const EXCEPINFO *pexcepinfo) { return S_OK; }
+    STDMETHOD(OnScriptTerminate)(const VARIANT* pvarResult, const EXCEPINFO* pexcepinfo) { return S_OK; }
 
     STDMETHOD(OnStateChange)(SCRIPTSTATE ssScriptState) { return S_OK; }
 
-    STDMETHOD(OnScriptError)(IActiveScriptError *pIActiveScriptError) { return S_OK; }
+    STDMETHOD(OnScriptError)(IActiveScriptError* pIActiveScriptError) { return S_OK; }
 
     STDMETHOD(OnEnterScript)(void) { return S_OK; }
 
     STDMETHOD(OnLeaveScript)(void) { return S_OK; }
 
     // IActiveScriptSiteWindow
-    STDMETHOD(GetWindow)(HWND *phWnd) {
+    STDMETHOD(GetWindow)(HWND* phWnd) {
         *phWnd = m_hWnd;
         return S_OK;
     }
@@ -97,7 +104,7 @@ public:
     STDMETHOD(EnableModeless)(BOOL fEnable) { return S_OK; }
 
     // Miscellaneous
-    STDMETHOD(SetWindow)(HWND hWnd) {
+    STDMETHOD(SetWindow)(const HWND hWnd) {
         m_hWnd = hWnd;
         return S_OK;
     }
@@ -119,45 +126,46 @@ STDMETHODIMP_(ULONG) CSimpleScriptSite::Release() {
     return m_cRefCount;
 }
 
-STDMETHODIMP CSimpleScriptSite::QueryInterface(REFIID riid, void **ppvObject) {
+STDMETHODIMP CSimpleScriptSite::QueryInterface(REFIID riid, void** ppvObject) {
     if (riid == IID_IUnknown || riid == IID_IActiveScriptSiteWindow) {
-        *ppvObject = (IActiveScriptSiteWindow *) this;
+        *ppvObject = static_cast<IActiveScriptSiteWindow *>(this);
         AddRef();
         return NOERROR;
     }
     if (riid == IID_IActiveScriptSite) {
-        *ppvObject = (IActiveScriptSite *) this;
+        *ppvObject = static_cast<IActiveScriptSite *>(this);
         AddRef();
         return NOERROR;
     }
     return E_NOINTERFACE;
 }
 
-static HHOOK hHook = 0;
+static HHOOK hHook = nullptr;
 static bool HideInput = false;
 
-static LRESULT CALLBACK InputBoxProc(int nCode, WPARAM wParam, LPARAM lParam) {
+static LRESULT CALLBACK InputBoxProc(const int nCode, const WPARAM wParam, const LPARAM lParam) {
     if (nCode < HC_ACTION)
         return CallNextHookEx(hHook, nCode, wParam, lParam);
-    if (nCode = HCBT_ACTIVATE) {
+    if (nCode == HCBT_ACTIVATE) {
         if (HideInput == true) {
-            HWND TextBox = FindWindowExA((HWND) wParam, NULL, "Edit", NULL);
-            SendDlgItemMessageW((HWND) wParam, GetDlgCtrlID(TextBox), EM_SETPASSWORDCHAR, L'\x25cf', 0);
+            const HWND TextBox = FindWindowExA(reinterpret_cast<HWND>(wParam), nullptr, "Edit", nullptr);
+            SendDlgItemMessageW(reinterpret_cast<HWND>(wParam), GetDlgCtrlID(TextBox), EM_SETPASSWORDCHAR, L'\x25cf',
+                                0);
         }
     }
-    if (nCode = HCBT_CREATEWND) {
-        if (!(GetWindowLongPtr((HWND) wParam, GWL_STYLE) & WS_CHILD))
-            SetWindowLongPtr((HWND) wParam, GWL_EXSTYLE,
-                             GetWindowLongPtr((HWND) wParam, GWL_EXSTYLE) | WS_EX_DLGMODALFRAME);
+    if (nCode == HCBT_CREATEWND) {
+        if (!(GetWindowLongPtr(reinterpret_cast<HWND>(wParam), GWL_STYLE) & WS_CHILD))
+            SetWindowLongPtr(reinterpret_cast<HWND>(wParam), GWL_EXSTYLE,
+                             GetWindowLongPtr(reinterpret_cast<HWND>(wParam), GWL_EXSTYLE) | WS_EX_DLGMODALFRAME);
     }
     return CallNextHookEx(hHook, nCode, wParam, lParam);
 }
 
-static char *InputBoxHelper(const char *Prompt, const char *Title, const char *Default) {
+static char* InputBoxHelper(const char* Prompt, const char* Title, const char* Default) {
     // Initialize
     HRESULT hr = S_OK;
-    hr = CoInitialize(NULL);
-    CSimpleScriptSite *pScriptSite = new CSimpleScriptSite();
+    hr = CoInitialize(nullptr);
+    auto* pScriptSite = new CSimpleScriptSite();
     CComPtr<IActiveScript> spVBScript;
     CComPtr<IActiveScriptParse> spVBScriptParse;
     hr = spVBScript.CoCreateInstance(OLESTR("VBScript"));
@@ -179,33 +187,34 @@ static char *InputBoxHelper(const char *Prompt, const char *Title, const char *D
     CComVariant result;
     EXCEPINFO ei = {};
     DWORD ThreadID = GetCurrentThreadId();
-    HINSTANCE ModHwnd = GetModuleHandle(NULL);
+    HINSTANCE ModHwnd = GetModuleHandle(nullptr);
     hr = pScriptSite->SetWindow(GetAncestor(GetActiveWindow(), GA_ROOTOWNER));
     hHook = SetWindowsHookEx(WH_CBT, &InputBoxProc, ModHwnd, ThreadID);
-    hr = spVBScriptParse->ParseScriptText(WideEval.c_str(), NULL, NULL, NULL, 0, 0, SCRIPTTEXT_ISEXPRESSION, &result,
+    hr = spVBScriptParse->ParseScriptText(WideEval.c_str(), nullptr, nullptr, nullptr, 0, 0, SCRIPTTEXT_ISEXPRESSION,
+                                          &result,
                                           &ei);
     UnhookWindowsHookEx(hHook);
 
     // Cleanup
-    spVBScriptParse = NULL;
-    spVBScript = NULL;
+    spVBScriptParse = nullptr;
+    spVBScript = nullptr;
     pScriptSite->Release();
-    pScriptSite = NULL;
+    pScriptSite = nullptr;
     CoUninitialize();
 
     // Result
     static string strResult;
-    _bstr_t bstrResult = (_bstr_t) result;
-    strResult = StringNarrow((wchar_t *) bstrResult);
-    return (char *) strResult.c_str();
+    _bstr_t bstrResult{result};
+    strResult = StringNarrow(static_cast<wchar_t *>(bstrResult));
+    return const_cast<char *>(strResult.c_str());
 }
 
-char *utils::InputBox(const char *Prompt, const char *Title, const char *Default) {
+char* utils::InputBox(const char* Prompt, const char* Title, const char* Default) {
     HideInput = false;
     return InputBoxHelper(Prompt, Title, Default);
 }
 
-char *utils::PasswordBox(const char *Prompt, const char *Title, const char *Default) {
+char* utils::PasswordBox(const char* Prompt, const char* Title, const char* Default) {
     HideInput = true;
     return InputBoxHelper(Prompt, Title, Default);
 }

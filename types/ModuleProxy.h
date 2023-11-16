@@ -1,6 +1,5 @@
 #pragma once
 
-#include <functional>
 #include <memory>
 #include <string>
 
@@ -14,10 +13,10 @@ namespace types {
         ModuleProxy();
 
         template<typename T>
-        T* getFunction(const std::string &procName) {
-            return reinterpret_cast<T*>(GetProcAddress(
-                    reinterpret_cast<HMODULE>(this->_hModule.get()),
-                    procName.c_str()
+        T* getFunction(const std::string&procName) {
+            return reinterpret_cast<T *>(GetProcAddress(
+                static_cast<HMODULE>(this->_hModule.get()),
+                procName.c_str()
             ));
         }
 
@@ -26,4 +25,3 @@ namespace types {
         std::shared_ptr<void> _hModule = nullptr;
     };
 }
-

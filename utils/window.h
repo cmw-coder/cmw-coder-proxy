@@ -3,7 +3,6 @@
 #include <string>
 
 #include <types/common.h>
-#include <types/Key.h>
 
 namespace utils::window {
     std::string getWindowClassName(int64_t hwnd);

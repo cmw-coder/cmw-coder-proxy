@@ -17,7 +17,7 @@ namespace types {
         WindowInterceptor();
 
         template<class T>
-        void addHandler(UserAction userAction, T *const other, void(T::* const memberFunction)(unsigned int)) {
+        void addHandler(const UserAction userAction, T* const other, void (T::* const memberFunction)(unsigned int)) {
             _handlers[userAction] = std::bind_front(memberFunction, other);
         }
 

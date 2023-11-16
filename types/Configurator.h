@@ -13,7 +13,7 @@ namespace types {
 
         [[nodiscard]] std::pair<SiVersion::Major, SiVersion::Minor> version() const;
 
-        [[nodiscard]] std::string reportVersion(const std::string &version) const;
+        [[nodiscard]] std::string reportVersion(const std::string&version) const;
 
     private:
         std::string _siVersionString;

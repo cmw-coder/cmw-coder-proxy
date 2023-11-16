@@ -23,7 +23,7 @@ namespace types::SiVersion {
     };
 }
 
-template <>
+template<>
 struct [[maybe_unused]] magic_enum::customize::enum_range<types::SiVersion::Minor> {
     [[maybe_unused]] static constexpr int min = 0;
     [[maybe_unused]] static constexpr int max = 256;

@@ -11,27 +11,27 @@ using namespace std;
 using namespace utils;
 
 namespace {
-    constexpr uint64_t fileTime2Timestamp(const FILETIME &fileTile) {
+    constexpr uint64_t fileTime2Timestamp(const FILETIME&fileTile) {
         return static_cast<uint64_t>(fileTile.dwHighDateTime) << 32 | fileTile.dwLowDateTime & 0xFFFFFFFF;
     }
 }
 
-string system::formatSystemMessage(long errorCode) {
+string system::formatSystemMessage(const long errorCode) {
     string errorMessage;
     errorMessage.resize(16384);
     const auto errorMessageLength = FormatMessage(
-            FORMAT_MESSAGE_FROM_SYSTEM,
-            nullptr,
-            errorCode,
-            0,
-            errorMessage.data(),
-            errorMessage.size(),
-            nullptr
+        FORMAT_MESSAGE_FROM_SYSTEM,
+        nullptr,
+        errorCode,
+        0,
+        errorMessage.data(),
+        errorMessage.size(),
+        nullptr
     );
     return errorMessage.substr(0, errorMessageLength > 0 ? errorMessageLength - 1 : 0);
 }
 
-string system::getSystemPath(const string &relativePath) {
+string system::getSystemPath(const string&relativePath) {
     auto systemDirectory = string(MAX_PATH, 0);
     const auto length = GetSystemDirectory(systemDirectory.data(), MAX_PATH);
     return systemDirectory.substr(0, length) + R"(\)" + relativePath;
@@ -46,28 +46,26 @@ string system::getUserName() {
 }
 
 tuple<int, int, int, int> system::getVersion() {
-    string path;
-    {
+    string path; {
         path.resize(MAX_PATH);
         path = path.substr(0, GetModuleFileName(nullptr, path.data(), MAX_PATH));
     }
     DWORD verHandle = 0;
-    DWORD verSize = GetFileVersionInfoSize(path.c_str(), &verHandle);
-    if (verSize != 0) {
+    if (const DWORD verSize = GetFileVersionInfoSize(path.c_str(), &verHandle); verSize != 0) {
         string verData;
         verData.resize(verSize);
         if (GetFileVersionInfo(path.c_str(), verHandle, verSize, verData.data())) {
             LPBYTE lpBuffer = nullptr;
             UINT size = 0;
-            if (VerQueryValue(verData.c_str(), "\\", (VOID FAR *FAR *) &lpBuffer, &size)) {
+            if (VerQueryValue(verData.c_str(), "\\", reinterpret_cast<void * *>(&lpBuffer), &size)) {
                 if (size) {
-                    const auto *verInfo = reinterpret_cast<VS_FIXEDFILEINFO *>(lpBuffer);
-                    if (verInfo->dwSignature == 0xfeef04bd) {
+                    if (const auto* verInfo = reinterpret_cast<VS_FIXEDFILEINFO *>(lpBuffer);
+                        verInfo->dwSignature == 0xfeef04bd) {
                         return {
-                                (verInfo->dwFileVersionMS >> 16) & 0xffff,
-                                (verInfo->dwFileVersionMS >> 0) & 0xffff,
-                                (verInfo->dwFileVersionLS >> 16) & 0xffff,
-                                (verInfo->dwFileVersionLS >> 0) & 0xffff
+                            verInfo->dwFileVersionMS >> 16 & 0xffff,
+                            verInfo->dwFileVersionMS >> 0 & 0xffff,
+                            verInfo->dwFileVersionLS >> 16 & 0xffff,
+                            verInfo->dwFileVersionLS >> 0 & 0xffff
                         };
                     }
                 }
@@ -93,14 +91,13 @@ unsigned long system::getMainThreadId() {
         if (threadEntry.th32OwnerProcessID == currentProcessId) {
             const auto currentThreadId = threadEntry.th32ThreadID;
             const shared_ptr<void> sharedThreadHandle(
-                    OpenThread(THREAD_QUERY_INFORMATION, TRUE, currentThreadId),
-                    CloseHandle
+                OpenThread(THREAD_QUERY_INFORMATION, TRUE, currentThreadId),
+                CloseHandle
             );
             if (sharedThreadHandle) {
                 FILETIME afTimes[4] = {0};
                 if (GetThreadTimes(sharedThreadHandle.get(), &afTimes[0], &afTimes[1], &afTimes[2], &afTimes[3])) {
-                    uint64_t ullTest = fileTime2Timestamp(afTimes[0]);
-                    if (ullTest && ullTest < minCreateTime) {
+                    if (const uint64_t ullTest = fileTime2Timestamp(afTimes[0]); ullTest && ullTest < minCreateTime) {
                         minCreateTime = ullTest;
                         mainThreadId = currentThreadId;
                     }
@@ -111,74 +108,72 @@ unsigned long system::getMainThreadId() {
     return mainThreadId;
 }
 
-string system::getModuleFileName(uint64_t moduleAddress) {
+string system::getModuleFileName(const uint64_t moduleAddress) {
     string moduleFileName;
     moduleFileName.resize(MAX_PATH);
     const auto copiedSize = GetModuleFileName(
-            reinterpret_cast<HMODULE>(moduleAddress),
-            moduleFileName.data(),
-            MAX_PATH
+        reinterpret_cast<HMODULE>(moduleAddress),
+        moduleFileName.data(),
+        MAX_PATH
     );
     return moduleFileName.substr(0, copiedSize);
 }
 
-void system::setRegValue(const string &subKey, const string &valueName, uint32_t value) {
-    const auto setResult = RegSetKeyValue(
-            HKEY_CURRENT_USER,
-            subKey.c_str(),
-            valueName.c_str(),
-            REG_DWORD,
-            &value,
-            sizeof(DWORD)
-    );
-    if (setResult != ERROR_SUCCESS) {
-        throw (runtime_error(formatSystemMessage(setResult)));
+void system::setRegValue(const string&subKey, const string&valueName, const uint32_t value) {
+    if (const auto setResult = RegSetKeyValue(
+        HKEY_CURRENT_USER,
+        subKey.c_str(),
+        valueName.c_str(),
+        REG_DWORD,
+        &value,
+        sizeof(DWORD)
+    ); setResult != ERROR_SUCCESS) {
+        throw runtime_error(formatSystemMessage(setResult));
     }
 }
 
-void system::setRegValue(const string &subKey, const string &valueName, const string &value) {
-    const auto setResult = RegSetKeyValue(
-            HKEY_CURRENT_USER,
-            subKey.c_str(),
-            valueName.c_str(),
-            REG_SZ,
-            value.c_str(),
-            value.size()
-    );
-    if (setResult != ERROR_SUCCESS) {
-        throw (runtime_error(formatSystemMessage(setResult)));
+void system::setRegValue(const string&subKey, const string&valueName, const string&value) {
+    if (const auto setResult = RegSetKeyValue(
+        HKEY_CURRENT_USER,
+        subKey.c_str(),
+        valueName.c_str(),
+        REG_SZ,
+        value.c_str(),
+        value.size()
+    ); setResult != ERROR_SUCCESS) {
+        throw runtime_error(formatSystemMessage(setResult));
     }
 }
 
-string system::getRegValue(const string &subKey, const string &valueName) {
+string system::getRegValue(const string&subKey, const string&valueName) {
     HKEY hKey;
-    const auto openResult = RegOpenKeyEx(HKEY_CURRENT_USER, subKey.c_str(), 0, KEY_QUERY_VALUE, &hKey);
-    if (openResult != ERROR_SUCCESS) {
+    if (const auto openResult = RegOpenKeyEx(HKEY_CURRENT_USER, subKey.c_str(), 0, KEY_QUERY_VALUE, &hKey);
+        openResult != ERROR_SUCCESS) {
         RegCloseKey(hKey);
-        throw (runtime_error(formatSystemMessage(openResult)));
+        throw runtime_error(formatSystemMessage(openResult));
     }
     string value;
     value.resize(16384);
     DWORD valueLength = 16384;
     const auto getResult = RegGetValue(
-            hKey,
-            nullptr,
-            valueName.c_str(),
-            RRF_RT_REG_SZ,
-            nullptr,
-            value.data(),
-            &valueLength
+        hKey,
+        nullptr,
+        valueName.c_str(),
+        RRF_RT_REG_SZ,
+        nullptr,
+        value.data(),
+        &valueLength
     );
     RegCloseKey(hKey);
     if (getResult != ERROR_SUCCESS) {
-        throw (runtime_error(formatSystemMessage(getResult)));
+        throw runtime_error(formatSystemMessage(getResult));
     }
     return value.substr(0, valueLength > 0 ? valueLength - 1 : 0);
 }
 
-void utils::system::deleteRegValue(const string &subKey, const string &valueName) {
-    const auto deleteResult = RegDeleteKeyValue(HKEY_CURRENT_USER, subKey.c_str(), valueName.c_str());
-    if (deleteResult != ERROR_SUCCESS) {
-        throw (runtime_error(formatSystemMessage(deleteResult)));
+void system::deleteRegValue(const string&subKey, const string&valueName) {
+    if (const auto deleteResult = RegDeleteKeyValue(HKEY_CURRENT_USER, subKey.c_str(), valueName.c_str());
+        deleteResult != ERROR_SUCCESS) {
+        throw runtime_error(formatSystemMessage(deleteResult));
     }
 }

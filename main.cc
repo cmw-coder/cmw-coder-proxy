@@ -40,7 +40,7 @@ namespace {
 extern "C" {
 #endif
 
-[[maybe_unused]] BOOL __stdcall DllMain(HMODULE hModule, DWORD dwReason, [[maybe_unused]] PVOID pvReserved) {
+BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unused]] PVOID pvReserved) {
     switch (dwReason) {
         case DLL_PROCESS_ATTACH: {
             DisableThreadLibraryCalls(hModule);
@@ -48,45 +48,45 @@ extern "C" {
             initialize();
 
             CursorMonitor::GetInstance()->addHandler(
-                    UserAction::DeleteBackward,
-                    RegistryMonitor::GetInstance(),
-                    &RegistryMonitor::cancelByDeleteBackward
+                UserAction::DeleteBackward,
+                RegistryMonitor::GetInstance(),
+                &RegistryMonitor::cancelByDeleteBackward
             );
             CursorMonitor::GetInstance()->addHandler(
-                    UserAction::Navigate,
-                    RegistryMonitor::GetInstance(),
-                    &RegistryMonitor::cancelByCursorNavigate
+                UserAction::Navigate,
+                RegistryMonitor::GetInstance(),
+                &RegistryMonitor::cancelByCursorNavigate
             );
 
             WindowInterceptor::GetInstance()->addHandler(
-                    UserAction::Accept,
-                    RegistryMonitor::GetInstance(),
-                    &RegistryMonitor::acceptByTab
+                UserAction::Accept,
+                RegistryMonitor::GetInstance(),
+                &RegistryMonitor::acceptByTab
             );
             WindowInterceptor::GetInstance()->addHandler(
-                    UserAction::ModifyLine,
-                    RegistryMonitor::GetInstance(),
-                    &RegistryMonitor::cancelByModifyLine
+                UserAction::ModifyLine,
+                RegistryMonitor::GetInstance(),
+                &RegistryMonitor::cancelByModifyLine
             );
             WindowInterceptor::GetInstance()->addHandler(
-                    UserAction::Navigate,
-                    RegistryMonitor::GetInstance(),
-                    &RegistryMonitor::cancelByKeycodeNavigate
+                UserAction::Navigate,
+                RegistryMonitor::GetInstance(),
+                &RegistryMonitor::cancelByKeycodeNavigate
             );
             WindowInterceptor::GetInstance()->addHandler(
-                    UserAction::Normal,
-                    RegistryMonitor::GetInstance(),
-                    &RegistryMonitor::processNormalKey
+                UserAction::Normal,
+                RegistryMonitor::GetInstance(),
+                &RegistryMonitor::processNormalKey
             );
 
             const auto mainThreadId = system::getMainThreadId();
             logger::log(std::format(
-                    "siVersion: {}, PID: {}, currentTID: {}, mainTID: {}, mainModuleName: {}",
-                    Configurator::GetInstance()->reportVersion(""),
-                    GetCurrentProcessId(),
-                    GetCurrentThreadId(),
-                    mainThreadId,
-                    system::getModuleFileName(reinterpret_cast<uint64_t>(GetModuleHandle(nullptr)))
+                "siVersion: {}, PID: {}, currentTID: {}, mainTID: {}, mainModuleName: {}",
+                Configurator::GetInstance()->reportVersion(""),
+                GetCurrentProcessId(),
+                GetCurrentThreadId(),
+                mainThreadId,
+                system::getModuleFileName(reinterpret_cast<uint64_t>(GetModuleHandle(nullptr)))
             ));
 
             logger::log("Comware Coder Proxy is ready");

@@ -29,7 +29,7 @@ typedef struct {
     COLOR16 Green;
     COLOR16 Blue;
     COLOR16 Alpha;
-} *PTRIVERTEX;
+} TRIVERTEX;
 
 void WINAPI vSetDdrawflag(void) {
 #pragma comment(linker, "/EXPORT:vSetDdrawflag=_vSetDdrawflag@0")
@@ -38,17 +38,17 @@ void WINAPI vSetDdrawflag(void) {
 
 // https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-alphablend
 BOOL WINAPI AlphaBlend(
-        HDC hdcDest,
-        int xoriginDest,
-        int yoriginDest,
-        int wDest,
-        int hDest,
-        HDC hdcSrc,
-        int xoriginSrc,
-        int yoriginSrc,
-        int wSrc,
-        int hSrc,
-        BLENDFUNCTION ftn
+    const HDC__* hdcDest,
+    const int xoriginDest,
+    const int yoriginDest,
+    const int wDest,
+    const int hDest,
+    const HDC__* hdcSrc,
+    const int xoriginSrc,
+    const int yoriginSrc,
+    const int wSrc,
+    const int hSrc,
+    const BLENDFUNCTION ftn
 ) {
 #pragma comment(linker, "/EXPORT:AlphaBlend=_AlphaBlend@44")
     const auto remoteFunction = ModuleProxy::GetInstance()->getFunction<decltype(AlphaBlend)>("AlphaBlend");
@@ -57,43 +57,43 @@ BOOL WINAPI AlphaBlend(
         return false;
     }
     return remoteFunction(
-            hdcDest,
-            xoriginDest,
-            yoriginDest,
-            wDest,
-            hDest,
-            hdcSrc,
-            xoriginSrc,
-            yoriginSrc,
-            wSrc,
-            hSrc,
-            ftn
+        hdcDest,
+        xoriginDest,
+        yoriginDest,
+        wDest,
+        hDest,
+        hdcSrc,
+        xoriginSrc,
+        yoriginSrc,
+        wSrc,
+        hSrc,
+        ftn
     );
 }
 
 // https://docs.microsoft.com/en-us/windows/win32/dlls/dllmain
 BOOL WINAPI DllInitialize(
-        HINSTANCE hinstDLL,
-        DWORD fdwReason,
-        LPVOID lpvReserved
+    const HINSTANCE__* hinstDLL,
+    const DWORD fdwReason,
+    const void* lpvReserved
 ) {
 #pragma comment(linker, "/EXPORT:DllInitialize=_DllInitialize@12")
-    (void) hinstDLL;
-    (void) fdwReason;
-    (void) lpvReserved;
+    (void)hinstDLL;
+    (void)fdwReason;
+    (void)lpvReserved;
     logger::log(format("Proxying {}", typeid(DllInitialize).name()));
-//  DllMain(hinstDLL, fdwReason, lpvReserved);
+    //  DllMain(hinstDLL, fdwReason, lpvReserved);
     return TRUE;
 }
 
 // https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-gradientfill
 BOOL WINAPI GradientFill(
-        HDC hdc,
-        PTRIVERTEX pVertex,
-        ULONG nVertex,
-        PVOID pMesh,
-        ULONG nMesh,
-        ULONG ulMode
+    const void* hdc,
+    const TRIVERTEX* pVertex,
+    const ULONG nVertex,
+    const void* pMesh,
+    const ULONG nMesh,
+    const ULONG ulMode
 ) {
 #pragma comment(linker, "/EXPORT:GradientFill=_GradientFill@24")
     const auto remoteFunction = ModuleProxy::GetInstance()->getFunction<decltype(GradientFill)>("GradientFill");
@@ -106,17 +106,17 @@ BOOL WINAPI GradientFill(
 
 // https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-transparentblt
 BOOL WINAPI TransparentBlt(
-        HDC hdcDest,
-        int xoriginDest,
-        int yoriginDest,
-        int wDest,
-        int hDest,
-        HDC hdcSrc,
-        int xoriginSrc,
-        int yoriginSrc,
-        int wSrc,
-        int hSrc,
-        UINT crTransparent
+    const void* hdcDest,
+    const int xoriginDest,
+    const int yoriginDest,
+    const int wDest,
+    const int hDest,
+    const void* hdcSrc,
+    const int xoriginSrc,
+    const int yoriginSrc,
+    const int wSrc,
+    const int hSrc,
+    const UINT crTransparent
 ) {
 #pragma comment(linker, "/EXPORT:TransparentBlt=_TransparentBlt@44")
     const auto remoteFunction = ModuleProxy::GetInstance()->getFunction<decltype(TransparentBlt)>("TransparentBlt");
@@ -125,17 +125,17 @@ BOOL WINAPI TransparentBlt(
         return false;
     }
     return remoteFunction(
-            hdcDest,
-            xoriginDest,
-            yoriginDest,
-            wDest,
-            hDest,
-            hdcSrc,
-            xoriginSrc,
-            yoriginSrc,
-            wSrc,
-            hSrc,
-            crTransparent
+        hdcDest,
+        xoriginDest,
+        yoriginDest,
+        wDest,
+        hDest,
+        hdcSrc,
+        xoriginSrc,
+        yoriginSrc,
+        wSrc,
+        hSrc,
+        crTransparent
     );
 }
 

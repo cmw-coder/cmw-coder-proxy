@@ -41,15 +41,15 @@ namespace types {
 
         void _cancelCompletion(UserAction action = UserAction::DeleteBackward, bool resetCache = true);
 
-        void _insertCompletion(const std::string &data) const;
+        void _insertCompletion(const std::string&data) const;
 
-        void _reactToCompletion(Completion &&completion, bool isAccept);
+        void _reactToCompletion(Completion&&completion, bool isAccept);
 
-        void _retrieveCompletion(const std::string &editorInfoString);
+        void _retrieveCompletion(const std::string&editorInfoString);
 
         void _retrieveEditorInfo() const;
 
-        void _retrieveProjectId(const std::string &projectFolder);
+        void _retrieveProjectId(const std::string&projectFolder);
 
         void _threadCompletionMode();
 

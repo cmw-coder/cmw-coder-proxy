@@ -3,15 +3,14 @@
 using namespace std;
 using namespace types;
 
-Completion::Completion(const bool isSnippet, string content) :
-        _isSnippet(isSnippet),
-        _content(std::move(content)) {}
+Completion::Completion(const bool isSnippet, string content) : _isSnippet(isSnippet), _content(std::move(content)) {
+}
 
 bool Completion::isSnippet() const {
     return _isSnippet;
 }
 
-const string &Completion::content() const {
+const string& Completion::content() const {
     return _content;
 }
 

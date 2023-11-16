@@ -9,7 +9,7 @@ namespace types {
 
         [[nodiscard]] bool isSnippet() const;
 
-        [[nodiscard]] const std::string &content() const;
+        [[nodiscard]] const std::string& content() const;
 
         [[nodiscard]] std::string stringify() const;
 

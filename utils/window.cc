@@ -9,26 +9,26 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
-std::string window::getWindowClassName(int64_t hwnd) {
+std::string window::getWindowClassName(const int64_t hwnd) {
     std::string text;
     text.resize(256);
     return text.substr(0, GetClassName(reinterpret_cast<HWND>(hwnd), text.data(), 256));
 }
 
-std::string window::getWindowText(int64_t hwnd) {
+std::string window::getWindowText(const int64_t hwnd) {
     std::string text;
     text.resize(256);
     return text.substr(0, GetWindowText(reinterpret_cast<HWND>(hwnd), text.data(), 256));
 }
 
-bool window::postKeycode(int64_t hwnd, Keycode keycode) {
+bool window::postKeycode(const int64_t hwnd, const Keycode keycode) {
     if (hwnd < 0) {
         return false;
     }
     return PostMessage(reinterpret_cast<HWND>(hwnd), UM_KEYCODE, keycode, 0) != 0;
 }
 
-bool window::sendKeycode(int64_t hwnd, Keycode keycode) {
+bool window::sendKeycode(const int64_t hwnd, const Keycode keycode) {
     if (hwnd < 0) {
         return false;
     }

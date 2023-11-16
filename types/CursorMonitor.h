@@ -1,10 +1,7 @@
 #pragma once
 
-#include <deque>
 #include <functional>
 #include <memory>
-#include <optional>
-#include <shared_mutex>
 #include <unordered_map>
 
 #include <singleton_dclp.hpp>
@@ -25,9 +22,9 @@ namespace types {
 
         template<class T>
         void addHandler(
-                UserAction userAction,
-                T *const other,
-                void(T::* const memberFunction)(CursorPosition, CursorPosition)
+            const UserAction userAction,
+            T* const other,
+            void (T::* const memberFunction)(CursorPosition, CursorPosition)
         ) {
             _handlers[userAction] = std::bind_front(memberFunction, other);
         }
@@ -39,5 +36,4 @@ namespace types {
         std::atomic<UserAction> _lastAction{};
         std::unordered_map<UserAction, CallBackFunction> _handlers;
     };
-
 }

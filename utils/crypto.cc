@@ -11,7 +11,7 @@ using namespace utils;
 
 namespace {
     template<typename T>
-    string _encode(const string &input) {
+    string _encode(const string&input) {
         string output;
         T encoder;
         encoder.Attach(new CryptoPP::StringSink(output));
@@ -21,7 +21,7 @@ namespace {
     }
 
     template<typename T>
-    string _decode(const string &input) {
+    string _decode(const string&input) {
         string output;
         T decoder;
         decoder.Attach(new CryptoPP::StringSink(output));
@@ -31,7 +31,7 @@ namespace {
     }
 }
 
-string crypto::encode(const string &input, crypto::Encoding encoding) {
+string crypto::encode(const string&input, const Encoding encoding) {
     switch (encoding) {
         case Encoding::Base64:
             return _encode<CryptoPP::Base64Encoder>(input);
@@ -42,7 +42,7 @@ string crypto::encode(const string &input, crypto::Encoding encoding) {
     }
 }
 
-std::string crypto::decode(const string &input, crypto::Encoding encoding) {
+std::string crypto::decode(const string&input, const Encoding encoding) {
     switch (encoding) {
         case Encoding::Base64:
             return _decode<CryptoPP::Base64Decoder>(input);
@@ -53,7 +53,7 @@ std::string crypto::decode(const string &input, crypto::Encoding encoding) {
     }
 }
 
-string crypto::sha1(const string &input, crypto::Encoding encoding) {
+string crypto::sha1(const string&input, const Encoding encoding) {
     string output;
     CryptoPP::SHA1 hash;
     hash.Update(reinterpret_cast<const CryptoPP::byte *>(input.data()), input.size());

@@ -16,14 +16,13 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
-WindowInterceptor::WindowInterceptor() :
-        _keyHelper(Configurator::GetInstance()->version().first),
-        _windowHook(shared_ptr<void>(SetWindowsHookEx(
-                WH_CALLWNDPROC,
-                WindowInterceptor::_windowProcedureHook,
-                nullptr,
-                GetCurrentThreadId()
-        ), UnhookWindowsHookEx)) {
+WindowInterceptor::WindowInterceptor() : _keyHelper(Configurator::GetInstance()->version().first),
+                                         _windowHook(shared_ptr<void>(SetWindowsHookEx(
+                                                                          WH_CALLWNDPROC,
+                                                                          _windowProcedureHook,
+                                                                          nullptr,
+                                                                          GetCurrentThreadId()
+                                                                      ), UnhookWindowsHookEx)) {
     if (!_windowHook) {
         throw runtime_error("Failed to set window hook.");
     }
@@ -32,7 +31,7 @@ WindowInterceptor::WindowInterceptor() :
 }
 
 [[maybe_unused]] void
-WindowInterceptor::addHandler(UserAction userAction, WindowInterceptor::CallBackFunction function) {
+WindowInterceptor::addHandler(const UserAction userAction, CallBackFunction function) {
     _handlers[userAction] = std::move(function);
 }
 
@@ -44,40 +43,40 @@ void WindowInterceptor::requestRetrieveInfo() {
 bool WindowInterceptor::sendAcceptCompletion() {
     _cancelRetrieveInfo();
     return window::postKeycode(
-            _codeWindow,
-            _keyHelper.toKeycode(Key::F10, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
+        _codeWindow,
+        _keyHelper.toKeycode(Key::F10, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
     );
 }
 
 bool WindowInterceptor::sendCancelCompletion() {
     _cancelRetrieveInfo();
     return window::postKeycode(
-            _codeWindow,
-            _keyHelper.toKeycode(Key::F9, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
+        _codeWindow,
+        _keyHelper.toKeycode(Key::F9, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
     );
 }
 
 bool WindowInterceptor::sendInsertCompletion() {
     _cancelRetrieveInfo();
     return window::postKeycode(
-            _codeWindow,
-            _keyHelper.toKeycode(Key::F12, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
+        _codeWindow,
+        _keyHelper.toKeycode(Key::F12, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
     );
 }
 
 bool WindowInterceptor::sendSave() {
     _cancelRetrieveInfo();
     return window::postKeycode(
-            _codeWindow,
-            _keyHelper.toKeycode(Key::S, Modifier::Ctrl)
+        _codeWindow,
+        _keyHelper.toKeycode(Key::S, Modifier::Ctrl)
     );
 }
 
 bool WindowInterceptor::sendUndo() {
     _cancelRetrieveInfo();
     return window::postKeycode(
-            _codeWindow,
-            _keyHelper.toKeycode(Key::Z, Modifier::Ctrl)
+        _codeWindow,
+        _keyHelper.toKeycode(Key::Z, Modifier::Ctrl)
     );
 }
 
@@ -101,8 +100,7 @@ void WindowInterceptor::_handleKeycode(Keycode keycode) noexcept {
     const auto keyCombinationOpt = _keyHelper.fromKeycode(keycode);
     try {
         if (keyCombinationOpt.has_value()) {
-            const auto [key, modifiers] = keyCombinationOpt.value();
-            if (modifiers.empty()) {
+            if (const auto [key, modifiers] = keyCombinationOpt.value(); modifiers.empty()) {
                 switch (key) {
                     case Key::BackSpace: {
                         window::sendKeycode(_codeWindow, _keyHelper.toKeycode(Key::Insert));
@@ -124,9 +122,12 @@ void WindowInterceptor::_handleKeycode(Keycode keycode) noexcept {
                                 try {
                                     this_thread::sleep_for(chrono::milliseconds(150));
                                     _handlers.at(UserAction::Navigate)(keycode);
-                                } catch (...) {}
+                                }
+                                catch (...) {
+                                }
                             }).detach();
-                        } else {
+                        }
+                        else {
                             _handlers.at(UserAction::Navigate)(keycode);
                         }
                         break;
@@ -139,7 +140,8 @@ void WindowInterceptor::_handleKeycode(Keycode keycode) noexcept {
                         break;
                     }
                 }
-            } else {
+            }
+            else {
                 if (modifiers.size() == 1 && modifiers.contains(Modifier::Ctrl)) {
                     switch (key) {
                         case Key::S: {
@@ -161,29 +163,31 @@ void WindowInterceptor::_handleKeycode(Keycode keycode) noexcept {
                 }
             }
         }
-    } catch (...) {}
+    }
+    catch (...) {
+    }
 }
 
-void WindowInterceptor::_processWindowMessage(long lParam) {
+void WindowInterceptor::_processWindowMessage(const long lParam) {
     const auto windowProcData = reinterpret_cast<PCWPSTRUCT>(lParam);
     const auto currentWindow = reinterpret_cast<int64_t>(windowProcData->hwnd);
-    const auto currentWindowClass = window::getWindowClassName(currentWindow);
-    if (currentWindowClass == "si_Sw") {
+    if (const auto currentWindowClass = window::getWindowClassName(currentWindow); currentWindowClass == "si_Sw") {
         switch (windowProcData->message) {
             case WM_KILLFOCUS: {
-                const auto targetWindowClass = window::getWindowClassName(windowProcData->wParam);
-                if (_codeWindow >= 0 && targetWindowClass != "si_Poplist") {
-//                    logger::log(format(
-//                            "Coding window '{}' lost focus. (0x{:08X} '{}') to (0x{:08X} '{}')",
-//                            window::getWindowText(currentWindow),
-//                            currentWindow,
-//                            currentWindowClass,
-//                            static_cast<uint64_t>(windowProcData->wParam),
-//                            targetWindowClass
-//                    ));
+                if (const auto targetWindowClass = window::getWindowClassName(windowProcData->wParam);
+                    _codeWindow >= 0 && targetWindowClass != "si_Poplist") {
+                    // logger::log(format(
+                    //         "Coding window '{}' lost focus. (0x{:08X} '{}') to (0x{:08X} '{}')",
+                    //         window::getWindowText(currentWindow),
+                    //         currentWindow,
+                    //         currentWindowClass,
+                    //         static_cast<uint64_t>(windowProcData->wParam),
+                    //         targetWindowClass
+                    // ));
                     _handlers.at(UserAction::Navigate)(-1);
                     _codeWindow.store(-1);
-                } else if (targetWindowClass == "si_Poplist") {
+                }
+                else if (targetWindowClass == "si_Poplist") {
                     _popListWindow.store(windowProcData->wParam);
                 }
                 break;
@@ -193,15 +197,15 @@ void WindowInterceptor::_processWindowMessage(long lParam) {
                 break;
             }
             case WM_SETFOCUS: {
-//                const auto targetWindowClass = window::getWindowClassName(windowProcData->wParam);
-//                logger::log(format(
-//                        "Coding window '{}' set focus. (0x{:08X} '{}') from (0x{:08X} '{}')",
-//                        window::getWindowText(currentWindow),
-//                        currentWindow,
-//                        currentWindowClass,
-//                        static_cast<uint64_t>(windowProcData->wParam),
-//                        targetWindowClass
-//                ));
+                // const auto targetWindowClass = window::getWindowClassName(windowProcData->wParam);
+                // logger::log(format(
+                //         "Coding window '{}' set focus. (0x{:08X} '{}') from (0x{:08X} '{}')",
+                //         window::getWindowText(currentWindow),
+                //         currentWindow,
+                //         currentWindowClass,
+                //         static_cast<uint64_t>(windowProcData->wParam),
+                //         targetWindowClass
+                // ));
                 if (_codeWindow < 0) {
                     _codeWindow.store(currentWindow);
                 }
@@ -226,25 +230,27 @@ void WindowInterceptor::_threadDebounceRetrieveInfo() {
     thread([this] {
         while (_isRunning.load()) {
             if (_needRetrieveInfo.load()) {
-                const auto deltaTime = _debounceTime.load() - chrono::high_resolution_clock::now();
-                if (deltaTime <= chrono::nanoseconds(0)) {
+                if (const auto deltaTime = _debounceTime.load() - chrono::high_resolution_clock::now();
+                    deltaTime <= chrono::nanoseconds(0)) {
                     logger::log("Sending retrieve info...");
                     window::postKeycode(
-                            _codeWindow,
-                            _keyHelper.toKeycode(Key::F11, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
+                        _codeWindow,
+                        _keyHelper.toKeycode(Key::F11, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
                     );
                     _needRetrieveInfo.store(false);
-                } else {
+                }
+                else {
                     this_thread::sleep_for(deltaTime);
                 }
-            } else {
+            }
+            else {
                 this_thread::sleep_for(chrono::milliseconds(10));
             }
         }
     }).detach();
 }
 
-long WindowInterceptor::_windowProcedureHook(int nCode, unsigned int wParam, long lParam) {
+long WindowInterceptor::_windowProcedureHook(const int nCode, const unsigned int wParam, const long lParam) {
     GetInstance()->_processWindowMessage(lParam);
     return CallNextHookEx(nullptr, nCode, wParam, lParam);
 }

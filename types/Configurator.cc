@@ -3,7 +3,6 @@
 #include <magic_enum.hpp>
 
 #include <types/Configurator.h>
-#include <utils/logger.h>
 #include <utils/system.h>
 
 using namespace magic_enum;
