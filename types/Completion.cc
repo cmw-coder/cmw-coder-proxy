@@ -3,7 +3,7 @@
 using namespace std;
 using namespace types;
 
-Completion::Completion(bool isSnippet, string content) :
+Completion::Completion(const bool isSnippet, string content) :
         _isSnippet(isSnippet),
         _content(std::move(content)) {}
 

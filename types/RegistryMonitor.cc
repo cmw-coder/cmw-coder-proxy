@@ -49,11 +49,10 @@ RegistryMonitor::~RegistryMonitor() {
 
 void RegistryMonitor::acceptByTab(Keycode) {
     _justInserted = true;
-    const auto oldCompletion = _completionCache.reset();
-    if (!oldCompletion.content().empty()) {
+    if (auto oldCompletion = _completionCache.reset(); !oldCompletion.content().empty()) {
         WindowInterceptor::GetInstance()->sendAcceptCompletion();
         logger::log(format("Accepted completion: {}", oldCompletion.stringify()));
-        thread(&RegistryMonitor::_reactToCompletion, this, std::move(oldCompletion), true).detach();
+        thread(&RegistryMonitor::_reactToCompletion, this, move(oldCompletion), true).detach();
     }
     else {
         _retrieveEditorInfo();
@@ -64,10 +63,9 @@ void RegistryMonitor::cancelByCursorNavigate(CursorPosition, CursorPosition) {
     cancelByKeycodeNavigate(-1);
 }
 
-void RegistryMonitor::cancelByDeleteBackward(CursorPosition oldPosition, CursorPosition newPosition) {
+void RegistryMonitor::cancelByDeleteBackward(const CursorPosition oldPosition, const CursorPosition newPosition) {
     if (oldPosition.line == newPosition.line) {
-        const auto previousCacheOpt = _completionCache.previous();
-        if (previousCacheOpt.has_value()) {
+        if (const auto previousCacheOpt = _completionCache.previous(); previousCacheOpt.has_value()) {
             // Has valid cache
             const auto [_, completionOpt] = previousCacheOpt.value();
             try {
@@ -106,7 +104,7 @@ void RegistryMonitor::cancelByKeycodeNavigate(Keycode) {
     }
 }
 
-void RegistryMonitor::cancelByModifyLine(Keycode keycode) {
+void RegistryMonitor::cancelByModifyLine(const Keycode keycode) {
     _justInserted = false;
     if (_completionCache.valid()) {
         try {
@@ -143,7 +141,7 @@ void RegistryMonitor::cancelByUndo() {
     }
     else if (_completionCache.valid()) {
         _completionCache.reset();
-        logger::log(("Canceled by undo"));
+        logger::log("Canceled by undo");
         windowInterceptor->sendUndo();
     }
     else {
@@ -154,8 +152,7 @@ void RegistryMonitor::cancelByUndo() {
 void RegistryMonitor::processNormalKey(Keycode keycode) {
     _justInserted = false;
 
-    const auto nextCacheOpt = _completionCache.next();
-    if (nextCacheOpt.has_value()) {
+    if (const auto nextCacheOpt = _completionCache.next(); nextCacheOpt.has_value()) {
         // Has valid cache
         const auto [currentChar, completionOpt] = nextCacheOpt.value();
         try {
@@ -190,7 +187,7 @@ void RegistryMonitor::processNormalKey(Keycode keycode) {
     }
 }
 
-void RegistryMonitor::_cancelCompletion(UserAction action, bool resetCache) {
+void RegistryMonitor::_cancelCompletion(const UserAction action, const bool resetCache) {
     system::setRegValue(_subKey, "cancelType", to_string(enum_integer(action)));
     WindowInterceptor::GetInstance()->sendCancelCompletion();
     if (resetCache) {
@@ -198,12 +195,12 @@ void RegistryMonitor::_cancelCompletion(UserAction action, bool resetCache) {
     }
 }
 
-void RegistryMonitor::_insertCompletion(const string&data) {
+void RegistryMonitor::_insertCompletion(const string&data) const {
     system::setRegValue(_subKey, "completionGenerated", data);
     WindowInterceptor::GetInstance()->sendInsertCompletion();
 }
 
-void RegistryMonitor::_reactToCompletion(Completion&&completion, bool isAccept) {
+void RegistryMonitor::_reactToCompletion(Completion&&completion, const bool isAccept) {
     try {
         auto client = httplib::Client("http://localhost:3000");
         client.set_connection_timeout(3);
@@ -220,11 +217,11 @@ void RegistryMonitor::_reactToCompletion(Completion&&completion, bool isAccept) 
             logger::log(format("(/completion/accept) Result: {}", responseBody["result"].get<string>()));
         }
         else {
-            logger::log(format("(/completion/accept) Http error: {}", httplib::to_string(res.error())));
+            logger::error(format("(/completion/accept) Http error: {}", httplib::to_string(res.error())));
         }
     }
     catch (exception&e) {
-        logger::log(format("(/completion/accept) Exception: {}", e.what()));
+        logger::error(format("(/completion/accept) Exception: {}", e.what()));
     }
 }
 
@@ -241,7 +238,7 @@ void RegistryMonitor::_retrieveCompletion(const string&editorInfoString) {
             if (auto res = client.Post(
                 "/completion/generate",
                 nlohmann::json{
-                    {"info", crypto::encode(editorInfoString, crypto::Encoding::Base64)},
+                    {"info", encode(editorInfoString, crypto::Encoding::Base64)},
                     {"projectId", _projectId},
                     {"version", _pluginVersion},
                 }.dump(),
@@ -249,9 +246,9 @@ void RegistryMonitor::_retrieveCompletion(const string&editorInfoString) {
             )) {
                 const auto responseBody = nlohmann::json::parse(res->body);
                 const auto result = responseBody["result"].get<string>();
-                const auto&contents = responseBody["contents"];
-                if (result == "success" && contents.is_array() && !contents.empty()) {
-                    completionGenerated.emplace(crypto::decode(contents[0].get<string>(), crypto::Encoding::Base64));
+                if (const auto&contents = responseBody["contents"];
+                    result == "success" && contents.is_array() && !contents.empty()) {
+                    completionGenerated.emplace(decode(contents[0].get<string>(), crypto::Encoding::Base64));
                     logger::log(format("(/completion/generate) Completion: {}", completionGenerated.value_or("null")));
                 }
                 else {
@@ -267,7 +264,7 @@ void RegistryMonitor::_retrieveCompletion(const string&editorInfoString) {
         }
         if (_needInsert.load() && completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
             try {
-                const auto oldCompletion = _completionCache.reset(
+                auto oldCompletion = _completionCache.reset(
                     completionGenerated.value()[0] == '1',
                     completionGenerated.value().substr(1)
                 );
@@ -277,7 +274,7 @@ void RegistryMonitor::_retrieveCompletion(const string&editorInfoString) {
                 }
                 _insertCompletion(completionGenerated.value());
                 logger::log("Inserted completion");
-                thread(&RegistryMonitor::_reactToCompletion, this, std::move(oldCompletion), false).detach();
+                thread(&RegistryMonitor::_reactToCompletion, this, move(oldCompletion), false).detach();
             }
             catch (runtime_error&e) {
                 logger::log(e.what());
@@ -286,15 +283,14 @@ void RegistryMonitor::_retrieveCompletion(const string&editorInfoString) {
     }).detach();
 }
 
-void RegistryMonitor::_retrieveEditorInfo() {
+void RegistryMonitor::_retrieveEditorInfo() const {
     if (_isAutoCompletion.load()) {
         WindowInterceptor::GetInstance()->requestRetrieveInfo();
     }
 }
 
 void RegistryMonitor::_retrieveProjectId(const string&projectFolder) {
-    const auto currentProjectHash = crypto::sha1(projectFolder);
-    if (_projectHash != currentProjectHash) {
+    if (const auto currentProjectHash = crypto::sha1(projectFolder); _projectHash != currentProjectHash) {
         _projectId.clear();
         _projectHash = currentProjectHash;
     }
@@ -322,29 +318,29 @@ void RegistryMonitor::_threadCompletionMode() {
     thread([this] {
         while (_isRunning.load()) {
             try {
-                const bool isAutoCompletion = stoi(system::getRegValue(_subKey, "autoCompletion"));
-                if (_isAutoCompletion.load() != isAutoCompletion) {
+                if (const bool isAutoCompletion = stoi(system::getRegValue(_subKey, "autoCompletion"));
+                    _isAutoCompletion.load() != isAutoCompletion) {
                     _isAutoCompletion.store(isAutoCompletion);
                     logger::log(format("Auto completion: {}", _isAutoCompletion.load() ? "on" : "off"));
                 }
             }
-            catch (runtime_error&e) {
+            catch (runtime_error&) {
             }
             this_thread::sleep_for(chrono::milliseconds(10));
         }
     }).detach();
 }
 
-void RegistryMonitor::_threadLogDebug() {
+void RegistryMonitor::_threadLogDebug() const {
     thread([this] {
-        const auto debugLogKey = "CMWCODER_logDebug";
         while (_isRunning.load()) {
             try {
+                const auto debugLogKey = "CMWCODER_logDebug";
                 const auto logDebugString = system::getRegValue(_subKey, debugLogKey);
                 logger::log(format("[SI] {}", logDebugString));
                 system::deleteRegValue(_subKey, debugLogKey);
             }
-            catch (runtime_error&e) {
+            catch (runtime_error&) {
             }
             this_thread::sleep_for(chrono::milliseconds(1));
         }
@@ -447,7 +443,7 @@ void RegistryMonitor::_threadProcessInfo() {
 
                 logger::log(editorInfo.dump());*/
             }
-            catch (runtime_error&e) {
+            catch (runtime_error&) {
             } catch (exception&e) {
                 logger::log(e.what());
             } catch (...) {

@@ -8,7 +8,6 @@
 
 namespace helpers {
     class KeyHelper {
-    private:
         using ModifierSet = std::unordered_set<types::Modifier>;
         using KeyCombination = std::pair<types::Key, ModifierSet>;
 
@@ -23,7 +22,7 @@ namespace helpers {
 
         [[nodiscard]] types::Keycode toKeycode(types::Key key, types::Modifier modifier) const noexcept;
 
-        [[nodiscard]] types::Keycode toKeycode(types::Key key, const ModifierSet &modifiers = {}) const noexcept;
+        [[nodiscard]] types::Keycode toKeycode(types::Key key, const ModifierSet&modifiers = {}) const noexcept;
 
     private:
         const types::Keycode _keyMask;

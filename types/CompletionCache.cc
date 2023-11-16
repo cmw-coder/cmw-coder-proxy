@@ -8,7 +8,7 @@ optional<pair<char, optional<Completion>>> CompletionCache::previous() {
         return nullopt;
     }
 
-    shared_lock<shared_mutex> lock(_shared_mutex);
+    shared_lock lock(_shared_mutex);
     const auto currentChar = _content[_currentIndex];
     if (_currentIndex > 0) {
         --_currentIndex;
@@ -22,7 +22,7 @@ optional<pair<char, optional<Completion>>> CompletionCache::next() {
         return nullopt;
     }
 
-    shared_lock<shared_mutex> lock(_shared_mutex);
+    shared_lock lock(_shared_mutex);
     const auto currentChar = _content[_currentIndex];
     if (_currentIndex < _content.length() - 1) {
         ++_currentIndex;
@@ -31,12 +31,13 @@ optional<pair<char, optional<Completion>>> CompletionCache::next() {
     return make_pair(currentChar, nullopt);
 }
 
-Completion CompletionCache::reset(bool isSnippet, string content) {
+Completion CompletionCache::reset(const bool isSnippet, string content) {
     _currentIndex = content.empty() ? -1 : 0;
-    unique_lock<shared_mutex> lock(_shared_mutex);
+
+    unique_lock lock(_shared_mutex);
     const auto oldCompletion = Completion{_isSnippet, _content};
     _isSnippet = isSnippet;
-    _content = ::move(content);
+    _content = move(content);
     return oldCompletion;
 }
 

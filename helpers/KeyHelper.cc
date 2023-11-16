@@ -1,4 +1,3 @@
-#include <numeric>
 #include <magic_enum.hpp>
 
 #include <helpers/KeyHelper.h>
@@ -69,13 +68,13 @@ namespace {
     };
 }
 
-KeyHelper::KeyHelper(SiVersion::Major siVersion) noexcept:
+KeyHelper::KeyHelper(const SiVersion::Major siVersion) noexcept:
         _keyMask(keyMasks.at(siVersion)),
         _navigateRange(siVersion == SiVersion::Major::V35 ? make_pair(0x8021, 0x8028) : make_pair(0x800021, 0x800028)),
         _keyMap(keyMaps.at(siVersion)),
         _modifierMap(modifierMaps.at(siVersion)) {}
 
-optional<KeyHelper::KeyCombination> KeyHelper::fromKeycode(Keycode keycode) const noexcept {
+optional<KeyHelper::KeyCombination> KeyHelper::fromKeycode(const Keycode keycode) const noexcept {
     for (const auto &[key, keyValue]: _keyMap) {
         ModifierSet modifiers{};
         Keycode modifierAccumulated{};
@@ -92,12 +91,12 @@ optional<KeyHelper::KeyCombination> KeyHelper::fromKeycode(Keycode keycode) cons
     return nullopt;
 }
 
-bool KeyHelper::isNavigate(Keycode keycode) const noexcept {
+bool KeyHelper::isNavigate(const Keycode keycode) const noexcept {
     const auto maskedKeycode = keycode & _keyMask;
     return maskedKeycode >= _navigateRange.first && maskedKeycode <= _navigateRange.second;
 }
 
-bool KeyHelper::isPrintable(Keycode keycode) const noexcept {
+bool KeyHelper::isPrintable(const Keycode keycode) const noexcept {
     for (const auto &[modifier, modifierValue]: _modifierMap) {
         if (modifier != Modifier::Shift && (keycode & modifierValue) == modifierValue) {
             return false;
@@ -107,11 +106,11 @@ bool KeyHelper::isPrintable(Keycode keycode) const noexcept {
     return maskedKeycode >= _printableRange.first && maskedKeycode <= _printableRange.second;
 }
 
-Keycode KeyHelper::toKeycode(types::Key key, types::Modifier modifier) const noexcept {
+Keycode KeyHelper::toKeycode(const Key key, const Modifier modifier) const noexcept {
     return _keyMap.at(key) + _modifierMap.at(modifier);
 }
 
-Keycode KeyHelper::toKeycode(types::Key key, const std::unordered_set<types::Modifier> &modifiers) const noexcept {
+Keycode KeyHelper::toKeycode(const Key key, const std::unordered_set<Modifier> &modifiers) const noexcept {
     auto keycode = _keyMap.at(key);
     for (const auto &modifier: modifiers) {
         keycode += _modifierMap.at(modifier);
