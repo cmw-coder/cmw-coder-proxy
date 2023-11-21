@@ -27,6 +27,7 @@ WindowInterceptor::WindowInterceptor() : _keyHelper(Configurator::GetInstance()-
         throw runtime_error("Failed to set window hook.");
     }
 
+    _threadDebounceFocusWindow();
     _threadDebounceRetrieveInfo();
 }
 
