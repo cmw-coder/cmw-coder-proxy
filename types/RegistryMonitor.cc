@@ -370,7 +370,7 @@ void RegistryMonitor::_threadProcessInfo() {
 
                 _retrieveCompletion(editorInfoString);
 
-                if (const auto version = editorInfoRegexResults[5].str(); !version.empty() && _pluginVersion.empty()) {
+                if (const auto version = editorInfoRegexResults[6].str(); !version.empty() && _pluginVersion.empty()) {
                     _pluginVersion = Configurator::GetInstance()->reportVersion(version);
                     logger::log(format("Plugin version: {}", _pluginVersion));
                 }
