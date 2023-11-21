@@ -6,17 +6,17 @@
 
 #include <types/SiVersion.h>
 
-namespace types {
+namespace components {
     class Configurator : public SingletonDclp<Configurator> {
     public:
         Configurator();
 
-        [[nodiscard]] std::pair<SiVersion::Major, SiVersion::Minor> version() const;
+        [[nodiscard]] std::pair<types::SiVersion::Major, types::SiVersion::Minor> version() const;
 
         [[nodiscard]] std::string reportVersion(const std::string&version) const;
 
     private:
         std::string _siVersionString;
-        std::pair<SiVersion::Major, SiVersion::Minor> _siVersion;
+        std::pair<types::SiVersion::Major, types::SiVersion::Minor> _siVersion;
     };
 }

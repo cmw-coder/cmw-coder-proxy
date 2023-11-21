@@ -1,5 +1,9 @@
+#include <format>
+
+#include <components/Configurator.h>
 #include <components/InteractionMonitor.h>
 #include <types/SiVersion.h>
+#include <utils/logger.h>
 #include <utils/window.h>
 
 #include <windows.h>
@@ -81,6 +85,7 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
             }
             case WM_MOUSEACTIVATE: {
                 // CursorMonitor::GetInstance()->setAction(UserAction::Navigate);
+                _handlers.at(Interaction::MouseClick)(_cursorPosition.load());
                 break;
             }
             case WM_SETFOCUS: {
@@ -111,6 +116,39 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
             }
         }
     }
+}
+
+void InteractionMonitor::_threadMonitorCursorPosition() {
+    thread([this] {
+        const auto baseAddress = reinterpret_cast<uint32_t>(GetModuleHandle(nullptr));
+        const auto [majorVersion, minorVersion] = Configurator::GetInstance()->version();
+        try {
+            const auto [lineAddress, charAddress] = addressMap.at(majorVersion).at(minorVersion);
+            while (_isRunning.load()) {
+                CursorPosition cursorPosition{};
+                ReadProcessMemory(
+                    _processHandle.get(),
+                    reinterpret_cast<LPCVOID>(baseAddress + lineAddress),
+                    &cursorPosition.line,
+                    sizeof(cursorPosition.line),
+                    nullptr
+                );
+                ReadProcessMemory(
+                    _processHandle.get(),
+                    reinterpret_cast<LPCVOID>(baseAddress + charAddress),
+                    &cursorPosition.character,
+                    sizeof(cursorPosition.character),
+                    nullptr
+                );
+                this->_cursorPosition.store(cursorPosition);
+                this_thread::sleep_for(chrono::milliseconds(1));
+            }
+        }
+        catch (out_of_range&e) {
+            logger::error(format("Unsupported Source Insight Version: ", e.what()));
+            exit(1);
+        }
+    }).detach();
 }
 
 long InteractionMonitor::_windowProcedureHook(const int nCode, const unsigned int wParam, const long lParam) {

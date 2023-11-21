@@ -2,9 +2,10 @@
 
 #include <magic_enum.hpp>
 
-#include <types/Configurator.h>
+#include <components/Configurator.h>
 #include <utils/system.h>
 
+using namespace components;
 using namespace magic_enum;
 using namespace std;
 using namespace types;
