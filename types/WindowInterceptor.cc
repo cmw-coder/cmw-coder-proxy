@@ -208,7 +208,7 @@ void WindowInterceptor::_processWindowMessage(const long lParam) {
                 //         targetWindowClass
                 // ));
                 if (_codeWindow < 0) {
-                    _debounceFocusWindowTime.store(chrono::high_resolution_clock::now() + chrono::milliseconds(1000));
+                    _debounceFocusWindowTime.store(chrono::high_resolution_clock::now() + chrono::seconds(2));
                     _needFocusWindow.store(currentWindow);
                 }
                 if (_popListWindow > 0) {
