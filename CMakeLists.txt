@@ -36,9 +36,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     )
 endif ()
 
-add_library(${PROXY_MODULE_NAME} SHARED proxy.cc main.cc
-        types/Completion.cc
-        types/Completion.h)
+add_library(${PROXY_MODULE_NAME} SHARED proxy.cc main.cc)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_singleton.cmake)
 
@@ -58,11 +56,17 @@ target_link_libraries(${PROXY_MODULE_NAME} PRIVATE
 
 target_include_directories(${PROXY_MODULE_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
+aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/components/ COMPONENTS)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/helpers/ HELPERS)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/types/ TYPES)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/utils/ UTILS)
 
-target_sources(${PROXY_MODULE_NAME} PRIVATE ${HELPERS} ${TYPES} ${UTILS})
+target_sources(${PROXY_MODULE_NAME} PRIVATE
+        ${COMPONENTS}
+        ${HELPERS}
+        ${TYPES}
+        ${UTILS}
+)
 
 add_custom_command(TARGET ${PROXY_MODULE_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/${PROXY_MODULE_NAME}.dll "C:/Program Files (x86)/Source Insight 3/"
