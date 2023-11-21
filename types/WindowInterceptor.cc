@@ -36,7 +36,7 @@ WindowInterceptor::addHandler(const UserAction userAction, CallBackFunction func
 }
 
 void WindowInterceptor::requestRetrieveInfo() {
-    _debounceTime.store(chrono::high_resolution_clock::now() + chrono::milliseconds(250));
+    _debounceRetrieveInfoTime.store(chrono::high_resolution_clock::now() + chrono::milliseconds(250));
     _needRetrieveInfo.store(true);
 }
 
@@ -207,7 +207,8 @@ void WindowInterceptor::_processWindowMessage(const long lParam) {
                 //         targetWindowClass
                 // ));
                 if (_codeWindow < 0) {
-                    _codeWindow.store(currentWindow);
+                    _debounceFocusWindowTime.store(chrono::high_resolution_clock::now() + chrono::milliseconds(1000));
+                    _needFocusWindow.store(currentWindow);
                 }
                 if (_popListWindow > 0) {
                     _popListWindow.store(-1);
@@ -230,7 +231,7 @@ void WindowInterceptor::_threadDebounceRetrieveInfo() {
     thread([this] {
         while (_isRunning.load()) {
             if (_needRetrieveInfo.load()) {
-                if (const auto deltaTime = _debounceTime.load() - chrono::high_resolution_clock::now();
+                if (const auto deltaTime = _debounceRetrieveInfoTime.load() - chrono::high_resolution_clock::now();
                     deltaTime <= chrono::nanoseconds(0)) {
                     logger::log("Sending retrieve info...");
                     window::postKeycode(
@@ -238,6 +239,27 @@ void WindowInterceptor::_threadDebounceRetrieveInfo() {
                         _keyHelper.toKeycode(Key::F11, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
                     );
                     _needRetrieveInfo.store(false);
+                }
+                else {
+                    this_thread::sleep_for(deltaTime);
+                }
+            }
+            else {
+                this_thread::sleep_for(chrono::milliseconds(10));
+            }
+        }
+    }).detach();
+}
+
+void WindowInterceptor::_threadDebounceFocusWindow() {
+    thread([this] {
+        while (_isRunning.load()) {
+            if (const auto needFocusWindow = _needFocusWindow.load(); needFocusWindow >= 0) {
+                if (const auto deltaTime = _debounceFocusWindowTime.load() - chrono::high_resolution_clock::now();
+                    deltaTime <= chrono::nanoseconds(0)) {
+                    logger::log("Focusing window...");
+                    _codeWindow.store(needFocusWindow);
+                    _needFocusWindow.store(-1);
                 }
                 else {
                     this_thread::sleep_for(deltaTime);
