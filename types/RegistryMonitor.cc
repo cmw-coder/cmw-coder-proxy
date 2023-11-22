@@ -20,8 +20,6 @@ using namespace types;
 using namespace utils;
 
 namespace {
-    const regex editorInfoRegex(
-        R"regex(^cursor="(.*?)";path="(.*?)";project="(.*?)";tabs="(.*?)";type="(.*?)";version="(.*?)";symbols="(.*?)";prefix="(.*?)";suffix="(.*?)"$)regex");
     //    const regex cursorRegex(
     //            R"regex(^lnFirst="(.*?)";ichFirst="(.*?)";lnLast="(.*?)";ichLim="(.*?)";fExtended="(.*?)";fRect="(.*?)"$)regex");
 }
@@ -225,9 +223,16 @@ void RegistryMonitor::_reactToCompletion(Completion&&completion, const bool isAc
     }
 }
 
-void RegistryMonitor::_retrieveCompletion(const string&editorInfoString) {
+void RegistryMonitor::_retrieveCompletion(
+    const string&cursorString,
+    const string&path,
+    const string&prefix,
+    const string&suffix,
+    const string&symbolString,
+    const string&tabString
+) {
     _lastTriggerTime = chrono::high_resolution_clock::now();
-    thread([this, editorInfoString, currentTriggerName = _lastTriggerTime.load()] {
+    thread([=, this, currentTriggerName = _lastTriggerTime.load()] {
         _needInsert.store(true);
         optional<string> completionGenerated;
         try {
@@ -238,8 +243,13 @@ void RegistryMonitor::_retrieveCompletion(const string&editorInfoString) {
             if (auto res = client.Post(
                 "/completion/generate",
                 nlohmann::json{
-                    {"info", encode(editorInfoString, crypto::Encoding::Base64)},
+                    {"cursorString", cursorString},
+                    {"path", encode(path, crypto::Encoding::Base64)},
+                    {"prefix", encode(prefix, crypto::Encoding::Base64)},
                     {"projectId", _projectId},
+                    {"suffix", encode(suffix, crypto::Encoding::Base64)},
+                    {"symbolString", encode(symbolString, crypto::Encoding::Base64)},
+                    {"tabString", encode(tabString, crypto::Encoding::Base64)},
                     {"version", _pluginVersion},
                 }.dump(),
                 "application/json"
@@ -351,43 +361,59 @@ void RegistryMonitor::_threadProcessInfo() {
     thread([this] {
         while (_isRunning.load()) {
             try {
-                const auto editorInfoString = system::getRegValue(_subKey, "editorInfo");
-                //                logger::log(format("editorInfoString: {}", editorInfoString));
-                system::deleteRegValue(_subKey, "editorInfo");
+                const auto suffix = regex_replace(
+                    regex_replace(
+                        system::getRegValue(_subKey, "CMWCODER_suffix"),
+                        regex(R"(\\r\\n)"),
+                        "\r\n"
+                    ),
+                    regex(R"(\=)"),
+                    "="
+                );
+                const auto prefix = regex_replace(
+                    regex_replace(
+                        system::getRegValue(_subKey, "CMWCODER_prefix"),
+                        regex(R"(\\r\\n)"),
+                        "\r\n"
+                    ),
+                    regex(R"(\=)"),
+                    "="
+                );
+                const auto symbolString = system::getRegValue(_subKey, "CMWCODER_symbols");
+                const auto version = system::getRegValue(_subKey, "CMWCODER_version");
+                const auto tabString = system::getRegValue(_subKey, "CMWCODER_tabs");
+                const auto project = regex_replace(
+                    system::getRegValue(_subKey, "CMWCODER_project"),
+                    regex(R"(\\\\)"),
+                    "/"
+                );
+                const auto path = regex_replace(
+                    system::getRegValue(_subKey, "CMWCODER_path"),
+                    regex(R"(\\\\)"),
+                    "/"
+                );
+                const auto cursorString = system::getRegValue(_subKey, "CMWCODER_cursor");
 
-                smatch editorInfoRegexResults;
-                if (!regex_match(editorInfoString, editorInfoRegexResults, editorInfoRegex) ||
-                    editorInfoRegexResults.size() != 10) {
-                    logger::log(
-                        format("Invalid editorInfoString: {}, result size: {}", editorInfoString,
-                               editorInfoRegexResults.size()));
-                    continue;
-                }
+                system::deleteRegValue(_subKey, "CMWCODER_suffix");
+                system::deleteRegValue(_subKey, "CMWCODER_prefix");
+                system::deleteRegValue(_subKey, "CMWCODER_symbols");
+                system::deleteRegValue(_subKey, "CMWCODER_version");
+                system::deleteRegValue(_subKey, "CMWCODER_tabs");
+                system::deleteRegValue(_subKey, "CMWCODER_project");
+                system::deleteRegValue(_subKey, "CMWCODER_path");
+                system::deleteRegValue(_subKey, "CMWCODER_cursor");
 
-                const auto projectFolder = regex_replace(editorInfoRegexResults[3].str(), regex(R"(\\\\)"), "/");
-
-                _retrieveProjectId(projectFolder);
-
-                _retrieveCompletion(editorInfoString);
-
-                if (const auto version = editorInfoRegexResults[6].str(); !version.empty() && _pluginVersion.empty()) {
+                if (!version.empty() && _pluginVersion.empty()) {
                     _pluginVersion = Configurator::GetInstance()->reportVersion(version);
                     logger::log(format("Plugin version: {}", _pluginVersion));
                 }
 
-                // TODO: Finish completionType
-                /*nlohmann::json editorInfo = {
-                        {"cursor",          nlohmann::json::object()},
-                        {"currentFilePath", regex_replace(editorInfoRegexResults[2].str(), regex(R"(\\\\)"), "/")},
-                        {"projectFolder",   regex_replace(editorInfoRegexResults[3].str(), regex(R"(\\\\)"), "/")},
-                        {"openedTabs",      nlohmann::json::array()},
-                        {"completionType",  stoi(editorInfoRegexResults[5].str()) > 0 ? "snippet" : "line"},
-                        {"version",         editorInfoRegexResults[6].str()},
-                        {"symbols",         nlohmann::json::array()},
-                        {"prefix",          editorInfoRegexResults[8].str()},
-                        {"suffix",          editorInfoRegexResults[9].str()},
-                };
+                _retrieveProjectId(project);
 
+                _retrieveCompletion(cursorString, path, prefix, suffix, symbolString, tabString);
+
+                // TODO: Finish completionType
+                /*
                 {
                     const auto cursorString = regex_replace(editorInfoRegexResults[1].str(), regex(R"(\\)"), "");
                     smatch cursorRegexResults;

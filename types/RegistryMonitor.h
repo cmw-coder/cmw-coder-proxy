@@ -45,7 +45,14 @@ namespace types {
 
         void _reactToCompletion(Completion&&completion, bool isAccept);
 
-        void _retrieveCompletion(const std::string&editorInfoString);
+        void _retrieveCompletion(
+            const std::string&cursorString,
+            const std::string&path,
+            const std::string&prefix,
+            const std::string&suffix,
+            const std::string&symbolString,
+            const std::string&tabString
+        );
 
         void _retrieveEditorInfo() const;
 
