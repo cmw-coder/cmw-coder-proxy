@@ -2,12 +2,13 @@
 #include <thread>
 #include <stdexcept>
 
-#include <types/Configurator.h>
+#include <components/Configurator.h>
 #include <types/CursorMonitor.h>
 #include <utils/logger.h>
 
 #include <windows.h>
 
+using namespace components;
 using namespace std;
 using namespace types;
 using namespace utils;

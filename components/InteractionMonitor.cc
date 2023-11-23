@@ -3,14 +3,13 @@
 #include <components/Configurator.h>
 #include <components/InteractionMonitor.h>
 #include <types/SiVersion.h>
-#include <utils/logger.h>
 #include <utils/window.h>
 
 #include <windows.h>
 
+#include "WindowManager.h"
+
 using namespace components;
-// using namespace helpers;
-// using namespace magic_enum;
 using namespace std;
 using namespace types;
 using namespace utils;
@@ -41,7 +40,8 @@ namespace {
     };
 }
 
-InteractionMonitor::InteractionMonitor() : _processHandle(GetCurrentProcess(), CloseHandle),
+InteractionMonitor::InteractionMonitor() : _keyHelper(Configurator::GetInstance()->version().first),
+                                           _processHandle(GetCurrentProcess(), CloseHandle),
                                            _windowHookHandle(
                                                SetWindowsHookEx(
                                                    WH_CALLWNDPROC,
@@ -57,58 +57,140 @@ InteractionMonitor::InteractionMonitor() : _processHandle(GetCurrentProcess(), C
     if (!_windowHookHandle) {
         throw runtime_error("Failed to set window hook.");
     }
+    const auto baseAddress = reinterpret_cast<uint32_t>(GetModuleHandle(nullptr));
+    const auto [majorVersion, minorVersion] = Configurator::GetInstance()->version();
+    try {
+        const auto [lineOffset, charOffset] = addressMap.at(majorVersion).at(minorVersion);
+        _cursorLineAddress = baseAddress + lineOffset;
+        _cursorCharAddress = baseAddress + charOffset;
+    }
+    catch (out_of_range&e) {
+        throw runtime_error(format("Unsupported Source Insight Version: ", e.what()));
+    }
 }
 
-void InteractionMonitor::_processWindowMessage(const long lParam) {
+CursorPosition InteractionMonitor::_getCursorPosition() const {
+    CursorPosition cursorPosition{};
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_cursorLineAddress),
+        &cursorPosition.line,
+        sizeof(cursorPosition.line),
+        nullptr
+    );
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_cursorCharAddress),
+        &cursorPosition.character,
+        sizeof(cursorPosition.character),
+        nullptr
+    );
+    return cursorPosition;
+}
+
+void InteractionMonitor::_handleKeycode(Keycode keycode) const noexcept {
+    const auto currentCursorPosition = _getCursorPosition();
+    if (_keyHelper.isNavigate(keycode)) {
+        _handlers.at(Interaction::Navigate)({});
+        return;
+    }
+
+    if (_keyHelper.isPrintable(keycode)) {
+        (void)WindowManager::GetInstance()->sendDoubleInsert();
+        _handlers.at(Interaction::NormalInput)(make_pair(currentCursorPosition, keycode));
+        return;
+    }
+
+    const auto keyCombinationOpt = _keyHelper.fromKeycode(keycode);
+    try {
+        if (keyCombinationOpt.has_value()) {
+            if (const auto [key, modifiers] = keyCombinationOpt.value(); modifiers.empty()) {
+                switch (key) {
+                    case Key::BackSpace: {
+                        (void)WindowManager::GetInstance()->sendDoubleInsert();
+                        _handlers.at(Interaction::DeleteInput)(currentCursorPosition);
+                        break;
+                    }
+                    case Key::Tab: {
+                        _handlers.at(Interaction::AcceptCompletion)({});
+                        break;
+                    }
+                    case Key::Enter: {
+                        _handlers.at(Interaction::EnterInput)(currentCursorPosition);
+                        break;
+                    }
+                    case Key::Escape: {
+                        if (Configurator::GetInstance()->version().first == SiVersion::Major::V40) {
+                            thread([this, currentCursorPosition] {
+                                try {
+                                    this_thread::sleep_for(chrono::milliseconds(150));
+                                    _handlers.at(Interaction::Navigate)(currentCursorPosition);
+                                }
+                                catch (...) {
+                                }
+                            }).detach();
+                        }
+                        else {
+                            _handlers.at(Interaction::Navigate)(currentCursorPosition);
+                        }
+                        break;
+                    }
+                    default: {
+                        // TODO: Support Key::Delete
+                        break;
+                    }
+                }
+            }
+            else {
+                if (modifiers.size() == 1 && modifiers.contains(Modifier::Ctrl)) {
+                    switch (key) {
+                        case Key::S: {
+                            _handlers.at(Interaction::Save)({});
+                            break;
+                        }
+                        case Key::V: {
+                            _handlers.at(Interaction::Paste)({});
+                            break;
+                        }
+                        case Key::Z: {
+                            _handlers.at(Interaction::Undo)({});
+                            break;
+                        }
+                        default: {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    catch (...) {
+    }
+}
+
+void InteractionMonitor::_processWindowMessage(const long lParam) const {
     const auto windowProcData = reinterpret_cast<PCWPSTRUCT>(lParam);
-    const auto currentWindow = reinterpret_cast<int64_t>(windowProcData->hwnd);
-    if (const auto currentWindowClass = window::getWindowClassName(currentWindow); currentWindowClass == "si_Sw") {
+    if (const auto currentWindow = reinterpret_cast<int64_t>(windowProcData->hwnd);
+        window::getWindowClassName(currentWindow) == "si_Sw") {
         switch (windowProcData->message) {
             case WM_KILLFOCUS: {
-                if (const auto targetWindowClass = window::getWindowClassName(windowProcData->wParam);
-                    _codeWindowHandle >= 0 && targetWindowClass != "si_Poplist") {
-                    // logger::log(format(
-                    //         "Coding window '{}' lost focus. (0x{:08X} '{}') to (0x{:08X} '{}')",
-                    //         window::getWindowText(currentWindow),
-                    //         currentWindow,
-                    //         currentWindowClass,
-                    //         static_cast<uint64_t>(windowProcData->wParam),
-                    //         targetWindowClass
-                    // ));
+                if (WindowManager::GetInstance()->checkLostFocus(windowProcData->wParam)) {
                     _handlers.at(Interaction::LostFocus)(windowProcData->wParam);
-                    _codeWindowHandle.store(-1);
-                }
-                else if (targetWindowClass == "si_Poplist") {
-                    _popListWindowHandle.store(windowProcData->wParam);
                 }
                 break;
             }
             case WM_MOUSEACTIVATE: {
-                // CursorMonitor::GetInstance()->setAction(UserAction::Navigate);
-                _handlers.at(Interaction::MouseClick)(_cursorPosition.load());
+                _handlers.at(Interaction::MouseClick)(_getCursorPosition());
                 break;
             }
             case WM_SETFOCUS: {
-                // const auto targetWindowClass = window::getWindowClassName(windowProcData->wParam);
-                // logger::log(format(
-                //         "Coding window '{}' set focus. (0x{:08X} '{}') from (0x{:08X} '{}')",
-                //         window::getWindowText(currentWindow),
-                //         currentWindow,
-                //         currentWindowClass,
-                //         static_cast<uint64_t>(windowProcData->wParam),
-                //         targetWindowClass
-                // ));
-                if (_codeWindowHandle < 0) {
-                    _codeWindowHandle.store(currentWindow);
-                }
-                if (_popListWindowHandle > 0) {
-                    _popListWindowHandle.store(-1);
-                    // sendCancelCompletion();
+                if (WindowManager::GetInstance()->checkGainFocus(currentWindow)) {
+                    _handlers.at(Interaction::CancelCompletion)({});
                 }
                 break;
             }
             case UM_KEYCODE: {
-                // _handleKeycode(windowProcData->wParam);
+                _handleKeycode(windowProcData->wParam);
                 break;
             }
             default: {
@@ -120,33 +202,9 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
 
 void InteractionMonitor::_threadMonitorCursorPosition() {
     thread([this] {
-        const auto baseAddress = reinterpret_cast<uint32_t>(GetModuleHandle(nullptr));
-        const auto [majorVersion, minorVersion] = Configurator::GetInstance()->version();
-        try {
-            const auto [lineAddress, charAddress] = addressMap.at(majorVersion).at(minorVersion);
-            while (_isRunning.load()) {
-                CursorPosition cursorPosition{};
-                ReadProcessMemory(
-                    _processHandle.get(),
-                    reinterpret_cast<LPCVOID>(baseAddress + lineAddress),
-                    &cursorPosition.line,
-                    sizeof(cursorPosition.line),
-                    nullptr
-                );
-                ReadProcessMemory(
-                    _processHandle.get(),
-                    reinterpret_cast<LPCVOID>(baseAddress + charAddress),
-                    &cursorPosition.character,
-                    sizeof(cursorPosition.character),
-                    nullptr
-                );
-                this->_cursorPosition.store(cursorPosition);
-                this_thread::sleep_for(chrono::milliseconds(1));
-            }
-        }
-        catch (out_of_range&e) {
-            logger::error(format("Unsupported Source Insight Version: ", e.what()));
-            exit(1);
+        while (_isRunning.load()) {
+            this->_cursorPosition.store(_getCursorPosition());
+            this_thread::sleep_for(chrono::milliseconds(1));
         }
     }).detach();
 }

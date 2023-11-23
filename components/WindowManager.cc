@@ -1,0 +1,67 @@
+#include <components/Configurator.h>
+#include <components/WindowManager.h>
+#include <types/Key.h>
+#include <utils/window.h>
+
+using namespace components;
+using namespace types;
+using namespace utils;
+
+WindowManager::WindowManager() : _keyHelper(Configurator::GetInstance()->version().first) {
+}
+
+bool WindowManager::checkLostFocus(const int64_t windowHandle) {
+    if (const auto windowClass = window::getWindowClassName(windowHandle);
+        windowClass == "si_Poplist") {
+        _popListWindowHandle.store(windowHandle);
+    }
+    else if (_codeWindowHandle >= 0) {
+        _codeWindowHandle.store(-1);
+        return true;
+    }
+    return false;
+}
+
+bool WindowManager::checkGainFocus(const int64_t windowHandle) {
+    if (_codeWindowHandle < 0) {
+        _codeWindowHandle.store(windowHandle);
+    }
+    if (_popListWindowHandle > 0) {
+        _popListWindowHandle.store(-1);
+        return true;
+    }
+    return false;
+}
+
+bool WindowManager::sendAcceptCompletion() {
+    _cancelRetrieveInfo();
+    return window::postKeycode(
+        _codeWindowHandle,
+        _keyHelper.toKeycode(Key::F10, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
+    );
+}
+
+bool WindowManager::sendCancelCompletion() {
+    _cancelRetrieveInfo();
+    return window::postKeycode(
+        _codeWindowHandle,
+        _keyHelper.toKeycode(Key::F9, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
+    );
+}
+
+bool WindowManager::sendDoubleInsert() const {
+    return window::sendKeycode(_codeWindowHandle, _keyHelper.toKeycode(Key::Insert)) &&
+           window::sendKeycode(_codeWindowHandle, _keyHelper.toKeycode(Key::Insert));
+}
+
+bool WindowManager::sendInsertCompletion() {
+    _cancelRetrieveInfo();
+    return window::postKeycode(
+        _codeWindowHandle,
+        _keyHelper.toKeycode(Key::F12, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
+    );
+}
+
+void WindowManager::_cancelRetrieveInfo() {
+    _needRetrieveInfo.store(false);
+}

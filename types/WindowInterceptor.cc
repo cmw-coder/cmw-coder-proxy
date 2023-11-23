@@ -1,7 +1,7 @@
 #include <magic_enum.hpp>
 
 #include <types/common.h>
-#include <types/Configurator.h>
+#include <components/Configurator.h>
 #include <types/CursorMonitor.h>
 #include <types/RegistryMonitor.h>
 #include <types/WindowInterceptor.h>
@@ -10,6 +10,7 @@
 
 #include <windows.h>
 
+using namespace components;
 using namespace helpers;
 using namespace magic_enum;
 using namespace std;
