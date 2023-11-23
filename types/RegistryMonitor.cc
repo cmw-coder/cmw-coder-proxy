@@ -223,16 +223,9 @@ void RegistryMonitor::_reactToCompletion(Completion&&completion, const bool isAc
     }
 }
 
-void RegistryMonitor::_retrieveCompletion(
-    const string&cursorString,
-    const string&path,
-    const string&prefix,
-    const string&suffix,
-    const string&symbolString,
-    const string&tabString
-) {
+void RegistryMonitor::_retrieveCompletion() {
     _lastTriggerTime = chrono::high_resolution_clock::now();
-    thread([=, this, currentTriggerName = _lastTriggerTime.load()] {
+    thread([this, currentTriggerName = _lastTriggerTime.load()] {
         _needInsert.store(true);
         optional<string> completionGenerated;
         try {
@@ -243,13 +236,13 @@ void RegistryMonitor::_retrieveCompletion(
             if (auto res = client.Post(
                 "/completion/generate",
                 nlohmann::json{
-                    {"cursorString", cursorString},
-                    {"path", encode(path, crypto::Encoding::Base64)},
-                    {"prefix", encode(prefix, crypto::Encoding::Base64)},
+                    {"cursorString", _cursorString},
+                    {"path", encode(_path, crypto::Encoding::Base64)},
+                    {"prefix", encode(_prefix, crypto::Encoding::Base64)},
                     {"projectId", _projectId},
-                    {"suffix", encode(suffix, crypto::Encoding::Base64)},
-                    {"symbolString", encode(symbolString, crypto::Encoding::Base64)},
-                    {"tabString", encode(tabString, crypto::Encoding::Base64)},
+                    {"suffix", encode(_suffix, crypto::Encoding::Base64)},
+                    {"symbolString", encode(_symbolString, crypto::Encoding::Base64)},
+                    {"tabString", encode(_tabString, crypto::Encoding::Base64)},
                     {"version", _pluginVersion},
                 }.dump(),
                 "application/json"
@@ -271,6 +264,9 @@ void RegistryMonitor::_retrieveCompletion(
         }
         catch (exception&e) {
             logger::log(format("(/completion/generate) Exception: {}", e.what()));
+        }
+        catch (...) {
+            logger::log("(/completion/generate) Unknown exception.");
         }
         if (_needInsert.load() && completionGenerated.has_value() && currentTriggerName == _lastTriggerTime.load()) {
             try {
@@ -361,119 +357,86 @@ void RegistryMonitor::_threadProcessInfo() {
     thread([this] {
         while (_isRunning.load()) {
             try {
-                const auto suffix = regex_replace(
+                const auto currentLinePrefix = regex_replace(
                     regex_replace(
-                        system::getRegValue(_subKey, "CMWCODER_suffix"),
+                        system::getRegValue(_subKey, "CMWCODER_curfix"),
                         regex(R"(\\r\\n)"),
                         "\r\n"
                     ),
                     regex(R"(\=)"),
                     "="
                 );
-                const auto prefix = regex_replace(
-                    regex_replace(
-                        system::getRegValue(_subKey, "CMWCODER_prefix"),
-                        regex(R"(\\r\\n)"),
-                        "\r\n"
-                    ),
-                    regex(R"(\=)"),
-                    "="
-                );
-                const auto symbolString = system::getRegValue(_subKey, "CMWCODER_symbols");
-                const auto version = system::getRegValue(_subKey, "CMWCODER_version");
-                const auto tabString = system::getRegValue(_subKey, "CMWCODER_tabs");
-                const auto project = regex_replace(
-                    system::getRegValue(_subKey, "CMWCODER_project"),
-                    regex(R"(\\\\)"),
-                    "/"
-                );
-                const auto path = regex_replace(
-                    system::getRegValue(_subKey, "CMWCODER_path"),
-                    regex(R"(\\\\)"),
-                    "/"
-                );
-                const auto cursorString = system::getRegValue(_subKey, "CMWCODER_cursor");
+                system::deleteRegValue(_subKey, "CMWCODER_curfix");
 
-                system::deleteRegValue(_subKey, "CMWCODER_suffix");
-                system::deleteRegValue(_subKey, "CMWCODER_prefix");
-                system::deleteRegValue(_subKey, "CMWCODER_symbols");
-                system::deleteRegValue(_subKey, "CMWCODER_version");
-                system::deleteRegValue(_subKey, "CMWCODER_tabs");
-                system::deleteRegValue(_subKey, "CMWCODER_project");
-                system::deleteRegValue(_subKey, "CMWCODER_path");
-                system::deleteRegValue(_subKey, "CMWCODER_cursor");
-
-                if (!version.empty() && _pluginVersion.empty()) {
-                    _pluginVersion = Configurator::GetInstance()->reportVersion(version);
-                    logger::log(format("Plugin version: {}", _pluginVersion));
+                if (const auto lastNewLineIndex = _prefix.find_last_of("\r\n"); lastNewLineIndex != string::npos) {
+                    _prefix = _prefix.substr(0, lastNewLineIndex + 2) + currentLinePrefix;
                 }
-
-                _retrieveProjectId(project);
-
-                _retrieveCompletion(cursorString, path, prefix, suffix, symbolString, tabString);
-
-                // TODO: Finish completionType
-                /*
-                {
-                    const auto cursorString = regex_replace(editorInfoRegexResults[1].str(), regex(R"(\\)"), "");
-                    smatch cursorRegexResults;
-                    if (!regex_match(cursorString, cursorRegexResults, cursorRegex) ||
-                        cursorRegexResults.size() != 7) {
-                        logger::log("Invalid cursorString");
-                        continue;
-                    }
-                    editorInfo["cursor"] = {
-                            {"startLine",      cursorRegexResults[1].str()},
-                            {"startCharacter", cursorRegexResults[2].str()},
-                            {"endLine",        cursorRegexResults[3].str()},
-                            {"endCharacter",   cursorRegexResults[4].str()},
-                    };
+                else {
+                    _prefix = currentLinePrefix;
                 }
-
-                {
-                    const auto symbolString = editorInfoRegexResults[7].str();
-                    editorInfo["symbols"] = nlohmann::json::array();
-                    if (symbolString.length() > 2) {
-                        for (const auto symbol: views::split(symbolString.substr(1, symbolString.length() - 1), "||")) {
-                            const auto symbolComponents = views::split(symbol, "|")
-                                                          | views::transform(
-                                    [](auto &&rng) { return string(&*rng.begin(), ranges::distance(rng)); })
-                                                          | to<vector>();
-
-                            editorInfo["symbols"].push_back(
-                                    {
-                                            {"name",      symbolComponents[0]},
-                                            {"path",      symbolComponents[1]},
-                                            {"startLine", symbolComponents[2]},
-                                            {"endLine",   symbolComponents[3]},
-                                    }
-                            );
-                        }
-                    }
-                }
-
-                {
-                    const string tabsString = editorInfoRegexResults[4].str();
-                    auto searchStart(tabsString.cbegin());
-                    smatch tabsRegexResults;
-                    while (regex_search(
-                            searchStart,
-                            tabsString.cend(),
-                            tabsRegexResults,
-                            regex(R"regex(.*?\.([ch]))regex")
-                    )) {
-                        editorInfo["openedTabs"].push_back(tabsRegexResults[0].str());
-                        searchStart = tabsRegexResults.suffix().first;
-                    }
-                }
-
-                logger::log(editorInfo.dump());*/
+                logger::log(format("New prefix: {}", _prefix));
+                _retrieveCompletion();
             }
             catch (runtime_error&) {
-            } catch (exception&e) {
-                logger::log(e.what());
-            } catch (...) {
-                logger::log("Unknown exception.");
+                try {
+                    _suffix = regex_replace(
+                        regex_replace(
+                            system::getRegValue(_subKey, "CMWCODER_suffix"),
+                            regex(R"(\\r\\n)"),
+                            "\r\n"
+                        ),
+                        regex(R"(\=)"),
+                        "="
+                    );
+                    _prefix = regex_replace(
+                        regex_replace(
+                            system::getRegValue(_subKey, "CMWCODER_prefix"),
+                            regex(R"(\\r\\n)"),
+                            "\r\n"
+                        ),
+                        regex(R"(\=)"),
+                        "="
+                    );
+                    _symbolString = system::getRegValue(_subKey, "CMWCODER_symbols");
+                    _tabString = system::getRegValue(_subKey, "CMWCODER_tabs");
+                    const auto project = regex_replace(
+                        system::getRegValue(_subKey, "CMWCODER_project"),
+                        regex(R"(\\\\)"),
+                        "/"
+                    );
+                    _path = regex_replace(
+                        system::getRegValue(_subKey, "CMWCODER_path"),
+                        regex(R"(\\\\)"),
+                        "/"
+                    );
+                    _cursorString = system::getRegValue(_subKey, "CMWCODER_cursor");
+
+                    system::deleteRegValue(_subKey, "CMWCODER_suffix");
+                    system::deleteRegValue(_subKey, "CMWCODER_prefix");
+                    system::deleteRegValue(_subKey, "CMWCODER_symbols");
+                    system::deleteRegValue(_subKey, "CMWCODER_version");
+                    system::deleteRegValue(_subKey, "CMWCODER_tabs");
+                    system::deleteRegValue(_subKey, "CMWCODER_project");
+                    system::deleteRegValue(_subKey, "CMWCODER_path");
+                    system::deleteRegValue(_subKey, "CMWCODER_cursor");
+
+                    if (_pluginVersion.empty()) {
+                        _pluginVersion = Configurator::GetInstance()->reportVersion(
+                            system::getRegValue(_subKey, "CMWCODER_version")
+                        );
+                        logger::log(format("Plugin version: {}", _pluginVersion));
+                    }
+
+                    _retrieveProjectId(project);
+
+                    _retrieveCompletion();
+                }
+                catch (runtime_error&) {
+                } catch (exception&e) {
+                    logger::log(e.what());
+                } catch (...) {
+                    logger::log("Unknown exception.");
+                }
             }
             this_thread::sleep_for(chrono::milliseconds(1));
         }

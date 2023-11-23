@@ -34,7 +34,8 @@ namespace types {
 
     private:
         const std::string _subKey;
-        std::string _projectId, _projectHash, _pluginVersion;
+        std::string _cursorString, _path, _prefix, _suffix, _symbolString, _tabString,
+                _projectId, _projectHash, _pluginVersion;
         CompletionCache _completionCache;
         std::atomic<bool> _isAutoCompletion = true, _isRunning = true, _needInsert = false, _justInserted = false;
         std::atomic<std::chrono::time_point<std::chrono::high_resolution_clock>> _lastTriggerTime;
@@ -45,14 +46,7 @@ namespace types {
 
         void _reactToCompletion(Completion&&completion, bool isAccept);
 
-        void _retrieveCompletion(
-            const std::string&cursorString,
-            const std::string&path,
-            const std::string&prefix,
-            const std::string&suffix,
-            const std::string&symbolString,
-            const std::string&tabString
-        );
+        void _retrieveCompletion();
 
         void _retrieveEditorInfo() const;
 
