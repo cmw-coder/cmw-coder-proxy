@@ -4,6 +4,7 @@
 
 #include <singleton_dclp.hpp>
 
+#include <helpers/KeyHelper.h>
 #include <types/common.h>
 #include <types/CompletionCache.h>
 #include <types/CursorPosition.h>
@@ -34,19 +35,21 @@ namespace types {
 
     private:
         const std::string _subKey;
+        helpers::KeyHelper _keyHelper;
         std::string _cursorString, _path, _prefix, _suffix, _symbolString, _tabString,
                 _projectId, _projectHash, _pluginVersion;
         CompletionCache _completionCache;
-        std::atomic<bool> _isAutoCompletion = true, _isRunning = true, _needInsert = false, _justInserted = false;
+        std::atomic<bool> _isAutoCompletion = true, _isRunning = true, _needInsert = false, _isJustAccepted = false,
+                _isContinuousEnter = false;
         std::atomic<std::chrono::time_point<std::chrono::high_resolution_clock>> _lastTriggerTime;
 
         void _cancelCompletion(UserAction action = UserAction::DeleteBackward, bool resetCache = true);
 
-        void _insertCompletion(const std::string&data) const;
+        static void _insertCompletion(const std::string&data);
 
         void _reactToCompletion(Completion&&completion, bool isAccept);
 
-        void _retrieveCompletion();
+        void _retrieveCompletion(const std::string&prefix);
 
         void _retrieveEditorInfo() const;
 

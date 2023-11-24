@@ -71,21 +71,6 @@ BOOL WINAPI AlphaBlend(
     );
 }
 
-// https://docs.microsoft.com/en-us/windows/win32/dlls/dllmain
-BOOL WINAPI DllInitialize(
-    const HINSTANCE__* hinstDLL,
-    const DWORD fdwReason,
-    const void* lpvReserved
-) {
-#pragma comment(linker, "/EXPORT:DllInitialize=_DllInitialize@12")
-    (void)hinstDLL;
-    (void)fdwReason;
-    (void)lpvReserved;
-    logger::log(format("Proxying {}", typeid(DllInitialize).name()));
-    //  DllMain(hinstDLL, fdwReason, lpvReserved);
-    return TRUE;
-}
-
 // https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-gradientfill
 BOOL WINAPI GradientFill(
     const void* hdc,

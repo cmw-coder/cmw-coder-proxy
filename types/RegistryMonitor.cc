@@ -24,18 +24,17 @@ namespace {
     //            R"regex(^lnFirst="(.*?)";ichFirst="(.*?)";lnLast="(.*?)";ichLim="(.*?)";fExtended="(.*?)";fRect="(.*?)"$)regex");
 }
 
-RegistryMonitor::RegistryMonitor() : _subKey(Configurator::GetInstance()->version().first == SiVersion::Major::V35
+RegistryMonitor::RegistryMonitor() : _keyHelper(Configurator::GetInstance()->version().first),
+                                     _subKey(Configurator::GetInstance()->version().first == SiVersion::Major::V35
                                                  ? R"(SOFTWARE\Source Dynamics\Source Insight\3.0)"
                                                  : R"(SOFTWARE\Source Dynamics\Source Insight\4.0)") {
-    try {
-        _isAutoCompletion.store(stoi(system::getRegValue(_subKey, "autoCompletion")));
-    }
-    catch (...) {
+    if (const auto isAutoCompletion = system::getRegValue(_subKey, "CMWCODER_autoCompletion");
+        isAutoCompletion.has_value()) {
+        _isAutoCompletion.store(stoi(isAutoCompletion.value()));
     }
 
     logger::log(format("Auto completion: {}", _isAutoCompletion.load() ? "on" : "off"));
 
-    _threadProcessInfo();
     _threadProcessInfo();
     _threadCompletionMode();
     _threadLogDebug();
@@ -46,7 +45,8 @@ RegistryMonitor::~RegistryMonitor() {
 }
 
 void RegistryMonitor::acceptByTab(Keycode) {
-    _justInserted = true;
+    _isContinuousEnter.store(false);
+    _isJustAccepted.store(true);
     if (auto oldCompletion = _completionCache.reset(); !oldCompletion.content().empty()) {
         WindowInterceptor::GetInstance()->sendAcceptCompletion();
         logger::log(format("Accepted completion: {}", oldCompletion.stringify()));
@@ -62,6 +62,7 @@ void RegistryMonitor::cancelByCursorNavigate(CursorPosition, CursorPosition) {
 }
 
 void RegistryMonitor::cancelByDeleteBackward(const CursorPosition oldPosition, const CursorPosition newPosition) {
+    _isContinuousEnter.store(false);
     if (oldPosition.line == newPosition.line) {
         if (const auto previousCacheOpt = _completionCache.previous(); previousCacheOpt.has_value()) {
             // Has valid cache
@@ -86,11 +87,12 @@ void RegistryMonitor::cancelByDeleteBackward(const CursorPosition oldPosition, c
         }
     }
     else {
-        cancelByModifyLine(enum_integer(Key::BackSpace));
+        cancelByModifyLine(_keyHelper.toKeycode(Key::BackSpace));
     }
 }
 
 void RegistryMonitor::cancelByKeycodeNavigate(Keycode) {
+    _isContinuousEnter.store(false);
     if (_completionCache.valid()) {
         try {
             _cancelCompletion(UserAction::Navigate);
@@ -103,19 +105,31 @@ void RegistryMonitor::cancelByKeycodeNavigate(Keycode) {
 }
 
 void RegistryMonitor::cancelByModifyLine(const Keycode keycode) {
-    _justInserted = false;
+    const auto isEnter = keycode == _keyHelper.toKeycode(Key::Enter);
+    _isJustAccepted.store(false);
     if (_completionCache.valid()) {
         try {
             _cancelCompletion(UserAction::ModifyLine);
-            logger::log(format("Canceled by {}", keycode == enum_integer(Key::BackSpace) ? "backspace" : "enter"));
+            logger::log(format("Canceled by {}", isEnter ? "backspace" : "enter"));
         }
         catch (runtime_error&e) {
             logger::log(e.what());
         }
     }
 
-    if (keycode != enum_integer(Key::BackSpace)) {
-        _retrieveEditorInfo();
+    if (isEnter) {
+        if (_isContinuousEnter) {
+            logger::log("Detect Continuous enter, retrieve completion directly");
+            _retrieveCompletion(_prefix);
+        }
+        else {
+            logger::log("Detect first enter, retrieve editor info first");
+            _isContinuousEnter.store(true);
+            _retrieveEditorInfo();
+        }
+    }
+    else {
+        _isContinuousEnter.store(false);
     }
 }
 
@@ -131,9 +145,10 @@ void RegistryMonitor::cancelBySave() {
 }
 
 void RegistryMonitor::cancelByUndo() {
+    _isContinuousEnter.store(false);
     const auto windowInterceptor = WindowInterceptor::GetInstance();
-    if (_justInserted.load()) {
-        _justInserted = false;
+    if (_isJustAccepted.load()) {
+        _isJustAccepted.store(false);
         windowInterceptor->sendUndo();
         windowInterceptor->sendUndo();
     }
@@ -148,12 +163,13 @@ void RegistryMonitor::cancelByUndo() {
 }
 
 void RegistryMonitor::processNormalKey(Keycode keycode) {
-    _justInserted = false;
-
+    _isContinuousEnter.store(false);
+    _isJustAccepted.store(false);
     if (const auto nextCacheOpt = _completionCache.next(); nextCacheOpt.has_value()) {
         // Has valid cache
         const auto [currentChar, completionOpt] = nextCacheOpt.value();
         try {
+            // TODO: Check if this would cause issues
             if (keycode == currentChar) {
                 // Cache hit
                 if (completionOpt.has_value()) {
@@ -186,24 +202,25 @@ void RegistryMonitor::processNormalKey(Keycode keycode) {
 }
 
 void RegistryMonitor::_cancelCompletion(const UserAction action, const bool resetCache) {
-    system::setRegValue(_subKey, "cancelType", to_string(enum_integer(action)));
+    system::setEnvironmentVariable("CMWCODER_cancelType", to_string(enum_integer(action)));
     WindowInterceptor::GetInstance()->sendCancelCompletion();
     if (resetCache) {
         _completionCache.reset();
     }
 }
 
-void RegistryMonitor::_insertCompletion(const string&data) const {
-    system::setRegValue(_subKey, "completionGenerated", data);
+void RegistryMonitor::_insertCompletion(const string&data) {
+    system::setEnvironmentVariable("CMWCODER_completionGenerated", data);
     WindowInterceptor::GetInstance()->sendInsertCompletion();
 }
 
 void RegistryMonitor::_reactToCompletion(Completion&&completion, const bool isAccept) {
+    const auto path = isAccept ? "/completion/accept" : "/completion/insert";
     try {
         auto client = httplib::Client("http://localhost:3000");
         client.set_connection_timeout(3);
         if (auto res = client.Post(
-            isAccept ? "/completion/accept" : "/completion/insert",
+            path,
             nlohmann::json{
                 {"completion", encode(completion.stringify(), crypto::Encoding::Base64)},
                 {"projectId", _projectId},
@@ -211,21 +228,28 @@ void RegistryMonitor::_reactToCompletion(Completion&&completion, const bool isAc
             }.dump(),
             "application/json"
         )) {
-            const auto responseBody = nlohmann::json::parse(res->body);
-            logger::log(format("(/completion/accept) Result: {}", responseBody["result"].get<string>()));
+            if (res->status == 200) {
+                const auto responseBody = nlohmann::json::parse(res->body);
+                logger::log(format("({}) Result: {}", path, responseBody["result"].get<string>()));
+            }
+            else {
+                logger::log(
+                    format("({}) Request failed, status: {}, body: {}", path, res->status, res->body)
+                );
+            }
         }
         else {
-            logger::error(format("(/completion/accept) Http error: {}", httplib::to_string(res.error())));
+            logger::error(format("({}) Http error: {}", path, httplib::to_string(res.error())));
         }
     }
     catch (exception&e) {
-        logger::error(format("(/completion/accept) Exception: {}", e.what()));
+        logger::error(format("({}) Exception: {}", path, e.what()));
     }
 }
 
-void RegistryMonitor::_retrieveCompletion() {
+void RegistryMonitor::_retrieveCompletion(const string&prefix) {
     _lastTriggerTime = chrono::high_resolution_clock::now();
-    thread([this, currentTriggerName = _lastTriggerTime.load()] {
+    thread([this, prefix, currentTriggerName = _lastTriggerTime.load()] {
         _needInsert.store(true);
         optional<string> completionGenerated;
         try {
@@ -238,7 +262,7 @@ void RegistryMonitor::_retrieveCompletion() {
                 nlohmann::json{
                     {"cursorString", _cursorString},
                     {"path", encode(_path, crypto::Encoding::Base64)},
-                    {"prefix", encode(_prefix, crypto::Encoding::Base64)},
+                    {"prefix", encode(prefix, crypto::Encoding::Base64)},
                     {"projectId", _projectId},
                     {"suffix", encode(_suffix, crypto::Encoding::Base64)},
                     {"symbolString", encode(_symbolString, crypto::Encoding::Base64)},
@@ -247,15 +271,23 @@ void RegistryMonitor::_retrieveCompletion() {
                 }.dump(),
                 "application/json"
             )) {
-                const auto responseBody = nlohmann::json::parse(res->body);
-                const auto result = responseBody["result"].get<string>();
-                if (const auto&contents = responseBody["contents"];
-                    result == "success" && contents.is_array() && !contents.empty()) {
-                    completionGenerated.emplace(decode(contents[0].get<string>(), crypto::Encoding::Base64));
-                    logger::log(format("(/completion/generate) Completion: {}", completionGenerated.value_or("null")));
+                if (res->status == 200) {
+                    const auto responseBody = nlohmann::json::parse(res->body);
+                    const auto result = responseBody["result"].get<string>();
+                    if (const auto&contents = responseBody["contents"];
+                        result == "success" && contents.is_array() && !contents.empty()) {
+                        completionGenerated.emplace(decode(contents[0].get<string>(), crypto::Encoding::Base64));
+                        logger::log(format("(/completion/generate) Completion: {}",
+                                           completionGenerated.value_or("null")));
+                    }
+                    else {
+                        logger::log(format("(/completion/generate) Completion is invalid: {}", result));
+                    }
                 }
                 else {
-                    logger::log(format("(/completion/generate) Completion is invalid: {}", result));
+                    logger::log(
+                        format("(/completion/generate) Request failed, status: {}, body: {}", res->status, res->body)
+                    );
                 }
             }
             else {
@@ -304,10 +336,10 @@ void RegistryMonitor::_retrieveProjectId(const string&projectFolder) {
     if (_projectId.empty()) {
         const auto projectListKey = _subKey + "\\Project List";
         while (_projectId.empty()) {
-            try {
-                _projectId = system::getRegValue(projectListKey, _projectHash);
+            if (const auto projectId = system::getRegValue(projectListKey, _projectHash); projectId.has_value()) {
+                _projectId = projectId.value();
             }
-            catch (...) {
+            else {
                 _projectId = InputBox("Please input current project's iSoft ID", "Input Project ID");
                 if (_projectId.empty()) {
                     logger::error("Project ID is empty.");
@@ -323,14 +355,13 @@ void RegistryMonitor::_retrieveProjectId(const string&projectFolder) {
 void RegistryMonitor::_threadCompletionMode() {
     thread([this] {
         while (_isRunning.load()) {
-            try {
-                if (const bool isAutoCompletion = stoi(system::getRegValue(_subKey, "autoCompletion"));
+            if (const auto isAutoCompletionOpt = system::getRegValue(_subKey, "CMWCODER_autoCompletion");
+                isAutoCompletionOpt.has_value()) {
+                if (const auto isAutoCompletion = static_cast<bool>(stoi(isAutoCompletionOpt.value()));
                     _isAutoCompletion.load() != isAutoCompletion) {
                     _isAutoCompletion.store(isAutoCompletion);
                     logger::log(format("Auto completion: {}", _isAutoCompletion.load() ? "on" : "off"));
                 }
-            }
-            catch (runtime_error&) {
             }
             this_thread::sleep_for(chrono::milliseconds(10));
         }
@@ -340,13 +371,11 @@ void RegistryMonitor::_threadCompletionMode() {
 void RegistryMonitor::_threadLogDebug() const {
     thread([this] {
         while (_isRunning.load()) {
-            try {
-                const auto debugLogKey = "CMWCODER_logDebug";
-                const auto logDebugString = system::getRegValue(_subKey, debugLogKey);
-                logger::log(format("[SI] {}", logDebugString));
-                system::deleteRegValue(_subKey, debugLogKey);
-            }
-            catch (runtime_error&) {
+            constexpr auto envName = "CMWCODER_logDebug";
+            if (const auto debugStringOpt = system::getEnvironmentVariable(envName);
+                debugStringOpt.has_value()) {
+                logger::log(format("[SI] {}", debugStringOpt.value()));
+                system::setEnvironmentVariable(envName);
             }
             this_thread::sleep_for(chrono::milliseconds(1));
         }
@@ -356,86 +385,84 @@ void RegistryMonitor::_threadLogDebug() const {
 void RegistryMonitor::_threadProcessInfo() {
     thread([this] {
         while (_isRunning.load()) {
-            try {
+            if (const auto currentLinePrefixOpt = system::getEnvironmentVariable("CMWCODER_currentPrefix");
+                currentLinePrefixOpt.has_value()) {
+                system::setEnvironmentVariable("CMWCODER_currentPrefix");
                 const auto currentLinePrefix = regex_replace(
-                    regex_replace(
-                        system::getRegValue(_subKey, "CMWCODER_curfix"),
-                        regex(R"(\\r\\n)"),
-                        "\r\n"
-                    ),
+                    regex_replace(currentLinePrefixOpt.value(), regex(R"(\\r\\n)"), "\r\n"),
                     regex(R"(\=)"),
                     "="
                 );
-                system::deleteRegValue(_subKey, "CMWCODER_curfix");
-
-                if (const auto lastNewLineIndex = _prefix.find_last_of("\r\n"); lastNewLineIndex != string::npos) {
-                    _prefix = _prefix.substr(0, lastNewLineIndex + 2) + currentLinePrefix;
+                if (const auto lastNewLineIndex = _prefix.find_last_of('\n'); lastNewLineIndex != string::npos) {
+                    _retrieveCompletion(_prefix.substr(0, lastNewLineIndex + 1) + currentLinePrefix);
                 }
                 else {
-                    _prefix = currentLinePrefix;
+                    _retrieveCompletion(currentLinePrefix);
                 }
-                logger::log(format("New prefix: {}", _prefix));
-                _retrieveCompletion();
             }
-            catch (runtime_error&) {
-                try {
-                    _suffix = regex_replace(
-                        regex_replace(
-                            system::getRegValue(_subKey, "CMWCODER_suffix"),
-                            regex(R"(\\r\\n)"),
-                            "\r\n"
-                        ),
-                        regex(R"(\=)"),
-                        "="
-                    );
-                    _prefix = regex_replace(
-                        regex_replace(
-                            system::getRegValue(_subKey, "CMWCODER_prefix"),
-                            regex(R"(\\r\\n)"),
-                            "\r\n"
-                        ),
-                        regex(R"(\=)"),
-                        "="
-                    );
-                    _symbolString = system::getRegValue(_subKey, "CMWCODER_symbols");
-                    _tabString = system::getRegValue(_subKey, "CMWCODER_tabs");
-                    const auto project = regex_replace(
-                        system::getRegValue(_subKey, "CMWCODER_project"),
-                        regex(R"(\\\\)"),
-                        "/"
-                    );
-                    _path = regex_replace(
-                        system::getRegValue(_subKey, "CMWCODER_path"),
-                        regex(R"(\\\\)"),
-                        "/"
-                    );
-                    _cursorString = system::getRegValue(_subKey, "CMWCODER_cursor");
-
-                    system::deleteRegValue(_subKey, "CMWCODER_suffix");
-                    system::deleteRegValue(_subKey, "CMWCODER_prefix");
-                    system::deleteRegValue(_subKey, "CMWCODER_symbols");
-                    system::deleteRegValue(_subKey, "CMWCODER_version");
-                    system::deleteRegValue(_subKey, "CMWCODER_tabs");
-                    system::deleteRegValue(_subKey, "CMWCODER_project");
-                    system::deleteRegValue(_subKey, "CMWCODER_path");
-                    system::deleteRegValue(_subKey, "CMWCODER_cursor");
-
-                    if (_pluginVersion.empty()) {
-                        _pluginVersion = Configurator::GetInstance()->reportVersion(
-                            system::getRegValue(_subKey, "CMWCODER_version")
-                        );
-                        logger::log(format("Plugin version: {}", _pluginVersion));
-                    }
-
-                    _retrieveProjectId(project);
-
-                    _retrieveCompletion();
+            else {
+                optional<string> suffixOpt, prefixOpt;
+                if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
+                    suffixOpt = system::getEnvironmentVariable("CMWCODER_suffix");
+                    prefixOpt = system::getEnvironmentVariable("CMWCODER_prefix");
                 }
-                catch (runtime_error&) {
-                } catch (exception&e) {
-                    logger::log(e.what());
-                } catch (...) {
-                    logger::log("Unknown exception.");
+                else {
+                    suffixOpt = system::getRegValue(_subKey, "CMWCODER_suffix");
+                    prefixOpt = system::getRegValue(_subKey, "CMWCODER_prefix");
+                }
+                const auto projectOpt = system::getEnvironmentVariable("CMWCODER_project");
+                const auto pathOpt = system::getEnvironmentVariable("CMWCODER_path");
+                if (
+                    const auto cursorStringOpt = system::getEnvironmentVariable("CMWCODER_cursor");
+                    suffixOpt.has_value() &&
+                    prefixOpt.has_value() &&
+                    projectOpt.has_value() &&
+                    pathOpt.has_value() &&
+                    cursorStringOpt.has_value()
+                ) {
+                    if (_pluginVersion.empty()) {
+                        if (const auto versionOpt = system::getEnvironmentVariable("CMWCODER_version");
+                            versionOpt.has_value()) {
+                            _pluginVersion = Configurator::GetInstance()->reportVersion(versionOpt.value());
+                            logger::log(format("Plugin version: {}", _pluginVersion));
+                        }
+                        else {
+                            continue;
+                        }
+                    }
+                    _retrieveProjectId(regex_replace(projectOpt.value(), regex(R"(\\\\)"), "/"));
+
+                    _symbolString = system::getEnvironmentVariable("CMWCODER_symbols").value_or("");
+                    _tabString = system::getEnvironmentVariable("CMWCODER_tabs").value_or("");
+
+                    if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
+                        system::setEnvironmentVariable("CMWCODER_suffix");
+                        system::setEnvironmentVariable("CMWCODER_prefix");
+                    }
+                    else {
+                        system::deleteRegValue(_subKey, "CMWCODER_suffix");
+                        system::deleteRegValue(_subKey, "CMWCODER_prefix");
+                    }
+                    system::setEnvironmentVariable("CMWCODER_symbols");
+                    system::setEnvironmentVariable("CMWCODER_version");
+                    system::setEnvironmentVariable("CMWCODER_tabs");
+                    system::setEnvironmentVariable("CMWCODER_project");
+                    system::setEnvironmentVariable("CMWCODER_path");
+                    system::setEnvironmentVariable("CMWCODER_cursor");
+                    _suffix = regex_replace(
+                        regex_replace(suffixOpt.value(), regex(R"(\\r\\n)"), "\r\n"),
+                        regex(R"(\=)"),
+                        "="
+                    );
+                    _path = regex_replace(pathOpt.value(), regex(R"(\\\\)"), "/");
+                    _prefix = regex_replace(
+                        regex_replace(prefixOpt.value(), regex(R"(\\r\\n)"), "\r\n"),
+                        regex(R"(\=)"),
+                        "="
+                    );
+                    _cursorString = cursorStringOpt.value();
+
+                    _retrieveCompletion(_prefix);
                 }
             }
             this_thread::sleep_for(chrono::milliseconds(1));

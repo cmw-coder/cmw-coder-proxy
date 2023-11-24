@@ -258,7 +258,7 @@ void WindowInterceptor::_threadDebounceFocusWindow() {
             if (const auto needFocusWindow = _needFocusWindow.load(); needFocusWindow >= 0) {
                 if (const auto deltaTime = _debounceFocusWindowTime.load() - chrono::high_resolution_clock::now();
                     deltaTime <= chrono::nanoseconds(0)) {
-                    logger::log("Focusing window...");
+                    logger::log("Coding window activated");
                     _codeWindow.store(needFocusWindow);
                     _needFocusWindow.store(-1);
                 }
