@@ -6,6 +6,7 @@
 #include <components/CompletionManager.h>
 #include <components/Configurator.h>
 #include <components/WindowManager.h>
+#include <types/CursorPosition.h>
 #include <utils/crypto.h>
 #include <utils/logger.h>
 #include <utils/system.h>
@@ -18,6 +19,11 @@ using namespace utils;
 namespace {
     constexpr auto cancelTypeKey = "CMWCODER_cancelType";
     constexpr auto completionGeneratedKey = "CMWCODER_completionGenerated";
+
+    constexpr auto insertCompletion = [](const std::string&completionString) {
+        system::setEnvironmentVariable(completionGeneratedKey, completionString);
+        WindowManager::GetInstance()->sendInsertCompletion();
+    };
 }
 
 CompletionManager::CompletionManager(): _httpHelper("http://localhost:3000", chrono::seconds(10)) {
@@ -34,6 +40,52 @@ void CompletionManager::acceptCompletion(const std::any&) {
         if (_isAutoCompletion.load()) {
             WindowManager::GetInstance()->requestRetrieveInfo();
         }
+    }
+}
+
+void CompletionManager::cancelCompletion(const std::any&data) {
+    try {
+        const auto [isCrossLine,isNeedReset] = any_cast<tuple<bool, bool>>(data);
+        _cancelCompletion(isCrossLine, isNeedReset);
+    }
+    catch (const bad_any_cast&e) {
+        logger::log(format("Invalid cancelCompletion data: {}", e.what()));
+    }
+}
+
+void CompletionManager::deleteInput(const std::any&data) {
+    try {
+        const auto [newCursorPosition, oldCursorPosition] = any_cast<tuple<CursorPosition, CursorPosition>>(data);
+        _isContinuousEnter.store(false);
+        if (newCursorPosition.line == oldCursorPosition.line) {
+            if (const auto previousCacheOpt = _completionCache.previous(); previousCacheOpt.has_value()) {
+                // Has valid cache
+                const auto [_, completionOpt] = previousCacheOpt.value();
+                try {
+                    if (completionOpt.has_value()) {
+                        // In cache
+                        _cancelCompletion(false, false);
+                        logger::log("Cancel previous cached completion");
+                        insertCompletion(completionOpt.value().stringify());
+                        logger::log("Insert previous cached completion");
+                    }
+                    else {
+                        // Out of cache
+                        _cancelCompletion();
+                        logger::log("Canceled by delete backward.");
+                    }
+                }
+                catch (runtime_error&e) {
+                    logger::log(e.what());
+                }
+            }
+        }
+        else {
+            cancelByModifyLine(_keyHelper.toKeycode(Key::BackSpace));
+        }
+    }
+    catch (const bad_any_cast&e) {
+        logger::log(format("Invalid deleteInput data: {}", e.what()));
     }
 }
 
@@ -184,8 +236,7 @@ void CompletionManager::_retrieveCompletion(const std::string&prefix) {
                     _cancelCompletion(false, false);
                     logger::log(format("Cancel old cached completion: {}", oldCompletion.stringify()));
                 }
-                system::setEnvironmentVariable(completionGeneratedKey, completionGenerated.value());
-                WindowManager::GetInstance()->sendInsertCompletion();
+                insertCompletion(completionGenerated.value());
                 logger::log("Inserted completion");
                 thread(_reactToCompletion, this, move(oldCompletion), false).detach();
             }

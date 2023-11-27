@@ -104,27 +104,7 @@ InteractionMonitor::~InteractionMonitor() {
     _isRunning.store(false);
 }
 
-CursorPosition InteractionMonitor::_getCursorPosition() const {
-    CursorPosition cursorPosition{};
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_cursorLineAddress),
-        &cursorPosition.line,
-        sizeof(cursorPosition.line),
-        nullptr
-    );
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_cursorCharAddress),
-        &cursorPosition.character,
-        sizeof(cursorPosition.character),
-        nullptr
-    );
-    return cursorPosition;
-}
-
-void InteractionMonitor::_handleKeycode(Keycode keycode) const noexcept {
-    const auto currentCursorPosition = _getCursorPosition();
+void InteractionMonitor::_handleKeycode(Keycode keycode) noexcept {
     if (_keyHelper.isNavigate(keycode)) {
         _handleInteraction(Interaction::Navigate);
         return;
@@ -132,7 +112,7 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) const noexcept {
 
     if (_keyHelper.isPrintable(keycode)) {
         (void)WindowManager::GetInstance()->sendDoubleInsert();
-        _handleInteraction(Interaction::NormalInput, make_pair(currentCursorPosition, keycode));
+        _handleInteraction(Interaction::NormalInput, keycode);
         return;
     }
 
@@ -143,7 +123,7 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) const noexcept {
                 switch (key) {
                     case Key::BackSpace: {
                         (void)WindowManager::GetInstance()->sendDoubleInsert();
-                        _handleInteraction(Interaction::DeleteInput, currentCursorPosition);
+                        _queueInteraction(Interaction::DeleteInput);
                         break;
                     }
                     case Key::Tab: {
@@ -151,22 +131,18 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) const noexcept {
                         break;
                     }
                     case Key::Enter: {
-                        _handleInteraction(Interaction::EnterInput, currentCursorPosition);
+                        _queueInteraction(Interaction::EnterInput);
                         break;
                     }
                     case Key::Escape: {
                         if (Configurator::GetInstance()->version().first == SiVersion::Major::V40) {
-                            thread([this, currentCursorPosition] {
-                                try {
-                                    this_thread::sleep_for(chrono::milliseconds(150));
-                                    _handleInteraction(Interaction::Navigate, currentCursorPosition);
-                                }
-                                catch (...) {
-                                }
+                            thread([this] {
+                                this_thread::sleep_for(chrono::milliseconds(150));
+                                _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
                             }).detach();
                         }
                         else {
-                            _handleInteraction(Interaction::Navigate, currentCursorPosition);
+                            _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
                         }
                         break;
                     }
@@ -238,7 +214,35 @@ void InteractionMonitor::_monitorAutoCompletion() const {
 void InteractionMonitor::_monitorCursorPosition() {
     thread([this] {
         while (_isRunning.load()) {
-            this->_cursorPosition.store(_getCursorPosition());
+            CursorPosition newCursorPosition{};
+            ReadProcessMemory(
+                _processHandle.get(),
+                reinterpret_cast<LPCVOID>(_cursorLineAddress),
+                &newCursorPosition.line,
+                sizeof(newCursorPosition.line),
+                nullptr
+            );
+            ReadProcessMemory(
+                _processHandle.get(),
+                reinterpret_cast<LPCVOID>(_cursorCharAddress),
+                &newCursorPosition.character,
+                sizeof(newCursorPosition.character),
+                nullptr
+            );
+            if (const auto currentCursorPosition = _currentCursorPosition.load();
+                currentCursorPosition != newCursorPosition) {
+                this->_currentCursorPosition.store(newCursorPosition); {
+                    shared_lock lock(_interactionQueueMutex);
+                    thread([this, interactionQueue = _interactionBuffer, currentCursorPosition, newCursorPosition] {
+                        for (const auto&interaction: interactionQueue) {
+                            _handleInteraction(interaction, make_tuple(newCursorPosition, currentCursorPosition));
+                        }
+                    }).detach();
+                } {
+                    unique_lock lock(_interactionQueueMutex);
+                    _interactionBuffer.clear();
+                }
+            }
             this_thread::sleep_for(chrono::milliseconds(1));
         }
     }).detach();
@@ -323,7 +327,7 @@ void InteractionMonitor::_monitorEditorInfo() const {
     }).detach();
 }
 
-void InteractionMonitor::_processWindowMessage(const long lParam) const {
+void InteractionMonitor::_processWindowMessage(const long lParam) {
     const auto windowProcData = reinterpret_cast<PCWPSTRUCT>(lParam);
     if (const auto currentWindow = reinterpret_cast<int64_t>(windowProcData->hwnd);
         window::getWindowClassName(currentWindow) == "si_Sw") {
@@ -335,12 +339,12 @@ void InteractionMonitor::_processWindowMessage(const long lParam) const {
                 break;
             }
             case WM_MOUSEACTIVATE: {
-                _handleInteraction(Interaction::MouseClick, _getCursorPosition());
+                _queueInteraction(Interaction::MouseClick);
                 break;
             }
             case WM_SETFOCUS: {
                 if (WindowManager::GetInstance()->checkGainFocus(currentWindow)) {
-                    _handleInteraction(Interaction::CancelCompletion);
+                    _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
                 }
                 break;
             }
@@ -353,6 +357,11 @@ void InteractionMonitor::_processWindowMessage(const long lParam) const {
             }
         }
     }
+}
+
+void InteractionMonitor::_queueInteraction(const Interaction interaction) {
+    unique_lock lock(_interactionQueueMutex);
+    _interactionBuffer.emplace(interaction);
 }
 
 void InteractionMonitor::_retrieveProjectId(const std::string&project) const {

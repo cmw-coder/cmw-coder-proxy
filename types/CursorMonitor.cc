@@ -14,7 +14,7 @@ using namespace types;
 using namespace utils;
 
 namespace {
-    const unordered_map<SiVersion::Major, unordered_map<SiVersion::Minor, tuple<uint64_t, uint64_t>>> addressMap = {
+    constexpr unordered_map<SiVersion::Major, unordered_map<SiVersion::Minor, tuple<uint64_t, uint64_t>>> addressMap = {
         {
             SiVersion::Major::V35, {
                 {SiVersion::Minor::V0076, {0x1CBEFC, 0x1CBF00}},
@@ -39,8 +39,8 @@ namespace {
     };
 }
 
-CursorMonitor::CursorMonitor() : _sharedProcessHandle(GetCurrentProcess(), CloseHandle) {
-    if (!this->_sharedProcessHandle) {
+CursorMonitor::CursorMonitor() : _processHandle(GetCurrentProcess(), CloseHandle) {
+    if (!this->_processHandle) {
         throw runtime_error("Failed to get current process handle");
     }
     thread([this] {
@@ -51,14 +51,14 @@ CursorMonitor::CursorMonitor() : _sharedProcessHandle(GetCurrentProcess(), Close
             while (_isRunning.load()) {
                 CursorPosition cursorPosition{};
                 ReadProcessMemory(
-                    this->_sharedProcessHandle.get(),
+                    this->_processHandle.get(),
                     reinterpret_cast<LPCVOID>(baseAddress + lineAddress),
                     &cursorPosition.line,
                     sizeof(cursorPosition.line),
                     nullptr
                 );
                 ReadProcessMemory(
-                    this->_sharedProcessHandle.get(),
+                    this->_processHandle.get(),
                     reinterpret_cast<LPCVOID>(baseAddress + charAddress),
                     &cursorPosition.character,
                     sizeof(cursorPosition.character),

@@ -28,6 +28,10 @@ namespace components {
 
         void acceptCompletion(const std::any&);
 
+        void cancelCompletion(const std::any&data);
+
+        void deleteInput(const std::any&data);
+
         void retrieveWithFullInfo(Components&&components);
 
         void retrieveWithCurrentPrefix(const std::string&currentPrefix);
@@ -43,11 +47,11 @@ namespace components {
         Components _components;
         EditorInfo _editorInfo;
         helpers::HttpHelper _httpHelper;
-        std::atomic<bool> _isAutoCompletion = true, _isJustInserted = false, _isNeedInsert = false;
+        std::atomic<bool> _isAutoCompletion{true}, _isContinuousEnter{}, _isJustInserted{}, _isNeedInsert{};
         std::atomic<std::chrono::time_point<std::chrono::high_resolution_clock>> _currentRetrieveTime;
         types::CompletionCache _completionCache;
 
-        void _cancelCompletion(bool isCrossLine, bool isNeedReset);
+        void _cancelCompletion(bool isCrossLine = false, bool isNeedReset = true);
 
         void _reactToCompletion(types::Completion&&completion, bool isAccept);
 
