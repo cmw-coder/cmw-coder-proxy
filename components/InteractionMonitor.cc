@@ -334,7 +334,7 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
         switch (windowProcData->message) {
             case WM_KILLFOCUS: {
                 if (WindowManager::GetInstance()->checkLostFocus(windowProcData->wParam)) {
-                    _handleInteraction(Interaction::LostFocus, windowProcData->wParam);
+                    _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
                 }
                 break;
             }

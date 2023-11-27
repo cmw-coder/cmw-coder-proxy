@@ -6,7 +6,6 @@ namespace types {
         CancelCompletion,
         DeleteInput,
         EnterInput,
-        LostFocus,
         MouseClick,
         Navigate,
         NormalInput,

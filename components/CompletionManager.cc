@@ -81,7 +81,11 @@ void CompletionManager::deleteInput(const std::any&data) {
             }
         }
         else {
-            cancelByModifyLine(_keyHelper.toKeycode(Key::BackSpace));
+            if (_completionCache.valid()) {
+                _cancelCompletion(true);
+                _isContinuousEnter.store(false);
+                logger::log("Canceled by backspace");
+            }
         }
     }
     catch (const bad_any_cast&e) {
@@ -89,25 +93,39 @@ void CompletionManager::deleteInput(const std::any&data) {
     }
 }
 
-void CompletionManager::retrieveWithFullInfo(Components&&components) {
-    const auto prefix = components.prefix; {
-        unique_lock lock(_componentsMutex);
-        _components = move(components);
+void CompletionManager::enterInput(const std::any&) {
+    if (_completionCache.valid()) {
+        // TODO: support 1st level cache
+        _cancelCompletion(true);
+        logger::log("Canceled by enter");
     }
-    _retrieveCompletion(prefix);
+
+    if (_isContinuousEnter) {
+        shared_lock lock(_componentsMutex);
+        _retrieveCompletion(_components.prefix);
+        logger::log("Detect Continuous enter, retrieve completion directly");
+    }
+    else {
+        _isContinuousEnter.store(true);
+        _retrieveEditorInfo();
+        logger::log("Detect first enter, retrieve editor info first");
+    }
 }
 
 void CompletionManager::retrieveWithCurrentPrefix(const std::string&currentPrefix) {
-    string prefix; {
-        shared_lock lock(_componentsMutex);
-        if (const auto lastNewLineIndex = _components.prefix.find_last_of('\n'); lastNewLineIndex != string::npos) {
-            prefix = _components.prefix.substr(0, lastNewLineIndex + 1) + currentPrefix;
-        }
-        else {
-            prefix = currentPrefix;
-        }
+    shared_lock lock(_componentsMutex);
+    if (const auto lastNewLineIndex = _components.prefix.find_last_of('\n'); lastNewLineIndex != string::npos) {
+        _retrieveCompletion(_components.prefix.substr(0, lastNewLineIndex + 1) + currentPrefix);
     }
-    _retrieveCompletion(prefix);
+    else {
+        _retrieveCompletion(currentPrefix);
+    }
+}
+
+void CompletionManager::retrieveWithFullInfo(Components&&components) {
+    unique_lock lock(_componentsMutex);
+    _components = move(components);
+    _retrieveCompletion(_components.prefix);
 }
 
 void CompletionManager::setAutoCompletion(const bool isAutoCompletion) {
@@ -141,10 +159,15 @@ void CompletionManager::setVersion(const std::string&version) {
 }
 
 void CompletionManager::_cancelCompletion(const bool isCrossLine, const bool isNeedReset) {
-    system::setEnvironmentVariable(cancelTypeKey, to_string(isCrossLine));
-    WindowManager::GetInstance()->sendCancelCompletion();
-    if (isNeedReset) {
-        _completionCache.reset();
+    try {
+        system::setEnvironmentVariable(cancelTypeKey, to_string(isCrossLine));
+        WindowManager::GetInstance()->sendCancelCompletion();
+        if (isNeedReset) {
+            _completionCache.reset();
+        }
+    }
+    catch (runtime_error&e) {
+        logger::log(e.what());
     }
 }
 
@@ -227,22 +250,23 @@ void CompletionManager::_retrieveCompletion(const std::string&prefix) {
             completionGenerated.has_value() &&
             originalRetrieveTime == _currentRetrieveTime.load()
         ) {
-            try {
-                auto oldCompletion = _completionCache.reset(
-                    completionGenerated.value()[0] == '1',
-                    completionGenerated.value().substr(1)
-                );
-                if (!oldCompletion.content().empty()) {
-                    _cancelCompletion(false, false);
-                    logger::log(format("Cancel old cached completion: {}", oldCompletion.stringify()));
-                }
-                insertCompletion(completionGenerated.value());
-                logger::log("Inserted completion");
-                thread(_reactToCompletion, this, move(oldCompletion), false).detach();
+            auto oldCompletion = _completionCache.reset(
+                completionGenerated.value()[0] == '1',
+                completionGenerated.value().substr(1)
+            );
+            if (!oldCompletion.content().empty()) {
+                _cancelCompletion(false, false);
+                logger::log(format("Cancel old cached completion: {}", oldCompletion.stringify()));
             }
-            catch (runtime_error&e) {
-                logger::log(e.what());
-            }
+            insertCompletion(completionGenerated.value());
+            logger::log("Inserted completion");
+            thread(_reactToCompletion, this, move(oldCompletion), false).detach();
         }
     }).detach();
+}
+
+void CompletionManager::_retrieveEditorInfo() const {
+    if (_isAutoCompletion.load()) {
+        WindowManager::GetInstance()->requestRetrieveInfo();
+    }
 }

@@ -32,9 +32,11 @@ namespace components {
 
         void deleteInput(const std::any&data);
 
-        void retrieveWithFullInfo(Components&&components);
+        void enterInput(const std::any&);
 
         void retrieveWithCurrentPrefix(const std::string&currentPrefix);
+
+        void retrieveWithFullInfo(Components&&components);
 
         void setAutoCompletion(bool isAutoCompletion);
 
@@ -56,5 +58,7 @@ namespace components {
         void _reactToCompletion(types::Completion&&completion, bool isAccept);
 
         void _retrieveCompletion(const std::string&prefix);
+
+        void _retrieveEditorInfo() const;
     };
 }

@@ -61,7 +61,12 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
             InteractionMonitor::GetInstance()->addHandler(
                 Interaction::DeleteInput,
                 CompletionManager::GetInstance(),
-                &CompletionManager::cancelCompletion
+                &CompletionManager::deleteInput
+            );
+            InteractionMonitor::GetInstance()->addHandler(
+                Interaction::EnterInput,
+                CompletionManager::GetInstance(),
+                &CompletionManager::enterInput
             );
 
             const auto mainThreadId = system::getMainThreadId();
