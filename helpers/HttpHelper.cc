@@ -9,11 +9,11 @@ HttpHelper::HttpHelper(string&&host, const chrono::microseconds&timeout) : _clie
     _client.set_connection_timeout(seconds, microseconds);
 }
 
-variant<nlohmann::json, string> HttpHelper::post(const string&path, nlohmann::json&&body) {
+pair<int, nlohmann::json> HttpHelper::post(const string&path, nlohmann::json&&body) {
     if (auto res = _client.Post(path, body.dump(), "application/json")) {
-        return nlohmann::json::parse(res->body);
+        return {res->status, nlohmann::json::parse(res->body)};
     }
     else {
-        return httplib::to_string(res.error());
+        throw HttpError(httplib::to_string(res.error()));
     }
 }

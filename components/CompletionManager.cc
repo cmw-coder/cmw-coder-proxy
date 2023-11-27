@@ -1,0 +1,197 @@
+#include <chrono>
+#include <format>
+
+#include <httplib.h>
+
+#include <components/CompletionManager.h>
+#include <components/Configurator.h>
+#include <components/WindowManager.h>
+#include <utils/crypto.h>
+#include <utils/logger.h>
+#include <utils/system.h>
+
+using namespace components;
+using namespace std;
+using namespace types;
+using namespace utils;
+
+namespace {
+    constexpr auto cancelTypeKey = "CMWCODER_cancelType";
+    constexpr auto completionGeneratedKey = "CMWCODER_completionGenerated";
+}
+
+CompletionManager::CompletionManager(): _httpHelper("http://localhost:3000", chrono::seconds(10)) {
+}
+
+void CompletionManager::acceptCompletion(const std::any&) {
+    _isJustInserted = true;
+    if (auto oldCompletion = _completionCache.reset(); !oldCompletion.content().empty()) {
+        WindowManager::GetInstance()->sendAcceptCompletion();
+        logger::log(format("Accepted completion: {}", oldCompletion.stringify()));
+        thread(&CompletionManager::_reactToCompletion, this, move(oldCompletion), true).detach();
+    }
+    else {
+        if (_isAutoCompletion.load()) {
+            WindowManager::GetInstance()->requestRetrieveInfo();
+        }
+    }
+}
+
+void CompletionManager::retrieveWithFullInfo(Components&&components) {
+    const auto prefix = components.prefix; {
+        unique_lock lock(_componentsMutex);
+        _components = move(components);
+    }
+    _retrieveCompletion(prefix);
+}
+
+void CompletionManager::retrieveWithCurrentPrefix(const std::string&currentPrefix) {
+    string prefix; {
+        shared_lock lock(_componentsMutex);
+        if (const auto lastNewLineIndex = _components.prefix.find_last_of('\n'); lastNewLineIndex != string::npos) {
+            prefix = _components.prefix.substr(0, lastNewLineIndex + 1) + currentPrefix;
+        }
+        else {
+            prefix = currentPrefix;
+        }
+    }
+    _retrieveCompletion(prefix);
+}
+
+void CompletionManager::setAutoCompletion(const bool isAutoCompletion) {
+    if (isAutoCompletion != _isAutoCompletion.load()) {
+        _isAutoCompletion.store(isAutoCompletion);
+        logger::log(format("Auto completion switch {}", _isAutoCompletion.load() ? "on" : "off"));
+    }
+}
+
+void CompletionManager::setProjectId(const std::string&projectId) {
+    bool needSet; {
+        shared_lock lock(_editorInfoMutex);
+        needSet = _editorInfo.projectId != projectId;
+    }
+    if (needSet) {
+        unique_lock lock(_editorInfoMutex);
+        _editorInfo.projectId = projectId;
+    }
+}
+
+void CompletionManager::setVersion(const std::string&version) {
+    bool needSet; {
+        shared_lock lock(_editorInfoMutex);
+        needSet = _editorInfo.version.empty();
+    }
+    if (needSet) {
+        unique_lock lock(_editorInfoMutex);
+        _editorInfo.version = Configurator::GetInstance()->reportVersion(version);
+        logger::log(format("Plugin version: {}", version));
+    }
+}
+
+void CompletionManager::_cancelCompletion(const bool isCrossLine, const bool isNeedReset) {
+    system::setEnvironmentVariable(cancelTypeKey, to_string(isCrossLine));
+    WindowManager::GetInstance()->sendCancelCompletion();
+    if (isNeedReset) {
+        _completionCache.reset();
+    }
+}
+
+void CompletionManager::_reactToCompletion(Completion&&completion, const bool isAccept) {
+    const auto path = isAccept ? "/completion/accept" : "/completion/insert";
+    nlohmann::json requestBody; {
+        shared_lock lock(_editorInfoMutex);
+        requestBody = {
+            {"completion", encode(completion.stringify(), crypto::Encoding::Base64)},
+            {"projectId", _editorInfo.projectId},
+            {"version", _editorInfo.version},
+        };
+    }
+    try {
+        if (const auto [status, responseBody] = _httpHelper.post(path, move(requestBody)); status == 200) {
+            logger::log(format("({}) Result: {}", path, responseBody["result"].get<string>()));
+        }
+        else {
+            logger::log(
+                format("({}) HTTP Code: {}, body: {}", path, status, responseBody)
+            );
+        }
+    }
+    catch (helpers::HttpHelper::HttpError&e) {
+        logger::error(format("(/completion/accept) Http error: {}", e.what()));
+    }
+    catch (exception&e) {
+        logger::error(format("(/completion/accept) Exception: {}", e.what()));
+    }
+}
+
+void CompletionManager::_retrieveCompletion(const std::string&prefix) {
+    _currentRetrieveTime = chrono::high_resolution_clock::now();
+    thread([this, prefix, originalRetrieveTime = _currentRetrieveTime.load()] {
+        optional<string> completionGenerated;
+        nlohmann::json requestBody; {
+            shared_lock componentsLock(_componentsMutex);
+            shared_lock editorInfoLock(_editorInfoMutex);
+            requestBody = {
+                {"cursorString", _components.cursorString},
+                {"path", encode(_components.path, crypto::Encoding::Base64)},
+                {"prefix", encode(prefix, crypto::Encoding::Base64)},
+                {"projectId", _editorInfo.projectId},
+                {"suffix", encode(_components.suffix, crypto::Encoding::Base64)},
+                {"symbolString", encode(_components.symbolString, crypto::Encoding::Base64)},
+                {"tabString", encode(_components.tabString, crypto::Encoding::Base64)},
+                {"version", _editorInfo.version},
+            };
+        }
+        _isNeedInsert.store(true);
+        try {
+            if (const auto [status, body] = _httpHelper.post("/completion/generate", move(requestBody));
+                status == 200) {
+                const auto result = body["result"].get<string>();
+                if (const auto&contents = body["contents"];
+                    result == "success" && contents.is_array() && !contents.empty()) {
+                    completionGenerated.emplace(decode(contents[0].get<string>(), crypto::Encoding::Base64));
+                    logger::log(format("(/completion/generate) Completion: {}", completionGenerated.value_or("null")));
+                }
+                else {
+                    logger::log(format("(/completion/generate) Invalid completion: {}", body));
+                }
+            }
+            else {
+                logger::log(format("(/completion/generate) HTTP Code: {}, body: {}", status, body));
+            }
+        }
+        catch (helpers::HttpHelper::HttpError&e) {
+            logger::error(format("(/completion/accept) Http error: {}", e.what()));
+        }
+        catch (exception&e) {
+            logger::log(format("(/completion/generate) Exception: {}", e.what()));
+        }
+        catch (...) {
+            logger::log("(/completion/generate) Unknown exception.");
+        }
+
+        if (
+            _isNeedInsert.load() &&
+            completionGenerated.has_value() &&
+            originalRetrieveTime == _currentRetrieveTime.load()
+        ) {
+            try {
+                auto oldCompletion = _completionCache.reset(
+                    completionGenerated.value()[0] == '1',
+                    completionGenerated.value().substr(1)
+                );
+                if (!oldCompletion.content().empty()) {
+                    _cancelCompletion(false, false);
+                    logger::log(format("Cancel old cached completion: {}", oldCompletion.stringify()));
+                }
+                system::setEnvironmentVariable(completionGeneratedKey, completionGenerated.value());
+                WindowManager::GetInstance()->sendInsertCompletion();
+                logger::log("Inserted completion");
+                thread(_reactToCompletion, this, move(oldCompletion), false).detach();
+            }
+            catch (runtime_error&e) {
+                logger::log(e.what());
+            }
+        }
+    }).detach();
+}

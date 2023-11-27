@@ -1,13 +1,17 @@
 #include <format>
 
+#include <components/CompletionManager.h>
 #include <components/Configurator.h>
 #include <components/InteractionMonitor.h>
+#include <components/WindowManager.h>
 #include <types/SiVersion.h>
+#include <utils/crypto.h>
+#include <utils/inputbox.h>
+#include <utils/logger.h>
+#include <utils/system.h>
 #include <utils/window.h>
 
 #include <windows.h>
-
-#include "WindowManager.h"
 
 using namespace components;
 using namespace std;
@@ -15,7 +19,7 @@ using namespace types;
 using namespace utils;
 
 namespace {
-    const unordered_map<SiVersion::Major, unordered_map<SiVersion::Minor, tuple<uint64_t, uint64_t>>> addressMap = {
+    constexpr unordered_map<SiVersion::Major, unordered_map<SiVersion::Minor, tuple<uint64_t, uint64_t>>> addressMap = {
         {
             SiVersion::Major::V35, {
                 {SiVersion::Minor::V0076, {0x1CBEFC, 0x1CBF00}},
@@ -38,9 +42,31 @@ namespace {
             }
         },
     };
+
+    constexpr auto convertLineEndings = [](const std::string&input) {
+        return regex_replace(input, regex(R"(\\r\\n)"), "\r\n");
+    };
+    constexpr auto convertPathSeperators = [](const std::string&input) {
+        return regex_replace(input, regex(R"(\\\\)"), "/");
+    };
+
+    constexpr auto autoCompletionKey = "CMWCODER_autoCompletion";
+    constexpr auto currentPrefixKey = "CMWCODER_currentPrefix";
+    constexpr auto cursorKey = "CMWCODER_cursor";
+    constexpr auto debugLogKey = "CMWCODER_logDebug";
+    constexpr auto pathKey = "CMWCODER_path";
+    constexpr auto prefixKey = "CMWCODER_prefix";
+    constexpr auto projectKey = "CMWCODER_project";
+    constexpr auto suffixKey = "CMWCODER_suffix";
+    constexpr auto symbolsKey = "CMWCODER_symbols";
+    constexpr auto tabsKey = "CMWCODER_tabs";
+    constexpr auto versionKey = "CMWCODER_version";
 }
 
-InteractionMonitor::InteractionMonitor() : _keyHelper(Configurator::GetInstance()->version().first),
+InteractionMonitor::InteractionMonitor() : _subKey(Configurator::GetInstance()->version().first == SiVersion::Major::V35
+                                                       ? R"(SOFTWARE\Source Dynamics\Source Insight\3.0)"
+                                                       : R"(SOFTWARE\Source Dynamics\Source Insight\4.0)"),
+                                           _keyHelper(Configurator::GetInstance()->version().first),
                                            _processHandle(GetCurrentProcess(), CloseHandle),
                                            _windowHookHandle(
                                                SetWindowsHookEx(
@@ -67,6 +93,15 @@ InteractionMonitor::InteractionMonitor() : _keyHelper(Configurator::GetInstance(
     catch (out_of_range&e) {
         throw runtime_error(format("Unsupported Source Insight Version: ", e.what()));
     }
+
+    _monitorAutoCompletion();
+    _monitorCursorPosition();
+    _monitorDebugLog();
+    _monitorEditorInfo();
+}
+
+InteractionMonitor::~InteractionMonitor() {
+    _isRunning.store(false);
 }
 
 CursorPosition InteractionMonitor::_getCursorPosition() const {
@@ -91,13 +126,13 @@ CursorPosition InteractionMonitor::_getCursorPosition() const {
 void InteractionMonitor::_handleKeycode(Keycode keycode) const noexcept {
     const auto currentCursorPosition = _getCursorPosition();
     if (_keyHelper.isNavigate(keycode)) {
-        _handlers.at(Interaction::Navigate)({});
+        _handleInteraction(Interaction::Navigate);
         return;
     }
 
     if (_keyHelper.isPrintable(keycode)) {
         (void)WindowManager::GetInstance()->sendDoubleInsert();
-        _handlers.at(Interaction::NormalInput)(make_pair(currentCursorPosition, keycode));
+        _handleInteraction(Interaction::NormalInput, make_pair(currentCursorPosition, keycode));
         return;
     }
 
@@ -108,15 +143,15 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) const noexcept {
                 switch (key) {
                     case Key::BackSpace: {
                         (void)WindowManager::GetInstance()->sendDoubleInsert();
-                        _handlers.at(Interaction::DeleteInput)(currentCursorPosition);
+                        _handleInteraction(Interaction::DeleteInput, currentCursorPosition);
                         break;
                     }
                     case Key::Tab: {
-                        _handlers.at(Interaction::AcceptCompletion)({});
+                        _handleInteraction(Interaction::AcceptCompletion);
                         break;
                     }
                     case Key::Enter: {
-                        _handlers.at(Interaction::EnterInput)(currentCursorPosition);
+                        _handleInteraction(Interaction::EnterInput, currentCursorPosition);
                         break;
                     }
                     case Key::Escape: {
@@ -124,14 +159,14 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) const noexcept {
                             thread([this, currentCursorPosition] {
                                 try {
                                     this_thread::sleep_for(chrono::milliseconds(150));
-                                    _handlers.at(Interaction::Navigate)(currentCursorPosition);
+                                    _handleInteraction(Interaction::Navigate, currentCursorPosition);
                                 }
                                 catch (...) {
                                 }
                             }).detach();
                         }
                         else {
-                            _handlers.at(Interaction::Navigate)(currentCursorPosition);
+                            _handleInteraction(Interaction::Navigate, currentCursorPosition);
                         }
                         break;
                     }
@@ -145,15 +180,15 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) const noexcept {
                 if (modifiers.size() == 1 && modifiers.contains(Modifier::Ctrl)) {
                     switch (key) {
                         case Key::S: {
-                            _handlers.at(Interaction::Save)({});
+                            _handleInteraction(Interaction::Save);
                             break;
                         }
                         case Key::V: {
-                            _handlers.at(Interaction::Paste)({});
+                            _handleInteraction(Interaction::Paste);
                             break;
                         }
                         case Key::Z: {
-                            _handlers.at(Interaction::Undo)({});
+                            _handleInteraction(Interaction::Undo);
                             break;
                         }
                         default: {
@@ -168,6 +203,126 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) const noexcept {
     }
 }
 
+void InteractionMonitor::_handleInteraction(const Interaction interaction, const std::any&data) const noexcept {
+    try {
+        for (const auto&handler: _handlers.at(interaction)) {
+            handler(data);
+        }
+    }
+    catch (out_of_range&) {
+        logger::log(format("No handlers for interaction '{}'", magic_enum::enum_name(interaction)));
+    }
+    catch (exception&e) {
+        logger::log(format(
+            "Exception when processing interaction '{}' : {}",
+            magic_enum::enum_name(interaction),
+            e.what()
+        ));
+    }
+}
+
+void InteractionMonitor::_monitorAutoCompletion() const {
+    thread([this] {
+        while (_isRunning.load()) {
+            if (const auto isAutoCompletionOpt = system::getRegValue(_subKey, autoCompletionKey);
+                isAutoCompletionOpt.has_value()) {
+                CompletionManager::GetInstance()->setAutoCompletion(
+                    static_cast<bool>(stoi(isAutoCompletionOpt.value()))
+                );
+            }
+            this_thread::sleep_for(chrono::milliseconds(25));
+        }
+    }).detach();
+}
+
+void InteractionMonitor::_monitorCursorPosition() {
+    thread([this] {
+        while (_isRunning.load()) {
+            this->_cursorPosition.store(_getCursorPosition());
+            this_thread::sleep_for(chrono::milliseconds(1));
+        }
+    }).detach();
+}
+
+void InteractionMonitor::_monitorDebugLog() const {
+    thread([this] {
+        while (_isRunning.load()) {
+            if (const auto debugStringOpt = system::getEnvironmentVariable(debugLogKey);
+                debugStringOpt.has_value()) {
+                logger::log(format("[SI] {}", debugStringOpt.value()));
+                system::setEnvironmentVariable(debugLogKey);
+            }
+            this_thread::sleep_for(chrono::milliseconds(1));
+        }
+    }).detach();
+}
+
+void InteractionMonitor::_monitorEditorInfo() const {
+    thread([this] {
+        while (_isRunning.load()) {
+            if (const auto currentLinePrefixOpt = system::getEnvironmentVariable(currentPrefixKey);
+                currentLinePrefixOpt.has_value()) {
+                system::setEnvironmentVariable(currentPrefixKey);
+                CompletionManager::GetInstance()->retrieveWithCurrentPrefix(
+                    convertLineEndings(currentLinePrefixOpt.value())
+                );
+            }
+            else {
+                optional<string> suffixOpt, prefixOpt;
+                if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
+                    suffixOpt = system::getEnvironmentVariable(suffixKey);
+                    prefixOpt = system::getEnvironmentVariable(prefixKey);
+                }
+                else {
+                    suffixOpt = system::getRegValue(_subKey, suffixKey);
+                    prefixOpt = system::getRegValue(_subKey, prefixKey);
+                }
+                const auto projectOpt = system::getEnvironmentVariable(projectKey);
+                const auto pathOpt = system::getEnvironmentVariable(pathKey);
+                const auto cursorStringOpt = system::getEnvironmentVariable(cursorKey);
+                const auto symbolStringOpt = system::getEnvironmentVariable(symbolsKey);
+                const auto tabStringOpt = system::getEnvironmentVariable(tabsKey);
+                if (const auto versionOpt = system::getEnvironmentVariable(versionKey);
+                    suffixOpt.has_value() &&
+                    prefixOpt.has_value() &&
+                    projectOpt.has_value() &&
+                    pathOpt.has_value() &&
+                    cursorStringOpt.has_value() &&
+                    versionOpt.has_value()
+                ) {
+                    if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
+                        system::setEnvironmentVariable(suffixKey);
+                        system::setEnvironmentVariable(prefixKey);
+                    }
+                    else {
+                        system::deleteRegValue(_subKey, suffixKey);
+                        system::deleteRegValue(_subKey, prefixKey);
+                    }
+                    system::setEnvironmentVariable(projectKey);
+                    system::setEnvironmentVariable(pathKey);
+                    system::setEnvironmentVariable(cursorKey);
+                    system::setEnvironmentVariable(symbolsKey);
+                    system::setEnvironmentVariable(versionKey);
+                    system::setEnvironmentVariable(tabsKey);
+
+                    _retrieveProjectId(convertPathSeperators(projectOpt.value()));
+                    CompletionManager::GetInstance()->setVersion(versionOpt.value());
+
+                    CompletionManager::GetInstance()->retrieveWithFullInfo({
+                        .cursorString = cursorStringOpt.value(),
+                        .path = convertPathSeperators(pathOpt.value()),
+                        .prefix = convertLineEndings(prefixOpt.value()),
+                        .suffix = convertLineEndings(suffixOpt.value()),
+                        .symbolString = symbolStringOpt.value_or(""),
+                        .tabString = tabStringOpt.value_or("")
+                    });
+                }
+            }
+            this_thread::sleep_for(chrono::milliseconds(5));
+        }
+    }).detach();
+}
+
 void InteractionMonitor::_processWindowMessage(const long lParam) const {
     const auto windowProcData = reinterpret_cast<PCWPSTRUCT>(lParam);
     if (const auto currentWindow = reinterpret_cast<int64_t>(windowProcData->hwnd);
@@ -175,17 +330,17 @@ void InteractionMonitor::_processWindowMessage(const long lParam) const {
         switch (windowProcData->message) {
             case WM_KILLFOCUS: {
                 if (WindowManager::GetInstance()->checkLostFocus(windowProcData->wParam)) {
-                    _handlers.at(Interaction::LostFocus)(windowProcData->wParam);
+                    _handleInteraction(Interaction::LostFocus, windowProcData->wParam);
                 }
                 break;
             }
             case WM_MOUSEACTIVATE: {
-                _handlers.at(Interaction::MouseClick)(_getCursorPosition());
+                _handleInteraction(Interaction::MouseClick, _getCursorPosition());
                 break;
             }
             case WM_SETFOCUS: {
                 if (WindowManager::GetInstance()->checkGainFocus(currentWindow)) {
-                    _handlers.at(Interaction::CancelCompletion)({});
+                    _handleInteraction(Interaction::CancelCompletion);
                 }
                 break;
             }
@@ -200,13 +355,26 @@ void InteractionMonitor::_processWindowMessage(const long lParam) const {
     }
 }
 
-void InteractionMonitor::_threadMonitorCursorPosition() {
-    thread([this] {
-        while (_isRunning.load()) {
-            this->_cursorPosition.store(_getCursorPosition());
-            this_thread::sleep_for(chrono::milliseconds(1));
+void InteractionMonitor::_retrieveProjectId(const std::string&project) const {
+    const auto projectListKey = _subKey + "\\Project List";
+    const auto projectHash = crypto::sha1(project);
+    string projectId;
+
+    if (const auto projectIdOpt = system::getRegValue(projectListKey, projectHash); projectIdOpt.has_value()) {
+        projectId = projectIdOpt.value();
+    }
+
+    while (projectId.empty()) {
+        projectId = InputBox("Please input current project's iSoft ID", "Input Project ID");
+        if (projectId.empty()) {
+            logger::error("Project ID is empty, please input a valid Project ID.");
         }
-    }).detach();
+        else {
+            system::setRegValue(projectListKey, projectHash, projectId);
+        }
+    }
+
+    CompletionManager::GetInstance()->setProjectId(projectId);
 }
 
 long InteractionMonitor::_windowProcedureHook(const int nCode, const unsigned int wParam, const long lParam) {

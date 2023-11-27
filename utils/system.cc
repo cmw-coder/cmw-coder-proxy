@@ -31,48 +31,22 @@ string system::formatSystemMessage(const long errorCode) {
     return errorMessage.substr(0, errorMessageLength > 0 ? errorMessageLength - 1 : 0);
 }
 
-string system::getSystemPath(const string&relativePath) {
-    auto systemDirectory = string(MAX_PATH, 0);
-    const auto length = GetSystemDirectory(systemDirectory.data(), MAX_PATH);
-    return systemDirectory.substr(0, length) + R"(\)" + relativePath;
+optional<string> system::deleteRegValue(const string&subKey, const string&valueName) {
+    if (const auto deleteResult = RegDeleteKeyValue(HKEY_CURRENT_USER, subKey.c_str(), valueName.c_str());
+        deleteResult != ERROR_SUCCESS) {
+        return formatSystemMessage(deleteResult);
+    }
+    return nullopt;
 }
 
-string system::getUserName() {
-    DWORD userNameLength = MAX_PATH;
-    string userName;
-    userName.resize(userNameLength);
-    GetUserName(userName.data(), &userNameLength);
-    return userName.substr(0, userNameLength - 1);
-}
-
-tuple<int, int, int, int> system::getVersion() {
-    string path; {
-        path.resize(MAX_PATH);
-        path = path.substr(0, GetModuleFileName(nullptr, path.data(), MAX_PATH));
+optional<string> system::getEnvironmentVariable(const string&name) {
+    constexpr auto valueLength = 32767;
+    string value;
+    value.resize(valueLength);
+    if (const auto getLength = GetEnvironmentVariable(name.c_str(), value.data(), valueLength); getLength) {
+        return value.substr(0, getLength);
     }
-    DWORD verHandle = 0;
-    if (const DWORD verSize = GetFileVersionInfoSize(path.c_str(), &verHandle); verSize != 0) {
-        string verData;
-        verData.resize(verSize);
-        if (GetFileVersionInfo(path.c_str(), verHandle, verSize, verData.data())) {
-            LPBYTE lpBuffer = nullptr;
-            UINT size = 0;
-            if (VerQueryValue(verData.c_str(), "\\", reinterpret_cast<void * *>(&lpBuffer), &size)) {
-                if (size) {
-                    if (const auto* verInfo = reinterpret_cast<VS_FIXEDFILEINFO *>(lpBuffer);
-                        verInfo->dwSignature == 0xfeef04bd) {
-                        return {
-                            verInfo->dwFileVersionMS >> 16 & 0xffff,
-                            verInfo->dwFileVersionMS >> 0 & 0xffff,
-                            verInfo->dwFileVersionLS >> 16 & 0xffff,
-                            verInfo->dwFileVersionLS >> 0 & 0xffff
-                        };
-                    }
-                }
-            }
-        }
-    }
-    return {};
+    return nullopt;
 }
 
 unsigned long system::getMainThreadId() {
@@ -119,17 +93,78 @@ string system::getModuleFileName(const uint64_t moduleAddress) {
     return moduleFileName.substr(0, copiedSize);
 }
 
-void system::setRegValue(const string&subKey, const string&valueName, const uint32_t value) {
-    if (const auto setResult = RegSetKeyValue(
-        HKEY_CURRENT_USER,
-        subKey.c_str(),
-        valueName.c_str(),
-        REG_DWORD,
-        &value,
-        sizeof(DWORD)
-    ); setResult != ERROR_SUCCESS) {
-        throw runtime_error(formatSystemMessage(setResult));
+optional<string> system::getRegValue(const string&subKey, const string&valueName) {
+    HKEY hKey;
+    if (const auto openResult = RegOpenKeyEx(HKEY_CURRENT_USER, subKey.c_str(), 0, KEY_QUERY_VALUE, &hKey);
+        openResult != ERROR_SUCCESS) {
+        RegCloseKey(hKey);
+        return nullopt;
     }
+    DWORD valueLength = 16384;
+    string value;
+    value.resize(valueLength);
+    const auto getResult = RegGetValue(
+        hKey,
+        nullptr,
+        valueName.c_str(),
+        RRF_RT_REG_SZ,
+        nullptr,
+        value.data(),
+        &valueLength
+    );
+    RegCloseKey(hKey);
+    if (getResult == ERROR_SUCCESS) {
+        return value.substr(0, valueLength > 0 ? valueLength - 1 : 0);
+    }
+    return nullopt;
+}
+
+string system::getSystemPath(const string&relativePath) {
+    auto systemDirectory = string(MAX_PATH, 0);
+    const auto length = GetSystemDirectory(systemDirectory.data(), MAX_PATH);
+    return systemDirectory.substr(0, length) + R"(\)" + relativePath;
+}
+
+string system::getUserName() {
+    DWORD userNameLength = MAX_PATH;
+    string userName;
+    userName.resize(userNameLength);
+    GetUserName(userName.data(), &userNameLength);
+    return userName.substr(0, userNameLength - 1);
+}
+
+tuple<int, int, int, int> system::getVersion() {
+    string path; {
+        path.resize(MAX_PATH);
+        path = path.substr(0, GetModuleFileName(nullptr, path.data(), MAX_PATH));
+    }
+    DWORD verHandle = 0;
+    if (const DWORD verSize = GetFileVersionInfoSize(path.c_str(), &verHandle); verSize != 0) {
+        string verData;
+        verData.resize(verSize);
+        if (GetFileVersionInfo(path.c_str(), verHandle, verSize, verData.data())) {
+            LPBYTE lpBuffer = nullptr;
+            UINT size = 0;
+            if (VerQueryValue(verData.c_str(), "\\", reinterpret_cast<void * *>(&lpBuffer), &size)) {
+                if (size) {
+                    if (const auto* verInfo = reinterpret_cast<VS_FIXEDFILEINFO *>(lpBuffer);
+                        verInfo->dwSignature == 0xfeef04bd) {
+                        return {
+                            verInfo->dwFileVersionMS >> 16 & 0xffff,
+                            verInfo->dwFileVersionMS >> 0 & 0xffff,
+                            verInfo->dwFileVersionLS >> 16 & 0xffff,
+                            verInfo->dwFileVersionLS >> 0 & 0xffff
+                        };
+                    }
+                }
+            }
+        }
+    }
+    return {};
+}
+
+void system::setEnvironmentVariable(const string&name, const string&value) {
+    SetEnvironmentVariable(name.c_str(), value.empty() ? nullptr : value.c_str());
 }
 
 void system::setRegValue(const string&subKey, const string&valueName, const string&value) {
@@ -142,38 +177,5 @@ void system::setRegValue(const string&subKey, const string&valueName, const stri
         value.size()
     ); setResult != ERROR_SUCCESS) {
         throw runtime_error(formatSystemMessage(setResult));
-    }
-}
-
-string system::getRegValue(const string&subKey, const string&valueName) {
-    HKEY hKey;
-    if (const auto openResult = RegOpenKeyEx(HKEY_CURRENT_USER, subKey.c_str(), 0, KEY_QUERY_VALUE, &hKey);
-        openResult != ERROR_SUCCESS) {
-        RegCloseKey(hKey);
-        throw runtime_error(formatSystemMessage(openResult));
-    }
-    string value;
-    value.resize(16384);
-    DWORD valueLength = 16384;
-    const auto getResult = RegGetValue(
-        hKey,
-        nullptr,
-        valueName.c_str(),
-        RRF_RT_REG_SZ,
-        nullptr,
-        value.data(),
-        &valueLength
-    );
-    RegCloseKey(hKey);
-    if (getResult != ERROR_SUCCESS) {
-        throw runtime_error(formatSystemMessage(getResult));
-    }
-    return value.substr(0, valueLength > 0 ? valueLength - 1 : 0);
-}
-
-void system::deleteRegValue(const string&subKey, const string&valueName) {
-    if (const auto deleteResult = RegDeleteKeyValue(HKEY_CURRENT_USER, subKey.c_str(), valueName.c_str());
-        deleteResult != ERROR_SUCCESS) {
-        throw runtime_error(formatSystemMessage(deleteResult));
     }
 }

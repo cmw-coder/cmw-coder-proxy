@@ -1,15 +1,16 @@
 #include <format>
 
-#include <types/Configurator.h>
-#include <types/CursorMonitor.h>
+#include <components/CompletionManager.h>
+#include <components/Configurator.h>
+#include <components/InteractionMonitor.h>
+#include <components/WindowManager.h>
 #include <types/ModuleProxy.h>
-#include <types/RegistryMonitor.h>
-#include <types/WindowInterceptor.h>
 #include <utils/logger.h>
 #include <utils/system.h>
 
 #include <windows.h>
 
+using namespace components;
 using namespace std;
 using namespace types;
 using namespace utils;
@@ -20,17 +21,17 @@ namespace {
 
         ModuleProxy::Construct();
         Configurator::Construct();
-        CursorMonitor::Construct();
-        RegistryMonitor::Construct();
-        WindowInterceptor::Construct();
+        InteractionMonitor::Construct();
+        CompletionManager::Construct();
+        WindowManager::Construct();
     }
 
     void finalize() {
         logger::log("Comware Coder Proxy is finalizing...");
 
-        WindowInterceptor::Destruct();
-        RegistryMonitor::Destruct();
-        CursorMonitor::Destruct();
+        WindowManager::Destruct();
+        CompletionManager::Destruct();
+        InteractionMonitor::Destruct();
         Configurator::Destruct();
         ModuleProxy::Destruct();
     }
@@ -47,36 +48,16 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
 
             initialize();
 
-            CursorMonitor::GetInstance()->addHandler(
-                UserAction::DeleteBackward,
-                RegistryMonitor::GetInstance(),
-                &RegistryMonitor::cancelByDeleteBackward
-            );
-            CursorMonitor::GetInstance()->addHandler(
-                UserAction::Navigate,
-                RegistryMonitor::GetInstance(),
-                &RegistryMonitor::cancelByCursorNavigate
+            InteractionMonitor::GetInstance()->addHandler(
+                Interaction::AcceptCompletion,
+                CompletionManager::GetInstance(),
+                &CompletionManager::acceptCompletion
             );
 
-            WindowInterceptor::GetInstance()->addHandler(
-                UserAction::Accept,
-                RegistryMonitor::GetInstance(),
-                &RegistryMonitor::acceptByTab
-            );
-            WindowInterceptor::GetInstance()->addHandler(
-                UserAction::ModifyLine,
-                RegistryMonitor::GetInstance(),
-                &RegistryMonitor::cancelByModifyLine
-            );
-            WindowInterceptor::GetInstance()->addHandler(
-                UserAction::Navigate,
-                RegistryMonitor::GetInstance(),
-                &RegistryMonitor::cancelByKeycodeNavigate
-            );
-            WindowInterceptor::GetInstance()->addHandler(
-                UserAction::Normal,
-                RegistryMonitor::GetInstance(),
-                &RegistryMonitor::processNormalKey
+            InteractionMonitor::GetInstance()->addHandler(
+                Interaction::CancelCompletion,
+                CompletionManager::GetInstance(),
+                &CompletionManager::_cancelCompletion
             );
 
             const auto mainThreadId = system::getMainThreadId();
