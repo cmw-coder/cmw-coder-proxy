@@ -11,9 +11,9 @@ namespace components {
 
         ~WindowManager() override;
 
-        bool checkLostFocus(int64_t windowHandle);
+        bool checkNeedCancelWhenLostFocus(int64_t windowHandle);
 
-        bool checkGainFocus(int64_t windowHandle);
+        bool checkNeedCancelWhenGainFocus(int64_t windowHandle);
 
         void requestRetrieveInfo();
 

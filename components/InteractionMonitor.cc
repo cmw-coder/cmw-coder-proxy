@@ -1,4 +1,7 @@
 #include <format>
+#include <regex>
+
+#include <magic_enum.hpp>
 
 #include <components/CompletionManager.h>
 #include <components/Configurator.h>
@@ -14,6 +17,7 @@
 #include <windows.h>
 
 using namespace components;
+using namespace magic_enum;
 using namespace std;
 using namespace types;
 using namespace utils;
@@ -333,17 +337,17 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
         window::getWindowClassName(currentWindow) == "si_Sw") {
         switch (windowProcData->message) {
             case WM_KILLFOCUS: {
-                if (WindowManager::GetInstance()->checkLostFocus(windowProcData->wParam)) {
+                if (WindowManager::GetInstance()->checkNeedCancelWhenLostFocus(windowProcData->wParam)) {
                     _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
                 }
                 break;
             }
             case WM_MOUSEACTIVATE: {
-                _queueInteraction(Interaction::MouseClick);
+                _queueInteraction(Interaction::Navigate);
                 break;
             }
             case WM_SETFOCUS: {
-                if (WindowManager::GetInstance()->checkGainFocus(currentWindow)) {
+                if (WindowManager::GetInstance()->checkNeedCancelWhenGainFocus(currentWindow)) {
                     _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
                 }
                 break;

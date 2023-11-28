@@ -1,5 +1,7 @@
 #pragma once
 
+#include <any>
+
 #include <singleton_dclp.hpp>
 
 #include <helpers/HttpHelper.h>
@@ -26,13 +28,17 @@ namespace components {
 
         ~CompletionManager() override;
 
-        void acceptCompletion(const std::any&);
+        void interactionAccept(const std::any& = {});
 
-        void cancelCompletion(const std::any&data);
+        void interactionCancel(const std::any&data);
 
-        void deleteInput(const std::any&data);
+        void interactionDelete(const std::any&data);
 
-        void enterInput(const std::any&);
+        void interactionEnter(const std::any& = {});
+
+        void interactionNavigate(const std::any& = {});
+
+        void interactionNormal(const std::any&data);
 
         void retrieveWithCurrentPrefix(const std::string&currentPrefix);
 
@@ -49,7 +55,7 @@ namespace components {
         Components _components;
         EditorInfo _editorInfo;
         helpers::HttpHelper _httpHelper;
-        std::atomic<bool> _isAutoCompletion{true}, _isContinuousEnter{}, _isJustInserted{}, _isNeedInsert{};
+        std::atomic<bool> _isAutoCompletion{true}, _isContinuousEnter{}, _isJustAccepted{}, _isNeedInsert{};
         std::atomic<std::chrono::time_point<std::chrono::high_resolution_clock>> _currentRetrieveTime;
         types::CompletionCache _completionCache;
 

@@ -16,7 +16,7 @@ WindowManager::~WindowManager() {
     _isRunning.store(false);
 }
 
-bool WindowManager::checkLostFocus(const int64_t windowHandle) {
+bool WindowManager::checkNeedCancelWhenLostFocus(const int64_t windowHandle) {
     if (const auto windowClass = window::getWindowClassName(windowHandle);
         windowClass == "si_Poplist") {
         _popListWindowHandle.store(windowHandle);
@@ -28,7 +28,7 @@ bool WindowManager::checkLostFocus(const int64_t windowHandle) {
     return false;
 }
 
-bool WindowManager::checkGainFocus(const int64_t windowHandle) {
+bool WindowManager::checkNeedCancelWhenGainFocus(const int64_t windowHandle) {
     if (_codeWindowHandle < 0) {
         _codeWindowHandle.store(windowHandle);
     }

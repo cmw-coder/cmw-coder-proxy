@@ -2,6 +2,7 @@
 #include <format>
 
 #include <httplib.h>
+#include <nlohmann/json.hpp>
 
 #include <components/CompletionManager.h>
 #include <components/Configurator.h>
@@ -29,35 +30,34 @@ namespace {
 CompletionManager::CompletionManager(): _httpHelper("http://localhost:3000", chrono::seconds(10)) {
 }
 
-void CompletionManager::acceptCompletion(const std::any&) {
-    _isJustInserted = true;
+void CompletionManager::interactionAccept(const std::any&) {
+    _isContinuousEnter.store(false);
+    _isJustAccepted.store(true);
     if (auto oldCompletion = _completionCache.reset(); !oldCompletion.content().empty()) {
         WindowManager::GetInstance()->sendAcceptCompletion();
         logger::log(format("Accepted completion: {}", oldCompletion.stringify()));
         thread(&CompletionManager::_reactToCompletion, this, move(oldCompletion), true).detach();
     }
     else {
-        if (_isAutoCompletion.load()) {
-            WindowManager::GetInstance()->requestRetrieveInfo();
-        }
+        _retrieveEditorInfo();
     }
 }
 
-void CompletionManager::cancelCompletion(const std::any&data) {
+void CompletionManager::interactionCancel(const std::any&data) {
     try {
         const auto [isCrossLine,isNeedReset] = any_cast<tuple<bool, bool>>(data);
         _cancelCompletion(isCrossLine, isNeedReset);
     }
     catch (const bad_any_cast&e) {
-        logger::log(format("Invalid cancelCompletion data: {}", e.what()));
+        logger::log(format("Invalid interactionCancel data: {}", e.what()));
     }
 }
 
-void CompletionManager::deleteInput(const std::any&data) {
+void CompletionManager::interactionDelete(const std::any&data) {
+    _isContinuousEnter.store(false);
     try {
-        const auto [newCursorPosition, oldCursorPosition] = any_cast<tuple<CursorPosition, CursorPosition>>(data);
-        _isContinuousEnter.store(false);
-        if (newCursorPosition.line == oldCursorPosition.line) {
+        if (const auto [newCursorPosition, oldCursorPosition] = any_cast<tuple<CursorPosition, CursorPosition>>(data);
+            newCursorPosition.line == oldCursorPosition.line) {
             if (const auto previousCacheOpt = _completionCache.previous(); previousCacheOpt.has_value()) {
                 // Has valid cache
                 const auto [_, completionOpt] = previousCacheOpt.value();
@@ -65,7 +65,7 @@ void CompletionManager::deleteInput(const std::any&data) {
                     if (completionOpt.has_value()) {
                         // In cache
                         _cancelCompletion(false, false);
-                        logger::log("Cancel previous cached completion");
+                        logger::log("Cancel completion due to previous cached");
                         insertCompletion(completionOpt.value().stringify());
                         logger::log("Insert previous cached completion");
                     }
@@ -89,11 +89,11 @@ void CompletionManager::deleteInput(const std::any&data) {
         }
     }
     catch (const bad_any_cast&e) {
-        logger::log(format("Invalid deleteInput data: {}", e.what()));
+        logger::log(format("Invalid interactionDelete data: {}", e.what()));
     }
 }
 
-void CompletionManager::enterInput(const std::any&) {
+void CompletionManager::interactionEnter(const std::any&) {
     if (_completionCache.valid()) {
         // TODO: support 1st level cache
         _cancelCompletion(true);
@@ -109,6 +109,60 @@ void CompletionManager::enterInput(const std::any&) {
         _isContinuousEnter.store(true);
         _retrieveEditorInfo();
         logger::log("Detect first enter, retrieve editor info first");
+    }
+}
+
+void CompletionManager::interactionNavigate(const std::any&) {
+    _isContinuousEnter.store(false);
+    if (_completionCache.valid()) {
+        _cancelCompletion();
+        logger::log("Canceled by navigate.");
+    }
+}
+
+void CompletionManager::interactionNormal(const std::any&data) {
+    _isContinuousEnter.store(false);
+    _isJustAccepted.store(false);
+    try {
+        const auto keycode = any_cast<Keycode>(data);
+        if (const auto nextCacheOpt = _completionCache.next();
+            nextCacheOpt.has_value()) {
+            // Has valid cache
+            const auto [currentChar, completionOpt] = nextCacheOpt.value();
+            try {
+                // TODO: Check if this would cause issues
+                if (keycode == currentChar) {
+                    // Cache hit
+                    if (completionOpt.has_value()) {
+                        // In cache
+                        _cancelCompletion(false, false);
+                        logger::log("Cancel completion due to next cached");
+                        insertCompletion(completionOpt.value().stringify());
+                        logger::log("Insert next cached completion");
+                    }
+                    else {
+                        // Out of cache
+                        interactionAccept();
+                    }
+                }
+                else {
+                    // Cache miss
+                    _cancelCompletion();
+                    logger::log(format("Canceled due to cache miss"));
+                    _retrieveEditorInfo();
+                }
+            }
+            catch (runtime_error&e) {
+                logger::log(e.what());
+            }
+        }
+        else {
+            // No valid cache
+            _retrieveEditorInfo();
+        }
+    }
+    catch (const bad_any_cast&e) {
+        logger::log(format("Invalid interactionNormal data: {}", e.what()));
     }
 }
 
