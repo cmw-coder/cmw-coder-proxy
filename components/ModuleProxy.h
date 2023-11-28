@@ -7,7 +7,7 @@
 
 #include <windows.h>
 
-namespace types {
+namespace components {
     class ModuleProxy : public SingletonDclp<ModuleProxy> {
     public:
         ModuleProxy();

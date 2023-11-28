@@ -28,7 +28,7 @@ Configurator::Configurator() {
     }
 }
 
-pair<SiVersion::Major, SiVersion::Minor> Configurator::version() const {
+EditorVersion Configurator::version() const {
     return _siVersion;
 }
 

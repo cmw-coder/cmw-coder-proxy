@@ -30,6 +30,7 @@ namespace {
 CompletionManager::CompletionManager(): _httpHelper("http://localhost:3000", chrono::seconds(10)) {
 }
 
+
 void CompletionManager::interactionAccept(const std::any&) {
     _isContinuousEnter.store(false);
     _isJustAccepted.store(true);
@@ -166,6 +167,37 @@ void CompletionManager::interactionNormal(const std::any&data) {
     }
 }
 
+void CompletionManager::interactionSave(const std::any&) {
+    if (_completionCache.valid()) {
+        _cancelCompletion();
+        logger::log("Canceled by save.");
+        WindowManager::GetInstance()->sendSave();
+    }
+    else {
+        // Interrupted current retrieve
+        _currentRetrieveTime.store(chrono::high_resolution_clock::now());
+    }
+}
+
+void CompletionManager::interactionUndo(const std::any&) {
+    _isContinuousEnter.store(false);
+    const auto windowManager = WindowManager::GetInstance();
+    if (_isJustAccepted.load()) {
+        _isJustAccepted.store(false);
+        windowManager->sendUndo();
+        windowManager->sendUndo();
+    }
+    else if (_completionCache.valid()) {
+        _completionCache.reset();
+        logger::log("Canceled by undo");
+        windowManager->sendUndo();
+    }
+    else {
+        // Interrupted current retrieve
+        _currentRetrieveTime.store(chrono::high_resolution_clock::now());
+    }
+}
+
 void CompletionManager::retrieveWithCurrentPrefix(const std::string&currentPrefix) {
     shared_lock lock(_componentsMutex);
     if (const auto lastNewLineIndex = _components.prefix.find_last_of('\n'); lastNewLineIndex != string::npos) {
@@ -241,7 +273,7 @@ void CompletionManager::_reactToCompletion(Completion&&completion, const bool is
         }
         else {
             logger::log(
-                format("({}) HTTP Code: {}, body: {}", path, status, responseBody)
+                format("({}) HTTP Code: {}, body: {}", path, status, responseBody.dump())
             );
         }
     }
@@ -254,7 +286,7 @@ void CompletionManager::_reactToCompletion(Completion&&completion, const bool is
 }
 
 void CompletionManager::_retrieveCompletion(const std::string&prefix) {
-    _currentRetrieveTime = chrono::high_resolution_clock::now();
+    _currentRetrieveTime.store(chrono::high_resolution_clock::now());
     thread([this, prefix, originalRetrieveTime = _currentRetrieveTime.load()] {
         optional<string> completionGenerated;
         nlohmann::json requestBody; {
@@ -271,22 +303,21 @@ void CompletionManager::_retrieveCompletion(const std::string&prefix) {
                 {"version", _editorInfo.version},
             };
         }
-        _isNeedInsert.store(true);
         try {
-            if (const auto [status, body] = _httpHelper.post("/completion/generate", move(requestBody));
+            if (const auto [status, responseBody] = _httpHelper.post("/completion/generate", move(requestBody));
                 status == 200) {
-                const auto result = body["result"].get<string>();
-                if (const auto&contents = body["contents"];
+                const auto result = responseBody["result"].get<string>();
+                if (const auto&contents = responseBody["contents"];
                     result == "success" && contents.is_array() && !contents.empty()) {
                     completionGenerated.emplace(decode(contents[0].get<string>(), crypto::Encoding::Base64));
                     logger::log(format("(/completion/generate) Completion: {}", completionGenerated.value_or("null")));
                 }
                 else {
-                    logger::log(format("(/completion/generate) Invalid completion: {}", body));
+                    logger::log(format("(/completion/generate) Invalid completion: {}", responseBody.dump()));
                 }
             }
             else {
-                logger::log(format("(/completion/generate) HTTP Code: {}, body: {}", status, body));
+                logger::log(format("(/completion/generate) HTTP Code: {}, body: {}", status, responseBody.dump()));
             }
         }
         catch (helpers::HttpHelper::HttpError&e) {
@@ -300,7 +331,6 @@ void CompletionManager::_retrieveCompletion(const std::string&prefix) {
         }
 
         if (
-            _isNeedInsert.load() &&
             completionGenerated.has_value() &&
             originalRetrieveTime == _currentRetrieveTime.load()
         ) {
@@ -314,7 +344,7 @@ void CompletionManager::_retrieveCompletion(const std::string&prefix) {
             }
             insertCompletion(completionGenerated.value());
             logger::log("Inserted completion");
-            thread(_reactToCompletion, this, move(oldCompletion), false).detach();
+            thread(&CompletionManager::_reactToCompletion, this, move(oldCompletion), false).detach();
         }
     }).detach();
 }

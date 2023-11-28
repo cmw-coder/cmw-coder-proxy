@@ -5,6 +5,7 @@
 #include <singleton_dclp.hpp>
 
 #include <helpers/HttpHelper.h>
+#include <types/common.h>
 #include <types/CompletionCache.h>
 
 namespace components {
@@ -26,8 +27,6 @@ namespace components {
 
         CompletionManager();
 
-        ~CompletionManager() override;
-
         void interactionAccept(const std::any& = {});
 
         void interactionCancel(const std::any&data);
@@ -39,6 +38,10 @@ namespace components {
         void interactionNavigate(const std::any& = {});
 
         void interactionNormal(const std::any&data);
+
+        void interactionSave(const std::any& = {});
+
+        void interactionUndo(const std::any& = {});
 
         void retrieveWithCurrentPrefix(const std::string&currentPrefix);
 
@@ -55,8 +58,8 @@ namespace components {
         Components _components;
         EditorInfo _editorInfo;
         helpers::HttpHelper _httpHelper;
-        std::atomic<bool> _isAutoCompletion{true}, _isContinuousEnter{}, _isJustAccepted{}, _isNeedInsert{};
-        std::atomic<std::chrono::time_point<std::chrono::high_resolution_clock>> _currentRetrieveTime;
+        std::atomic<bool> _isAutoCompletion{true}, _isContinuousEnter{}, _isJustAccepted{};
+        std::atomic<types::Time> _currentRetrieveTime;
         types::CompletionCache _completionCache;
 
         void _cancelCompletion(bool isCrossLine = false, bool isNeedReset = true);

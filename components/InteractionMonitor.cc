@@ -23,7 +23,7 @@ using namespace types;
 using namespace utils;
 
 namespace {
-    constexpr unordered_map<SiVersion::Major, unordered_map<SiVersion::Minor, tuple<uint64_t, uint64_t>>> addressMap = {
+    const unordered_map<SiVersion::Major, unordered_map<SiVersion::Minor, tuple<uint64_t, uint64_t>>> addressMap = {
         {
             SiVersion::Major::V35, {
                 {SiVersion::Minor::V0076, {0x1CBEFC, 0x1CBF00}},
@@ -190,12 +190,12 @@ void InteractionMonitor::_handleInteraction(const Interaction interaction, const
         }
     }
     catch (out_of_range&) {
-        logger::log(format("No handlers for interaction '{}'", magic_enum::enum_name(interaction)));
+        logger::log(format("No handlers for interaction '{}'", enum_name(interaction)));
     }
     catch (exception&e) {
         logger::log(format(
             "Exception when processing interaction '{}' : {}",
-            magic_enum::enum_name(interaction),
+            enum_name(interaction),
             e.what()
         ));
     }

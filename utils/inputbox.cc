@@ -21,17 +21,19 @@ static wstring StringWiden(const string&Str) {
     const size_t szCount = Str.size() + 1;
     vector<wchar_t> Buffer(szCount);
     return wstring{
-        Buffer.data(), static_cast<size_t>(MultiByteToWideChar(CP_UTF8, 0, Str.c_str(), -1, Buffer.data(), szCount))
+        Buffer.data(), static_cast<unsigned>(MultiByteToWideChar(CP_UTF8, 0, Str.c_str(), -1, Buffer.data(), szCount))
     };
 }
 
 static string StringNarrow(const wstring&Str) {
-    const int nBytes = static_cast<size_t>(WideCharToMultiByte(CP_UTF8, 0, Str.c_str(), (int)Str.length(), nullptr, 0,
-                                                               nullptr, nullptr));
+    const int nBytes = WideCharToMultiByte(CP_UTF8, 0, Str.c_str(), static_cast<int>(Str.length()),
+                                           nullptr, 0,
+                                           nullptr, nullptr);
     vector<char> Buffer(static_cast<size_t>(nBytes));
     return string{
         Buffer.data(),
-        static_cast<size_t>(WideCharToMultiByte(CP_UTF8, 0, Str.c_str(), (int)Str.length(), Buffer.data(), nBytes,
+        static_cast<size_t>(WideCharToMultiByte(CP_UTF8, 0, Str.c_str(), static_cast<int>(Str.length()), Buffer.data(),
+                                                nBytes,
                                                 nullptr,
                                                 nullptr))
     };
@@ -91,9 +93,9 @@ public:
 
     STDMETHOD(OnScriptError)(IActiveScriptError* pIActiveScriptError) { return S_OK; }
 
-    STDMETHOD(OnEnterScript)(void) { return S_OK; }
+    STDMETHOD(OnEnterScript)() { return S_OK; }
 
-    STDMETHOD(OnLeaveScript)(void) { return S_OK; }
+    STDMETHOD(OnLeaveScript)() { return S_OK; }
 
     // IActiveScriptSiteWindow
     STDMETHOD(GetWindow)(HWND* phWnd) {
@@ -109,7 +111,6 @@ public:
         return S_OK;
     }
 
-public:
     LONG m_cRefCount;
     HWND m_hWnd;
 };

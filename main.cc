@@ -3,8 +3,8 @@
 #include <components/CompletionManager.h>
 #include <components/Configurator.h>
 #include <components/InteractionMonitor.h>
+#include <components/ModuleProxy.h>
 #include <components/WindowManager.h>
-#include <types/ModuleProxy.h>
 #include <utils/logger.h>
 #include <utils/system.h>
 
@@ -77,6 +77,21 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 Interaction::NormalInput,
                 CompletionManager::GetInstance(),
                 &CompletionManager::interactionNormal
+            );
+            InteractionMonitor::GetInstance()->addHandler(
+                Interaction::Paste,
+                WindowManager::GetInstance(),
+                &WindowManager::interactionPaste
+            );
+            InteractionMonitor::GetInstance()->addHandler(
+                Interaction::Save,
+                CompletionManager::GetInstance(),
+                &CompletionManager::interactionSave
+            );
+            InteractionMonitor::GetInstance()->addHandler(
+                Interaction::Undo,
+                CompletionManager::GetInstance(),
+                &CompletionManager::interactionUndo
             );
 
             const auto mainThreadId = system::getMainThreadId();

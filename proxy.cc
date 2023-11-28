@@ -1,12 +1,12 @@
 #include <format>
 
-#include <types/ModuleProxy.h>
+#include <components/ModuleProxy.h>
 #include <utils/logger.h>
 
 #include <windows.h>
 
+using namespace components;
 using namespace std;
-using namespace types;
 using namespace utils;
 
 #ifdef __cplusplus
@@ -69,21 +69,6 @@ BOOL WINAPI AlphaBlend(
         hSrc,
         ftn
     );
-}
-
-// https://docs.microsoft.com/en-us/windows/win32/dlls/dllmain
-BOOL WINAPI DllInitialize(
-    const HINSTANCE__* hinstDLL,
-    const DWORD fdwReason,
-    const void* lpvReserved
-) {
-#pragma comment(linker, "/EXPORT:DllInitialize=_DllInitialize@12")
-    (void)hinstDLL;
-    (void)fdwReason;
-    (void)lpvReserved;
-    logger::log(format("Proxying {}", typeid(DllInitialize).name()));
-    //  DllMain(hinstDLL, fdwReason, lpvReserved);
-    return TRUE;
 }
 
 // https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-gradientfill

@@ -34,7 +34,7 @@ namespace components {
         const std::string _subKey;
         mutable std::shared_mutex _interactionQueueMutex;
         helpers::KeyHelper _keyHelper;
-        std::atomic<bool> _isRunning = true;
+        std::atomic<bool> _isRunning{true};
         std::atomic<types::CursorPosition> _currentCursorPosition;
         std::unordered_set<types::Interaction> _interactionBuffer;
         std::shared_ptr<void> _processHandle, _windowHookHandle;
