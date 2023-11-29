@@ -10,7 +10,7 @@ using namespace types;
 using namespace utils;
 
 WindowManager::WindowManager() : _keyHelper(Configurator::GetInstance()->version().first) {
-    _threadDebounceFocusWindow();
+    _threadDebounceUpdateWindow();
     _threadDebounceRetrieveInfo();
 }
 
@@ -24,16 +24,25 @@ bool WindowManager::checkNeedCancelWhenLostFocus(const int64_t windowHandle) {
         _popListWindowHandle.store(windowHandle);
     }
     else if (_codeWindowHandle >= 0) {
-        _codeWindowHandle.store(-1);
+        _debounceUpdateWindowTime.store(chrono::high_resolution_clock::now() + chrono::milliseconds(100));
+        _updateWindowHandle.store(-1);
         return true;
+    }
+    else {
+        // Cancel gain focus update if switch back really quick
+        _updateWindowHandle.store({});
     }
     return false;
 }
 
 bool WindowManager::checkNeedCancelWhenGainFocus(const int64_t windowHandle) {
     if (_codeWindowHandle < 0) {
-        _debounceFocusWindowTime.store(chrono::high_resolution_clock::now() + chrono::milliseconds(1000));
-        _needFocusWindow.store(windowHandle);
+        _debounceUpdateWindowTime.store(chrono::high_resolution_clock::now() + chrono::milliseconds(1000));
+        _updateWindowHandle.store(windowHandle);
+    }
+    else {
+        // Cancel lost focus update if switch back really quick
+        _updateWindowHandle.store({});
     }
     if (_popListWindowHandle > 0) {
         _popListWindowHandle.store(-1);
@@ -100,15 +109,15 @@ void WindowManager::_cancelRetrieveInfo() {
     _needRetrieveInfo.store(false);
 }
 
-void WindowManager::_threadDebounceFocusWindow() {
+void WindowManager::_threadDebounceUpdateWindow() {
     thread([this] {
         while (_isRunning.load()) {
-            if (const auto needFocusWindow = _needFocusWindow.load(); needFocusWindow >= 0) {
-                if (const auto deltaTime = _debounceFocusWindowTime.load() - chrono::high_resolution_clock::now();
+            if (const auto updateWindowHandle = _updateWindowHandle.load(); updateWindowHandle) {
+                if (const auto deltaTime = _debounceUpdateWindowTime.load() - chrono::high_resolution_clock::now();
                     deltaTime <= chrono::nanoseconds(0)) {
-                    logger::log("Focusing window...");
-                    _codeWindowHandle.store(needFocusWindow);
-                    _needFocusWindow.store(-1);
+                    logger::log(updateWindowHandle > 0 ? "Gained focus" : "Lost focus");
+                    _codeWindowHandle.store(updateWindowHandle);
+                    _updateWindowHandle.store({});
                 }
                 else {
                     this_thread::sleep_for(deltaTime);

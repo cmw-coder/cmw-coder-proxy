@@ -30,7 +30,6 @@ namespace {
 CompletionManager::CompletionManager(): _httpHelper("http://localhost:3000", chrono::seconds(10)) {
 }
 
-
 void CompletionManager::interactionAccept(const std::any&) {
     _isContinuousEnter.store(false);
     _isJustAccepted.store(true);
