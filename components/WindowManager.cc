@@ -115,7 +115,7 @@ void WindowManager::_threadDebounceUpdateWindow() {
             if (const auto updateWindowHandle = _updateWindowHandle.load(); updateWindowHandle) {
                 if (const auto deltaTime = _debounceUpdateWindowTime.load() - chrono::high_resolution_clock::now();
                     deltaTime <= chrono::nanoseconds(0)) {
-                    logger::log(updateWindowHandle > 0 ? "Gained focus" : "Lost focus");
+                    logger::debug(updateWindowHandle > 0 ? "Gained focus" : "Lost focus");
                     _codeWindowHandle.store(updateWindowHandle);
                     _updateWindowHandle.store({});
                 }
