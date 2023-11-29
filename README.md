@@ -36,3 +36,11 @@ flowchart LR
     updateRegistry -.-> sourceInsight([Source Insight])
     sendTriggerMessage -.-> sourceInsight
 ```
+## ModificationManager Design
+
+1. Record last editing file
+2. Record cursor selection
+3. Record normal, enter and delete interaction
+4. Record file save
+5. Record file close
+6. Record undo, redo
