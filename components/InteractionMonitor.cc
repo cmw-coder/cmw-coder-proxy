@@ -57,7 +57,7 @@ namespace {
     constexpr auto autoCompletionKey = "CMWCODER_autoCompletion";
     constexpr auto currentPrefixKey = "CMWCODER_currentPrefix";
     constexpr auto cursorKey = "CMWCODER_cursor";
-    constexpr auto debugLogKey = "CMWCODER_logDebug";
+    constexpr auto debugLogKey = "CMWCODER_debugLog";
     constexpr auto pathKey = "CMWCODER_path";
     constexpr auto prefixKey = "CMWCODER_prefix";
     constexpr auto projectKey = "CMWCODER_project";
@@ -257,7 +257,7 @@ void InteractionMonitor::_monitorDebugLog() const {
         while (_isRunning.load()) {
             if (const auto debugStringOpt = system::getEnvironmentVariable(debugLogKey);
                 debugStringOpt.has_value()) {
-                logger::log(format("[SI] {}", debugStringOpt.value()));
+                logger::debug(format("[SI] {}", debugStringOpt.value()));
                 system::setEnvironmentVariable(debugLogKey);
             }
             this_thread::sleep_for(chrono::milliseconds(1));
