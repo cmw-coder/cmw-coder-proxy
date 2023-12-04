@@ -16,6 +16,8 @@
 
 #include <windows.h>
 
+#include "ModificationManager.h"
+
 using namespace components;
 using namespace magic_enum;
 using namespace std;
@@ -115,6 +117,10 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) noexcept {
     }
 
     if (_keyHelper.isPrintable(keycode)) {
+        ModificationManager::GetInstance()->normalInput(
+            _currentCursorPosition.load(),
+            _keyHelper.toPrintable(keycode)
+        );
         (void)WindowManager::GetInstance()->sendDoubleInsert();
         _handleInteraction(Interaction::NormalInput, keycode);
         return;
@@ -126,6 +132,7 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) noexcept {
             if (const auto [key, modifiers] = keyCombinationOpt.value(); modifiers.empty()) {
                 switch (key) {
                     case Key::BackSpace: {
+                        ModificationManager::GetInstance()->deleteInput(_currentCursorPosition.load());
                         (void)WindowManager::GetInstance()->sendDoubleInsert();
                         _queueInteractionIntoBuffer(Interaction::DeleteInput);
                         break;

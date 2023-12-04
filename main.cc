@@ -3,6 +3,7 @@
 #include <components/CompletionManager.h>
 #include <components/Configurator.h>
 #include <components/InteractionMonitor.h>
+#include <components/ModificationManager.h>
 #include <components/ModuleProxy.h>
 #include <components/WindowManager.h>
 #include <utils/logger.h>
@@ -21,8 +22,9 @@ namespace {
 
         ModuleProxy::Construct();
         Configurator::Construct();
-        InteractionMonitor::Construct();
+        ModificationManager::Construct();
         CompletionManager::Construct();
+        InteractionMonitor::Construct();
         WindowManager::Construct();
     }
 
@@ -30,8 +32,9 @@ namespace {
         logger::log("Comware Coder Proxy is finalizing...");
 
         WindowManager::Destruct();
-        CompletionManager::Destruct();
         InteractionMonitor::Destruct();
+        CompletionManager::Destruct();
+        ModificationManager::Destruct();
         Configurator::Destruct();
         ModuleProxy::Destruct();
     }

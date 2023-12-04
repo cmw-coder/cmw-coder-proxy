@@ -12,7 +12,6 @@
 #include <types/common.h>
 #include <types/CaretPosition.h>
 #include <types/Interaction.h>
-#include <types/Modification.h>
 
 namespace components {
     class InteractionMonitor : public SingletonDclp<InteractionMonitor> {
@@ -34,11 +33,10 @@ namespace components {
 
     private:
         const std::string _subKey;
-        mutable std::shared_mutex _interactionBufferMutex;
+        mutable std::shared_mutex _interactionBufferMutex, _modificationBufferMutex;
         helpers::KeyHelper _keyHelper;
         std::atomic<bool> _isRunning{true};
         std::atomic<types::CaretPosition> _currentCursorPosition;
-        std::queue<types::Modification> _modificationQueue;
         std::shared_ptr<void> _processHandle, _windowHookHandle;
         std::unordered_map<types::Interaction, std::vector<CallBackFunction>> _handlers;
         std::unordered_set<types::Interaction> _interactionBuffer;

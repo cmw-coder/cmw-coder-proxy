@@ -24,7 +24,7 @@ namespace types {
 
         Modification(uint32_t fromLine, uint32_t toLine);
 
-        bool modifySingle(Type type, CaretPosition startPosition, char character);
+        bool modifySingle(Type type, CaretPosition startPosition, char character = {});
 
         bool merge(const Modification&other);
 

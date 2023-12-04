@@ -124,3 +124,16 @@ Keycode KeyHelper::toKeycode(const Key key, const std::unordered_set<Modifier>&m
     }
     return keycode;
 }
+
+char KeyHelper::toPrintable(types::Keycode keycode) const noexcept {
+    for (const auto&[modifier, modifierValue]: _modifierMap) {
+        if (modifier != Modifier::Shift && (keycode & modifierValue) == modifierValue) {
+            return false;
+        }
+    }
+    if (const auto maskedKeycode = keycode & _keyMask;
+        maskedKeycode >= _printableRange.first && maskedKeycode <= _printableRange.second) {
+        return static_cast<char>(maskedKeycode);
+    }
+    return -1;
+}

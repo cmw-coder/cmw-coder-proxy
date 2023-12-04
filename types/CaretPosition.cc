@@ -52,5 +52,8 @@ CaretPosition types::operator+(const CaretPosition&lhs, const CaretPosition&rhs)
 }
 
 CaretPosition types::operator-(const CaretPosition&lhs, const CaretPosition&rhs) {
-    return {lhs.character - rhs.character, lhs.line - rhs.line};
+    return {
+        lhs.character < rhs.character ? 0 : lhs.character - rhs.character,
+        lhs.line < rhs.line ? 0 : lhs.line - rhs.line
+    };
 }

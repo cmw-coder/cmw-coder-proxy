@@ -24,6 +24,8 @@ namespace helpers {
 
         [[nodiscard]] types::Keycode toKeycode(types::Key key, const ModifierSet&modifiers = {}) const noexcept;
 
+        [[nodiscard]] char toPrintable(types::Keycode keycode) const noexcept;
+
     private:
         const types::Keycode _keyMask;
         const std::pair<types::Keycode, types::Keycode> _navigateRange, _printableRange = {0x000020, 0x00007E};
