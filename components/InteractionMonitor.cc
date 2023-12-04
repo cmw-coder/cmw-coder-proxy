@@ -127,7 +127,7 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) noexcept {
                 switch (key) {
                     case Key::BackSpace: {
                         (void)WindowManager::GetInstance()->sendDoubleInsert();
-                        _queueInteraction(Interaction::DeleteInput);
+                        _queueInteractionIntoBuffer(Interaction::DeleteInput);
                         break;
                     }
                     case Key::Tab: {
@@ -135,7 +135,7 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) noexcept {
                         break;
                     }
                     case Key::Enter: {
-                        _queueInteraction(Interaction::EnterInput);
+                        _queueInteractionIntoBuffer(Interaction::EnterInput);
                         break;
                     }
                     case Key::Escape: {
@@ -218,7 +218,7 @@ void InteractionMonitor::_monitorAutoCompletion() const {
 void InteractionMonitor::_monitorCursorPosition() {
     thread([this] {
         while (_isRunning.load()) {
-            CursorPosition newCursorPosition{};
+            CaretPosition newCursorPosition{};
             ReadProcessMemory(
                 _processHandle.get(),
                 reinterpret_cast<LPCVOID>(_cursorLineAddress),
@@ -236,14 +236,14 @@ void InteractionMonitor::_monitorCursorPosition() {
             if (const auto currentCursorPosition = _currentCursorPosition.load();
                 currentCursorPosition != newCursorPosition) {
                 this->_currentCursorPosition.store(newCursorPosition); {
-                    shared_lock lock(_interactionQueueMutex);
+                    shared_lock lock(_interactionBufferMutex);
                     thread([this, interactionQueue = _interactionBuffer, currentCursorPosition, newCursorPosition] {
                         for (const auto&interaction: interactionQueue) {
                             _handleInteraction(interaction, make_tuple(newCursorPosition, currentCursorPosition));
                         }
                     }).detach();
                 } {
-                    unique_lock lock(_interactionQueueMutex);
+                    unique_lock lock(_interactionBufferMutex);
                     _interactionBuffer.clear();
                 }
             }
@@ -343,7 +343,7 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                 break;
             }
             case WM_MOUSEACTIVATE: {
-                _queueInteraction(Interaction::Navigate);
+                _queueInteractionIntoBuffer(Interaction::Navigate);
                 break;
             }
             case WM_SETFOCUS: {
@@ -363,8 +363,8 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
     }
 }
 
-void InteractionMonitor::_queueInteraction(const Interaction interaction) {
-    unique_lock lock(_interactionQueueMutex);
+void InteractionMonitor::_queueInteractionIntoBuffer(const Interaction interaction) {
+    unique_lock lock(_interactionBufferMutex);
     _interactionBuffer.emplace(interaction);
 }
 

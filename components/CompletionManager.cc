@@ -56,7 +56,7 @@ void CompletionManager::interactionCancel(const std::any&data) {
 void CompletionManager::interactionDelete(const std::any&data) {
     _isContinuousEnter.store(false);
     try {
-        if (const auto [newCursorPosition, oldCursorPosition] = any_cast<tuple<CursorPosition, CursorPosition>>(data);
+        if (const auto [newCursorPosition, oldCursorPosition] = any_cast<tuple<CaretPosition, CaretPosition>>(data);
             newCursorPosition.line == oldCursorPosition.line) {
             if (const auto previousCacheOpt = _completionCache.previous(); previousCacheOpt.has_value()) {
                 // Has valid cache
