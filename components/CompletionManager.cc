@@ -7,7 +7,7 @@
 #include <components/CompletionManager.h>
 #include <components/Configurator.h>
 #include <components/WindowManager.h>
-#include <types/CursorPosition.h>
+#include <types/CaretPosition.h>
 #include <utils/crypto.h>
 #include <utils/logger.h>
 #include <utils/system.h>

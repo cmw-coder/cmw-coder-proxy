@@ -167,6 +167,7 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) noexcept {
                 if (modifiers.size() == 1 && modifiers.contains(Modifier::Ctrl)) {
                     switch (key) {
                         case Key::S: {
+                            ModificationManager::GetInstance()->clearHistory();
                             _handleInteraction(Interaction::Save);
                             break;
                         }

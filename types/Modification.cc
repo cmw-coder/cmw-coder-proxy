@@ -1,3 +1,4 @@
+#include <magic_enum.hpp>
 #include <ranges>
 #include <regex>
 
@@ -28,10 +29,10 @@ bool Modification::modifySingle(const Type type, const CaretPosition startPositi
             if (startPosition < this->startPosition || startPosition > this->endPosition + CaretPosition{1, 0}) {
                 return false;
             }
+            const auto insertPosition = startPosition - this->startPosition;
             if (character == '\n') {
                 // TODO: Deal with auto indentation
                 // Split current line into two lines
-                const auto insertPosition = startPosition - this->startPosition;
                 const auto newLineContent = _content[insertPosition.line].substr(insertPosition.character);
                 _content[insertPosition.line].erase(insertPosition.character);
                 _content.insert(
@@ -40,7 +41,7 @@ bool Modification::modifySingle(const Type type, const CaretPosition startPositi
                 );
             }
             else {
-                _content[startPosition.line].insert(startPosition.character, 1, character);
+                _content[insertPosition.line].insert(insertPosition.character, 1, character);
             }
             _updateEndPositionWithContent();
             break;
@@ -140,6 +141,29 @@ bool Modification::merge(const Modification&other) {
         }
     }
     return true;
+}
+
+nlohmann::json Modification::parse() const {
+    nlohmann::json result = {
+        {
+            "endPosition", {
+                {"character", endPosition.character},
+                {"line", endPosition.line},
+            }
+        },
+        {
+            "startPosition",
+            {
+                {"character", startPosition.character},
+                {"line", startPosition.line},
+            }
+        },
+        {"type", magic_enum::enum_name(type)},
+    };
+    if (type == Type::Addition) {
+        result["content"] = _content;
+    }
+    return result;
 }
 
 void Modification::_updateEndPositionWithContent() {

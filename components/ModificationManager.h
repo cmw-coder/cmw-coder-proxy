@@ -2,6 +2,7 @@
 
 #include <queue>
 
+#include <nlohmann/json.hpp>
 #include <singleton_dclp.hpp>
 
 #include <types/Modification.h>
@@ -13,13 +14,17 @@ namespace components {
 
         ~ModificationManager() override = default;
 
+        void clearHistory();
+
         void deleteInput(types::CaretPosition position);
+
+        nlohmann::json getHistory() const;
 
         void normalInput(types::CaretPosition position, char character);
 
     private:
         mutable std::shared_mutex _bufferMutex, _historyMutex;
-        std::queue<types::Modification> _historyQueue;
+        std::vector<types::Modification> _historyQueue;
         std::optional<types::Modification> _buffer{std::nullopt};
     };
 }

@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
 #include <types/CaretPosition.h>
 
 namespace types {
@@ -27,6 +29,8 @@ namespace types {
         bool modifySingle(Type type, CaretPosition startPosition, char character = {});
 
         bool merge(const Modification&other);
+
+        [[nodiscard]] nlohmann::json parse() const;
 
     private:
         std::vector<std::string> _content;
