@@ -63,8 +63,10 @@ void ModificationManager::normalInput(const CaretPosition position, const char c
     }
     if (!isIncrement) {
         if (isBufferValid) {
-            unique_lock lock(_historyMutex);
-            _historyQueue.push_back(_buffer.value());
+            {
+                unique_lock lock(_historyMutex);
+                _historyQueue.push_back(_buffer.value());
+            }
             logger::debug(getHistory().dump());
         }
         unique_lock lock(_bufferMutex);
