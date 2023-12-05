@@ -351,6 +351,7 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                 break;
             }
             case WM_MOUSEACTIVATE: {
+                logger::debug(ModificationManager::GetInstance()->getHistory().dump());
                 _queueInteractionIntoBuffer(Interaction::Navigate);
                 break;
             }
