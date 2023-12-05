@@ -23,44 +23,40 @@ Modification::Modification(const uint32_t fromLine, const uint32_t toLine)
     : startPosition(0, fromLine), endPosition(0, toLine), type(Type::Swap) {
 }
 
-bool Modification::modifySingle(const Type type, const CaretPosition startPosition, const char character) {
+bool Modification::modifySingle(const Type type, const CaretPosition modifyPosition, const char character) {
+    if (modifyPosition < startPosition || modifyPosition > endPosition + CaretPosition{1, 0}) {
+        return false;
+    }
+    const auto relativePosition = modifyPosition - startPosition;
     switch (type) {
         case Type::Addition: {
-            if (startPosition < this->startPosition || startPosition > this->endPosition + CaretPosition{1, 0}) {
-                return false;
-            }
-            const auto insertPosition = startPosition - this->startPosition;
             if (character == '\n') {
                 // TODO: Deal with auto indentation
                 // Split current line into two lines
-                const auto newLineContent = _content[insertPosition.line].substr(insertPosition.character);
-                _content[insertPosition.line].erase(insertPosition.character);
+                const auto newLineContent = _content[relativePosition.line].substr(relativePosition.character);
+                _content[relativePosition.line].erase(relativePosition.character);
                 _content.insert(
-                    _content.begin() + static_cast<int>(insertPosition.line) + 1,
+                    _content.begin() + static_cast<int>(relativePosition.line) + 1,
                     newLineContent
                 );
             }
             else {
-                _content[insertPosition.line].insert(insertPosition.character, 1, character);
+                _content[relativePosition.line].insert(relativePosition.character, 1, character);
             }
             _updateEndPositionWithContent();
             break;
         }
         case Type::Deletion: {
-            if (startPosition < this->startPosition || startPosition > this->endPosition + CaretPosition{1, 0}) {
-                return false;
-            }
-            if (startPosition.character == 0) {
-                if (startPosition.line == 0) {
+            if (modifyPosition.character == 0) {
+                if (modifyPosition.line == 0) {
                     return false;
                 }
                 // Merge current line with previous line
-                const auto mergePosition = startPosition - this->startPosition;
-                _content[mergePosition.line - 1].append(_content[mergePosition.line]);
-                _content.erase(_content.begin() + static_cast<int>(mergePosition.line));
+                _content[relativePosition.line - 1].append(_content[relativePosition.line]);
+                _content.erase(_content.begin() + static_cast<int>(relativePosition.line));
             }
             else {
-                _content[startPosition.line].erase(startPosition.character, 1);
+                _content[relativePosition.line].erase(relativePosition.character, 1);
             }
             _updateEndPositionWithContent();
             break;
