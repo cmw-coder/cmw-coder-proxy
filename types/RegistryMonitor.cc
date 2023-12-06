@@ -312,7 +312,7 @@ void RegistryMonitor::_retrieveCompletion(const string&prefix) {
                 }
                 _insertCompletion(completionGenerated.value());
                 logger::log("Inserted completion");
-                thread(&RegistryMonitor::_reactToCompletion, this, move(completionGenerated.value()), false).detach();
+                thread(&RegistryMonitor::_reactToCompletion, this, _completionCache.current(), false).detach();
             }
             catch (runtime_error&e) {
                 logger::log(e.what());

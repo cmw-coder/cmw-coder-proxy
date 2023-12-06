@@ -11,6 +11,8 @@ namespace types {
         std::optional<std::pair<char, std::optional<Completion>>> previous();
 
         std::optional<std::pair<char, std::optional<Completion>>> next();
+        
+        Completion current();
 
         Completion reset(bool isSnippet = false, std::string content = {});
 

@@ -31,6 +31,11 @@ optional<pair<char, optional<Completion>>> CompletionCache::next() {
     return make_pair(currentChar, nullopt);
 }
 
+Completion CompletionCache::current() {
+    shared_lock lock(_shared_mutex);
+    return {_isSnippet, _content};
+}
+
 Completion CompletionCache::reset(const bool isSnippet, string content) {
     _currentIndex = content.empty() ? -1 : 0;
 
