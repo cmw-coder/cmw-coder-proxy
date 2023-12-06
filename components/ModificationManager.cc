@@ -14,28 +14,20 @@ void ModificationManager::addTab(const string&tabName, const string&path) {
     }
 }
 
-void ModificationManager::interactionDelete(const any&data) {
+void ModificationManager::interactionDelete(const CaretPosition position) {
     try {
-        const auto position = any_cast<CaretPosition>(data);
         unique_lock lock(_currentModificationMutex);
         if (auto&currentTab = _modificationMap.at(_currentTabName);
             currentTab.remove(position)) {
             logger::debug("Delete input at " + to_string(position.line) + ", " + to_string(position.character));
         }
-        else {
-            logger::debug("Delete input failed at " + to_string(position.line) + ", " + to_string(position.character));
-        }
-    }
-    catch (const bad_any_cast&e) {
-        logger::log(format("Invalid interactionDelete data: {}", e.what()));
     }
     catch (out_of_range&) {
     }
 }
 
-void ModificationManager::interactionNormal(const any&data) {
+void ModificationManager::interactionNormal(const CaretPosition position, const char character) {
     try {
-        const auto [position, character] = any_cast<tuple<CaretPosition, char>>(data);
         unique_lock lock(_currentModificationMutex);
         if (auto&currentTab = _modificationMap.at(_currentTabName);
             currentTab.add(position, character)) {

@@ -167,6 +167,7 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) noexcept {
                 if (modifiers.size() == 1 && modifiers.contains(Modifier::Ctrl)) {
                     switch (key) {
                         case Key::S: {
+                            ModificationManager::GetInstance()->reloadTab();
                             _handleInteraction(Interaction::Save);
                             break;
                         }
@@ -350,7 +351,6 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                 break;
             }
             case WM_MOUSEACTIVATE: {
-                logger::debug(ModificationManager::GetInstance()->getHistory().dump());
                 _queueInteractionIntoBuffer(Interaction::Navigate);
                 break;
             }

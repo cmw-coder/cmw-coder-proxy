@@ -26,6 +26,11 @@ namespace {
         CompletionManager::Construct();
         InteractionMonitor::Construct();
         WindowManager::Construct();
+
+        ModificationManager::GetInstance()->addTab(
+            "main.c",
+            "C:/Users/particleg/Documents/Source Insight 4.0/Projects/FunctionTest/main.c"
+        );
     }
 
     void finalize() {
@@ -65,11 +70,6 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 Interaction::DeleteInput,
                 CompletionManager::GetInstance(),
                 &CompletionManager::interactionDelete
-            );
-            InteractionMonitor::GetInstance()->addHandler(
-                Interaction::DeleteInput,
-                ModificationManager::GetInstance(),
-                &ModificationManager::interactionDelete
             );
             InteractionMonitor::GetInstance()->addHandler(
                 Interaction::EnterInput,

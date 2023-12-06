@@ -16,11 +16,11 @@ namespace components {
 
         void addTab(const std::string& tabName, const std::string& path);
 
-        void interactionDelete(const std::any&data);
+        void interactionDelete(types::CaretPosition position);
 
         std::string getCurrentTabContent();
 
-        void interactionNormal(const std::any&data);
+        void interactionNormal(types::CaretPosition position, char character);
 
         void reloadTab();
 

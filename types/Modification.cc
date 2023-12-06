@@ -45,6 +45,8 @@ bool Modification::add(const CaretPosition position, const char character) {
 }
 
 void Modification::reload() {
+    logger::debug("Reloading with path: " + path);
+    logger::debug("Old content: " + _content);
     _content = fs::readFile(path);
     // Calculate each line's offset
     _lineOffsets.push_back(0);
