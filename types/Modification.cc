@@ -45,22 +45,16 @@ bool Modification::add(const CaretPosition position, const char character) {
 }
 
 void Modification::reload() {
-    logger::debug("Reloading with path: " + path);
-    logger::debug("Old content: " + _content);
+    logger::debug(format("Reloading with path: '{}'", path));
+    logger::debug(format("Old content: \n{}", _content));
     _content = fs::readFile(path);
+    logger::debug(format("New content: \n{}", _content));
     // Calculate each line's offset
     _lineOffsets.push_back(0);
     for (const auto&line: _content | views::split('\n')) {
         _lineOffsets.push_back(_lineOffsets.back() + line.size() + 1);
     }
     _lineOffsets.pop_back();
-
-    logger::debug(accumulate(
-        next(_lineOffsets.begin()), _lineOffsets.end(), to_string(_lineOffsets[0]),
-        [](string a, const uint32_t b) {
-            return move(a) + ", " + to_string(b);
-        }
-    ));
 }
 
 bool Modification::remove(CaretPosition position) {

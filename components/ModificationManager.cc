@@ -31,7 +31,7 @@ void ModificationManager::interactionNormal(const CaretPosition position, const 
         unique_lock lock(_currentModificationMutex);
         if (auto&currentTab = _modificationMap.at(_currentTabName);
             currentTab.add(position, character)) {
-            logger::debug("Delete input at " + to_string(position.line) + ", " + to_string(position.character));
+            logger::debug("Normal input at " + to_string(position.line) + ", " + to_string(position.character));
         }
     }
     catch (out_of_range&) {
@@ -40,8 +40,16 @@ void ModificationManager::interactionNormal(const CaretPosition position, const 
 
 void ModificationManager::reloadTab() {
     if (_modificationMap.contains(_currentTabName)) {
-        unique_lock lock(_currentModificationMutex);
-        _modificationMap.at(_currentTabName).reload();
+        thread([this] {
+            const auto path = _modificationMap.at(_currentTabName).path;
+            const auto currentTime = chrono::file_clock::now();
+            while (filesystem::last_write_time(path) < currentTime) {
+                this_thread::sleep_for(chrono::milliseconds(100));
+            } {
+                unique_lock lock(_currentModificationMutex);
+                _modificationMap.at(_currentTabName).reload();
+            }
+        }).detach();
     }
 }
 
