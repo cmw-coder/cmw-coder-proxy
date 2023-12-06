@@ -1,6 +1,6 @@
 #pragma once
 
-#include <queue>
+#include <shared_mutex>
 
 #include <nlohmann/json.hpp>
 #include <singleton_dclp.hpp>
@@ -14,17 +14,23 @@ namespace components {
 
         ~ModificationManager() override = default;
 
-        void clearHistory();
+        void addTab(const std::string& tabName, const std::string& path);
 
-        void deleteInput(types::CaretPosition position);
+        void interactionDelete(const std::any&data);
 
-        nlohmann::json getHistory() const;
+        std::string getCurrentTabContent();
 
-        void normalInput(types::CaretPosition position, char character);
+        void interactionNormal(const std::any&data);
+
+        void reloadTab();
+
+        void removeTab(const std::string&tabName);
+
+        bool switchTab(const std::string&tabName);
 
     private:
-        mutable std::shared_mutex _bufferMutex, _historyMutex;
-        std::vector<types::Modification> _historyQueue;
-        std::optional<types::Modification> _buffer{std::nullopt};
+        mutable std::shared_mutex _currentModificationMutex;
+        std::string _currentTabName;
+        std::unordered_map<std::string, types::Modification> _modificationMap;
     };
 }

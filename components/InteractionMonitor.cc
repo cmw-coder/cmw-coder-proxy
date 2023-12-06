@@ -117,7 +117,7 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) noexcept {
     }
 
     if (_keyHelper.isPrintable(keycode)) {
-        ModificationManager::GetInstance()->normalInput(
+        ModificationManager::GetInstance()->interactionNormal(
             _currentCursorPosition.load(),
             _keyHelper.toPrintable(keycode)
         );
@@ -132,7 +132,7 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) noexcept {
             if (const auto [key, modifiers] = keyCombinationOpt.value(); modifiers.empty()) {
                 switch (key) {
                     case Key::BackSpace: {
-                        ModificationManager::GetInstance()->deleteInput(_currentCursorPosition.load());
+                        ModificationManager::GetInstance()->interactionDelete(_currentCursorPosition.load());
                         (void)WindowManager::GetInstance()->sendDoubleInsert();
                         _queueInteractionIntoBuffer(Interaction::DeleteInput);
                         break;
@@ -167,7 +167,6 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) noexcept {
                 if (modifiers.size() == 1 && modifiers.contains(Modifier::Ctrl)) {
                     switch (key) {
                         case Key::S: {
-                            ModificationManager::GetInstance()->clearHistory();
                             _handleInteraction(Interaction::Save);
                             break;
                         }

@@ -21,7 +21,7 @@ namespace {
     constexpr auto cancelTypeKey = "CMWCODER_cancelType";
     constexpr auto completionGeneratedKey = "CMWCODER_completionGenerated";
 
-    constexpr auto insertCompletion = [](const std::string&completionString) {
+    constexpr auto insertCompletion = [](const string&completionString) {
         system::setEnvironmentVariable(completionGeneratedKey, completionString);
         WindowManager::GetInstance()->sendInsertCompletion();
     };
@@ -30,7 +30,7 @@ namespace {
 CompletionManager::CompletionManager(): _httpHelper("http://localhost:3000", chrono::seconds(10)) {
 }
 
-void CompletionManager::interactionAccept(const std::any&) {
+void CompletionManager::interactionAccept(const any&) {
     _isContinuousEnter.store(false);
     _isJustAccepted.store(true);
     if (auto oldCompletion = _completionCache.reset(); !oldCompletion.content().empty()) {
@@ -43,7 +43,7 @@ void CompletionManager::interactionAccept(const std::any&) {
     }
 }
 
-void CompletionManager::interactionCancel(const std::any&data) {
+void CompletionManager::interactionCancel(const any&data) {
     try {
         const auto [isCrossLine,isNeedReset] = any_cast<tuple<bool, bool>>(data);
         _cancelCompletion(isCrossLine, isNeedReset);
@@ -53,7 +53,7 @@ void CompletionManager::interactionCancel(const std::any&data) {
     }
 }
 
-void CompletionManager::interactionDelete(const std::any&data) {
+void CompletionManager::interactionDelete(const any&data) {
     _isContinuousEnter.store(false);
     try {
         if (const auto [newCursorPosition, oldCursorPosition] = any_cast<tuple<CaretPosition, CaretPosition>>(data);
@@ -93,7 +93,7 @@ void CompletionManager::interactionDelete(const std::any&data) {
     }
 }
 
-void CompletionManager::interactionEnter(const std::any&) {
+void CompletionManager::interactionEnter(const any&) {
     if (_completionCache.valid()) {
         // TODO: support 1st level cache
         _cancelCompletion(true);
@@ -112,7 +112,7 @@ void CompletionManager::interactionEnter(const std::any&) {
     }
 }
 
-void CompletionManager::interactionNavigate(const std::any&) {
+void CompletionManager::interactionNavigate(const any&) {
     _isContinuousEnter.store(false);
     if (_completionCache.valid()) {
         _cancelCompletion();
@@ -120,7 +120,7 @@ void CompletionManager::interactionNavigate(const std::any&) {
     }
 }
 
-void CompletionManager::interactionNormal(const std::any&data) {
+void CompletionManager::interactionNormal(const any&data) {
     _isContinuousEnter.store(false);
     _isJustAccepted.store(false);
     try {
@@ -166,7 +166,7 @@ void CompletionManager::interactionNormal(const std::any&data) {
     }
 }
 
-void CompletionManager::interactionSave(const std::any&) {
+void CompletionManager::interactionSave(const any&) {
     if (_completionCache.valid()) {
         _cancelCompletion();
         logger::log("Canceled by save.");
@@ -178,7 +178,7 @@ void CompletionManager::interactionSave(const std::any&) {
     }
 }
 
-void CompletionManager::interactionUndo(const std::any&) {
+void CompletionManager::interactionUndo(const any&) {
     _isContinuousEnter.store(false);
     const auto windowManager = WindowManager::GetInstance();
     if (_isJustAccepted.load()) {
@@ -197,7 +197,7 @@ void CompletionManager::interactionUndo(const std::any&) {
     }
 }
 
-void CompletionManager::retrieveWithCurrentPrefix(const std::string&currentPrefix) {
+void CompletionManager::retrieveWithCurrentPrefix(const string&currentPrefix) {
     shared_lock lock(_componentsMutex);
     if (const auto lastNewLineIndex = _components.prefix.find_last_of('\n'); lastNewLineIndex != string::npos) {
         _retrieveCompletion(_components.prefix.substr(0, lastNewLineIndex + 1) + currentPrefix);
@@ -220,7 +220,7 @@ void CompletionManager::setAutoCompletion(const bool isAutoCompletion) {
     }
 }
 
-void CompletionManager::setProjectId(const std::string&projectId) {
+void CompletionManager::setProjectId(const string&projectId) {
     bool needSet; {
         shared_lock lock(_editorInfoMutex);
         needSet = _editorInfo.projectId != projectId;
@@ -231,7 +231,7 @@ void CompletionManager::setProjectId(const std::string&projectId) {
     }
 }
 
-void CompletionManager::setVersion(const std::string&version) {
+void CompletionManager::setVersion(const string&version) {
     bool needSet; {
         shared_lock lock(_editorInfoMutex);
         needSet = _editorInfo.version.empty();
@@ -284,7 +284,7 @@ void CompletionManager::_reactToCompletion(Completion&&completion, const bool is
     }
 }
 
-void CompletionManager::_retrieveCompletion(const std::string&prefix) {
+void CompletionManager::_retrieveCompletion(const string&prefix) {
     _currentRetrieveTime.store(chrono::high_resolution_clock::now());
     thread([this, prefix, originalRetrieveTime = _currentRetrieveTime.load()] {
         optional<string> completionGenerated;

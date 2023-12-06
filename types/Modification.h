@@ -10,31 +10,24 @@
 namespace types {
     class Modification {
     public:
-        enum class Type {
-            Addition,
-            Deletion,
-            Swap
-        };
+        const std::string path;
 
-        const CaretPosition startPosition;
-        CaretPosition endPosition;
-        const Type type;
+        explicit Modification(std::string  path);
 
-        explicit Modification(CaretPosition startPosition, const std::string&content = "");
+        bool add(CaretPosition position, char character);
 
-        Modification(CaretPosition startPosition, CaretPosition endPosition);
+        void reload();
 
-        Modification(uint32_t fromLine, uint32_t toLine);
+        bool remove(CaretPosition position);
 
-        bool modifySingle(Type type, CaretPosition modifyPosition, char character = {});
+        // bool modifySingle(Type type, CaretPosition modifyPosition, char character = {});
 
-        bool merge(const Modification&other);
+        // bool merge(const Modification&other);
 
-        [[nodiscard]] nlohmann::json parse() const;
+        // [[nodiscard]] nlohmann::json parse() const;
 
     private:
-        std::vector<std::string> _content;
-
-        void _updateEndPositionWithContent();
+        std::string _content;
+        std::vector<uint32_t> _lineOffsets;
     };
 }
