@@ -73,7 +73,7 @@ bool Modification::remove(CaretPosition position) {
         }
         else {
             // Delete character
-            _content.erase(lineOffset + position.character - 1, 1);
+            _content.erase(lineOffset + position.character, 1);
             for (auto&offset: _lineOffsets | views::drop(position.line)) {
                 offset -= 1;
             }

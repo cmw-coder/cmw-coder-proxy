@@ -16,17 +16,17 @@ namespace components {
 
         void addTab(const std::string& tabName, const std::string& path);
 
-        void interactionDelete(types::CaretPosition position);
+        void delayedDelete(types::CaretPosition, types::CaretPosition oldPosition, const std::any&);
+
+        void delayedNormal(types::CaretPosition, types::CaretPosition oldPosition, const std::any& data);
 
         std::string getCurrentTabContent();
 
-        void interactionNormal(types::CaretPosition position, char character);
-
         void reloadTab();
 
-        void removeTab(const std::string&tabName);
+        void removeTab(const std::string& tabName);
 
-        bool switchTab(const std::string&tabName);
+        bool switchTab(const std::string& tabName);
 
     private:
         mutable std::shared_mutex _currentModificationMutex;

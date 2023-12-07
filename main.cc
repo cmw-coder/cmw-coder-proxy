@@ -56,50 +56,61 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
 
             initialize();
 
-            InteractionMonitor::GetInstance()->addHandler(
-                Interaction::AcceptCompletion,
-                CompletionManager::GetInstance(),
-                &CompletionManager::interactionAccept
-            );
-            InteractionMonitor::GetInstance()->addHandler(
-                Interaction::CancelCompletion,
-                CompletionManager::GetInstance(),
-                &CompletionManager::interactionCancel
-            );
-            InteractionMonitor::GetInstance()->addHandler(
+            InteractionMonitor::GetInstance()->addDelayedHandler(
                 Interaction::DeleteInput,
                 CompletionManager::GetInstance(),
-                &CompletionManager::interactionDelete
+                &CompletionManager::delayedDelete
             );
-            InteractionMonitor::GetInstance()->addHandler(
+            InteractionMonitor::GetInstance()->addDelayedHandler(
+                Interaction::DeleteInput,
+                ModificationManager::GetInstance(),
+                &ModificationManager::delayedDelete
+            );
+            InteractionMonitor::GetInstance()->addDelayedHandler(
                 Interaction::EnterInput,
                 CompletionManager::GetInstance(),
-                &CompletionManager::interactionEnter
+                &CompletionManager::delayedEnter
             );
-            InteractionMonitor::GetInstance()->addHandler(
+            InteractionMonitor::GetInstance()->addDelayedHandler(
                 Interaction::Navigate,
                 CompletionManager::GetInstance(),
-                &CompletionManager::interactionNavigate
+                &CompletionManager::delayedNavigate
             );
-            InteractionMonitor::GetInstance()->addHandler(
+            InteractionMonitor::GetInstance()->addDelayedHandler(
+                Interaction::NormalInput,
+                ModificationManager::GetInstance(),
+                &ModificationManager::delayedNormal
+            );
+
+            InteractionMonitor::GetInstance()->addInstantHandler(
+                Interaction::AcceptCompletion,
+                CompletionManager::GetInstance(),
+                &CompletionManager::instantAccept
+            );
+            InteractionMonitor::GetInstance()->addInstantHandler(
+                Interaction::CancelCompletion,
+                CompletionManager::GetInstance(),
+                &CompletionManager::instantCancel
+            );
+            InteractionMonitor::GetInstance()->addInstantHandler(
                 Interaction::NormalInput,
                 CompletionManager::GetInstance(),
-                &CompletionManager::interactionNormal
+                &CompletionManager::instantNormal
             );
-            InteractionMonitor::GetInstance()->addHandler(
+            InteractionMonitor::GetInstance()->addInstantHandler(
                 Interaction::Paste,
                 WindowManager::GetInstance(),
                 &WindowManager::interactionPaste
             );
-            InteractionMonitor::GetInstance()->addHandler(
+            InteractionMonitor::GetInstance()->addInstantHandler(
                 Interaction::Save,
                 CompletionManager::GetInstance(),
-                &CompletionManager::interactionSave
+                &CompletionManager::instantSave
             );
-            InteractionMonitor::GetInstance()->addHandler(
+            InteractionMonitor::GetInstance()->addInstantHandler(
                 Interaction::Undo,
                 CompletionManager::GetInstance(),
-                &CompletionManager::interactionUndo
+                &CompletionManager::instantUndo
             );
 
             const auto mainThreadId = system::getMainThreadId();

@@ -5,8 +5,9 @@
 #include <singleton_dclp.hpp>
 
 #include <helpers/HttpHelper.h>
-#include <types/common.h>
+#include <types/CaretPosition.h>
 #include <types/CompletionCache.h>
+#include <types/common.h>
 
 namespace components {
     class CompletionManager : public SingletonDclp<CompletionManager> {
@@ -27,31 +28,33 @@ namespace components {
 
         CompletionManager();
 
-        void interactionAccept(const std::any& = {});
+        void delayedDelete(types::CaretPosition newPosition, types::CaretPosition oldPosition, const std::any&);
 
-        void interactionCancel(const std::any&data);
+        void delayedEnter(types::CaretPosition, types::CaretPosition, const std::any& = {});
 
-        void interactionDelete(const std::any&data);
+        void delayedNavigate(types::CaretPosition, types::CaretPosition, const std::any& = {});
 
-        void interactionEnter(const std::any& = {});
+        void instantAccept(const std::any& = {});
 
-        void interactionNavigate(const std::any& = {});
+        void instantCancel(const std::any& data);
 
-        void interactionNormal(const std::any&data);
+        void instantNavigate(const std::any& = {});
 
-        void interactionSave(const std::any& = {});
+        void instantNormal(const std::any& data);
 
-        void interactionUndo(const std::any& = {});
+        void instantSave(const std::any& = {});
 
-        void retrieveWithCurrentPrefix(const std::string&currentPrefix);
+        void instantUndo(const std::any& = {});
 
-        void retrieveWithFullInfo(Components&&components);
+        void retrieveWithCurrentPrefix(const std::string& currentPrefix);
+
+        void retrieveWithFullInfo(Components&& components);
 
         void setAutoCompletion(bool isAutoCompletion);
 
-        void setProjectId(const std::string&projectId);
+        void setProjectId(const std::string& projectId);
 
-        void setVersion(const std::string&version);
+        void setVersion(const std::string& version);
 
     private:
         mutable std::shared_mutex _componentsMutex, _editorInfoMutex;
@@ -64,9 +67,9 @@ namespace components {
 
         void _cancelCompletion(bool isCrossLine = false, bool isNeedReset = true);
 
-        void _reactToCompletion(types::Completion&&completion, bool isAccept);
+        void _reactToCompletion(types::Completion&& completion, bool isAccept);
 
-        void _retrieveCompletion(const std::string&prefix);
+        void _retrieveCompletion(const std::string& prefix);
 
         void _retrieveEditorInfo() const;
     };

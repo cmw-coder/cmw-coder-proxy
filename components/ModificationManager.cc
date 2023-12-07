@@ -7,32 +7,34 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
-void ModificationManager::addTab(const string&tabName, const string&path) {
+void ModificationManager::addTab(const string& tabName, const string& path) {
     _currentTabName = tabName;
     if (!_modificationMap.contains(_currentTabName)) {
         _modificationMap.emplace(tabName, path);
     }
 }
 
-void ModificationManager::interactionDelete(const CaretPosition position) {
+void ModificationManager::delayedDelete(CaretPosition, const CaretPosition oldPosition, const any&) {
     try {
         unique_lock lock(_currentModificationMutex);
-        if (auto&currentTab = _modificationMap.at(_currentTabName);
-            currentTab.remove(position)) {
-            logger::debug("Delete input at " + to_string(position.line) + ", " + to_string(position.character));
+        if (auto& currentTab = _modificationMap.at(_currentTabName);
+            currentTab.remove(oldPosition)) {
+            logger::debug("Delete input at " + to_string(oldPosition.line) + ", " + to_string(oldPosition.character));
         }
-    }
-    catch (out_of_range&) {
+    } catch (out_of_range&) {
     }
 }
 
-void ModificationManager::interactionNormal(const CaretPosition position, const char character) {
+void ModificationManager::delayedNormal(CaretPosition, const CaretPosition oldPosition, const any& data) {
     try {
+        const auto keycode = any_cast<char>(data);
         unique_lock lock(_currentModificationMutex);
-        if (auto&currentTab = _modificationMap.at(_currentTabName);
-            currentTab.add(position, character)) {
-            logger::debug("Normal input at " + to_string(position.line) + ", " + to_string(position.character));
+        if (auto& currentTab = _modificationMap.at(_currentTabName);
+            currentTab.add(oldPosition, keycode)) {
+            logger::debug("Normal input at " + to_string(oldPosition.line) + ", " + to_string(oldPosition.character));
         }
+    } catch (const bad_any_cast& e) {
+        logger::log(format("Invalid interactionNormal data: {}", e.what()));
     }
     catch (out_of_range&) {
     }
@@ -53,11 +55,11 @@ void ModificationManager::reloadTab() {
     }
 }
 
-void ModificationManager::removeTab(const std::string&tabName) {
+void ModificationManager::removeTab(const std::string& tabName) {
     _modificationMap.erase(tabName);
 }
 
-bool ModificationManager::switchTab(const std::string&tabName) {
+bool ModificationManager::switchTab(const std::string& tabName) {
     if (_modificationMap.contains(tabName)) {
         _currentTabName = tabName;
         return true;

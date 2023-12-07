@@ -21,7 +21,7 @@ namespace {
     constexpr auto cancelTypeKey = "CMWCODER_cancelType";
     constexpr auto completionGeneratedKey = "CMWCODER_completionGenerated";
 
-    constexpr auto insertCompletion = [](const string&completionString) {
+    constexpr auto insertCompletion = [](const string& completionString) {
         system::setEnvironmentVariable(completionGeneratedKey, completionString);
         WindowManager::GetInstance()->sendInsertCompletion();
     };
@@ -30,34 +30,10 @@ namespace {
 CompletionManager::CompletionManager(): _httpHelper("http://localhost:3000", chrono::seconds(10)) {
 }
 
-void CompletionManager::interactionAccept(const any&) {
-    _isContinuousEnter.store(false);
-    _isJustAccepted.store(true);
-    if (auto oldCompletion = _completionCache.reset(); !oldCompletion.content().empty()) {
-        WindowManager::GetInstance()->sendAcceptCompletion();
-        logger::log(format("Accepted completion: {}", oldCompletion.stringify()));
-        thread(&CompletionManager::_reactToCompletion, this, move(oldCompletion), true).detach();
-    }
-    else {
-        _retrieveEditorInfo();
-    }
-}
-
-void CompletionManager::interactionCancel(const any&data) {
-    try {
-        const auto [isCrossLine,isNeedReset] = any_cast<tuple<bool, bool>>(data);
-        _cancelCompletion(isCrossLine, isNeedReset);
-    }
-    catch (const bad_any_cast&e) {
-        logger::log(format("Invalid interactionCancel data: {}", e.what()));
-    }
-}
-
-void CompletionManager::interactionDelete(const any&data) {
+void CompletionManager::delayedDelete(const CaretPosition newPosition, const CaretPosition oldPosition, const any&) {
     _isContinuousEnter.store(false);
     try {
-        if (const auto [newCursorPosition, oldCursorPosition] = any_cast<tuple<CaretPosition, CaretPosition>>(data);
-            newCursorPosition.line == oldCursorPosition.line) {
+        if (newPosition.line == oldPosition.line) {
             if (const auto previousCacheOpt = _completionCache.previous(); previousCacheOpt.has_value()) {
                 // Has valid cache
                 const auto [_, completionOpt] = previousCacheOpt.value();
@@ -68,32 +44,28 @@ void CompletionManager::interactionDelete(const any&data) {
                         logger::log("Cancel completion due to previous cached");
                         insertCompletion(completionOpt.value().stringify());
                         logger::log("Insert previous cached completion");
-                    }
-                    else {
+                    } else {
                         // Out of cache
                         _cancelCompletion();
                         logger::log("Canceled by delete backward.");
                     }
-                }
-                catch (runtime_error&e) {
+                } catch (runtime_error& e) {
                     logger::log(e.what());
                 }
             }
-        }
-        else {
+        } else {
             if (_completionCache.valid()) {
                 _cancelCompletion(true);
                 _isContinuousEnter.store(false);
                 logger::log("Canceled by backspace");
             }
         }
-    }
-    catch (const bad_any_cast&e) {
+    } catch (const bad_any_cast& e) {
         logger::log(format("Invalid interactionDelete data: {}", e.what()));
     }
 }
 
-void CompletionManager::interactionEnter(const any&) {
+void CompletionManager::delayedEnter(CaretPosition, CaretPosition, const any&) {
     if (_completionCache.valid()) {
         // TODO: support 1st level cache
         _cancelCompletion(true);
@@ -104,15 +76,39 @@ void CompletionManager::interactionEnter(const any&) {
         shared_lock lock(_componentsMutex);
         _retrieveCompletion(_components.prefix);
         logger::log("Detect Continuous enter, retrieve completion directly");
-    }
-    else {
+    } else {
         _isContinuousEnter.store(true);
         _retrieveEditorInfo();
         logger::log("Detect first enter, retrieve editor info first");
     }
 }
 
-void CompletionManager::interactionNavigate(const any&) {
+void CompletionManager::delayedNavigate(CaretPosition, CaretPosition, const any&) {
+    instantNavigate();
+}
+
+void CompletionManager::instantAccept(const any&) {
+    _isContinuousEnter.store(false);
+    _isJustAccepted.store(true);
+    if (auto oldCompletion = _completionCache.reset(); !oldCompletion.content().empty()) {
+        WindowManager::GetInstance()->sendAcceptCompletion();
+        logger::log(format("Accepted completion: {}", oldCompletion.stringify()));
+        thread(&CompletionManager::_reactToCompletion, this, move(oldCompletion), true).detach();
+    } else {
+        _retrieveEditorInfo();
+    }
+}
+
+void CompletionManager::instantCancel(const any& data) {
+    try {
+        const auto [isCrossLine,isNeedReset] = any_cast<tuple<bool, bool>>(data);
+        _cancelCompletion(isCrossLine, isNeedReset);
+    } catch (const bad_any_cast& e) {
+        logger::log(format("Invalid interactionCancel data: {}", e.what()));
+    }
+}
+
+void CompletionManager::instantNavigate(const std::any&) {
     _isContinuousEnter.store(false);
     if (_completionCache.valid()) {
         _cancelCompletion();
@@ -120,7 +116,7 @@ void CompletionManager::interactionNavigate(const any&) {
     }
 }
 
-void CompletionManager::interactionNormal(const any&data) {
+void CompletionManager::instantNormal(const any& data) {
     _isContinuousEnter.store(false);
     _isJustAccepted.store(false);
     try {
@@ -139,75 +135,66 @@ void CompletionManager::interactionNormal(const any&data) {
                         logger::log("Cancel completion due to next cached");
                         insertCompletion(completionOpt.value().stringify());
                         logger::log("Insert next cached completion");
-                    }
-                    else {
+                    } else {
                         // Out of cache
-                        interactionAccept();
+                        instantAccept();
                     }
-                }
-                else {
+                } else {
                     // Cache miss
                     _cancelCompletion();
                     logger::log(format("Canceled due to cache miss"));
                     _retrieveEditorInfo();
                 }
-            }
-            catch (runtime_error&e) {
+            } catch (runtime_error& e) {
                 logger::log(e.what());
             }
-        }
-        else {
+        } else {
             // No valid cache
             _retrieveEditorInfo();
         }
-    }
-    catch (const bad_any_cast&e) {
+    } catch (const bad_any_cast& e) {
         logger::log(format("Invalid interactionNormal data: {}", e.what()));
     }
 }
 
-void CompletionManager::interactionSave(const any&) {
+void CompletionManager::instantSave(const any&) {
     if (_completionCache.valid()) {
         _cancelCompletion();
         logger::log("Canceled by save.");
         WindowManager::GetInstance()->sendSave();
-    }
-    else {
+    } else {
         // Interrupted current retrieve
         _currentRetrieveTime.store(chrono::high_resolution_clock::now());
     }
 }
 
-void CompletionManager::interactionUndo(const any&) {
+void CompletionManager::instantUndo(const any&) {
     _isContinuousEnter.store(false);
     const auto windowManager = WindowManager::GetInstance();
     if (_isJustAccepted.load()) {
         _isJustAccepted.store(false);
         windowManager->sendUndo();
         windowManager->sendUndo();
-    }
-    else if (_completionCache.valid()) {
+    } else if (_completionCache.valid()) {
         _completionCache.reset();
         logger::log("Canceled by undo");
         windowManager->sendUndo();
-    }
-    else {
+    } else {
         // Interrupted current retrieve
         _currentRetrieveTime.store(chrono::high_resolution_clock::now());
     }
 }
 
-void CompletionManager::retrieveWithCurrentPrefix(const string&currentPrefix) {
+void CompletionManager::retrieveWithCurrentPrefix(const string& currentPrefix) {
     shared_lock lock(_componentsMutex);
     if (const auto lastNewLineIndex = _components.prefix.find_last_of('\n'); lastNewLineIndex != string::npos) {
         _retrieveCompletion(_components.prefix.substr(0, lastNewLineIndex + 1) + currentPrefix);
-    }
-    else {
+    } else {
         _retrieveCompletion(currentPrefix);
     }
 }
 
-void CompletionManager::retrieveWithFullInfo(Components&&components) {
+void CompletionManager::retrieveWithFullInfo(Components&& components) {
     unique_lock lock(_componentsMutex);
     _components = move(components);
     _retrieveCompletion(_components.prefix);
@@ -220,7 +207,7 @@ void CompletionManager::setAutoCompletion(const bool isAutoCompletion) {
     }
 }
 
-void CompletionManager::setProjectId(const string&projectId) {
+void CompletionManager::setProjectId(const string& projectId) {
     bool needSet; {
         shared_lock lock(_editorInfoMutex);
         needSet = _editorInfo.projectId != projectId;
@@ -231,7 +218,7 @@ void CompletionManager::setProjectId(const string&projectId) {
     }
 }
 
-void CompletionManager::setVersion(const string&version) {
+void CompletionManager::setVersion(const string& version) {
     bool needSet; {
         shared_lock lock(_editorInfoMutex);
         needSet = _editorInfo.version.empty();
@@ -250,13 +237,12 @@ void CompletionManager::_cancelCompletion(const bool isCrossLine, const bool isN
         if (isNeedReset) {
             _completionCache.reset();
         }
-    }
-    catch (runtime_error&e) {
+    } catch (runtime_error& e) {
         logger::log(e.what());
     }
 }
 
-void CompletionManager::_reactToCompletion(Completion&&completion, const bool isAccept) {
+void CompletionManager::_reactToCompletion(Completion&& completion, const bool isAccept) {
     const auto path = isAccept ? "/completion/accept" : "/completion/insert";
     nlohmann::json requestBody; {
         shared_lock lock(_editorInfoMutex);
@@ -269,22 +255,20 @@ void CompletionManager::_reactToCompletion(Completion&&completion, const bool is
     try {
         if (const auto [status, responseBody] = _httpHelper.post(path, move(requestBody)); status == 200) {
             logger::log(format("({}) Result: {}", path, responseBody["result"].get<string>()));
-        }
-        else {
+        } else {
             logger::log(
                 format("({}) HTTP Code: {}, body: {}", path, status, responseBody.dump())
             );
         }
-    }
-    catch (helpers::HttpHelper::HttpError&e) {
+    } catch (helpers::HttpHelper::HttpError& e) {
         logger::error(format("(/completion/accept) Http error: {}", e.what()));
     }
-    catch (exception&e) {
+    catch (exception& e) {
         logger::error(format("(/completion/accept) Exception: {}", e.what()));
     }
 }
 
-void CompletionManager::_retrieveCompletion(const string&prefix) {
+void CompletionManager::_retrieveCompletion(const string& prefix) {
     _currentRetrieveTime.store(chrono::high_resolution_clock::now());
     thread([this, prefix, originalRetrieveTime = _currentRetrieveTime.load()] {
         optional<string> completionGenerated;
@@ -306,23 +290,20 @@ void CompletionManager::_retrieveCompletion(const string&prefix) {
             if (const auto [status, responseBody] = _httpHelper.post("/completion/generate", move(requestBody));
                 status == 200) {
                 const auto result = responseBody["result"].get<string>();
-                if (const auto&contents = responseBody["contents"];
+                if (const auto& contents = responseBody["contents"];
                     result == "success" && contents.is_array() && !contents.empty()) {
                     completionGenerated.emplace(decode(contents[0].get<string>(), crypto::Encoding::Base64));
                     logger::log(format("(/completion/generate) Completion: {}", completionGenerated.value_or("null")));
-                }
-                else {
+                } else {
                     logger::log(format("(/completion/generate) Invalid completion: {}", responseBody.dump()));
                 }
-            }
-            else {
+            } else {
                 logger::log(format("(/completion/generate) HTTP Code: {}, body: {}", status, responseBody.dump()));
             }
-        }
-        catch (helpers::HttpHelper::HttpError&e) {
+        } catch (helpers::HttpHelper::HttpError& e) {
             logger::error(format("(/completion/accept) Http error: {}", e.what()));
         }
-        catch (exception&e) {
+        catch (exception& e) {
             logger::log(format("(/completion/generate) Exception: {}", e.what()));
         }
         catch (...) {

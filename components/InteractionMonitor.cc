@@ -49,10 +49,10 @@ namespace {
         },
     };
 
-    constexpr auto convertLineEndings = [](const std::string&input) {
+    constexpr auto convertLineEndings = [](const std::string& input) {
         return regex_replace(input, regex(R"(\\r\\n)"), "\r\n");
     };
-    constexpr auto convertPathSeperators = [](const std::string&input) {
+    constexpr auto convertPathSeperators = [](const std::string& input) {
         return regex_replace(input, regex(R"(\\\\)"), "/");
     };
 
@@ -95,8 +95,7 @@ InteractionMonitor::InteractionMonitor() : _subKey(Configurator::GetInstance()->
         const auto [lineOffset, charOffset] = addressMap.at(majorVersion).at(minorVersion);
         _cursorLineAddress = baseAddress + lineOffset;
         _cursorCharAddress = baseAddress + charOffset;
-    }
-    catch (out_of_range&e) {
+    } catch (out_of_range& e) {
         throw runtime_error(format("Unsupported Source Insight Version: ", e.what()));
     }
 
@@ -110,19 +109,21 @@ InteractionMonitor::~InteractionMonitor() {
     _isRunning.store(false);
 }
 
+void InteractionMonitor::_delayInteraction(const Interaction interaction, any&& data) {
+    unique_lock lock(_delayedInteractionsMutex);
+    _delayedInteractions.emplace_back(interaction, move(data));
+}
+
 void InteractionMonitor::_handleKeycode(Keycode keycode) noexcept {
     if (_keyHelper.isNavigate(keycode)) {
-        _handleInteraction(Interaction::Navigate);
+        _handleInstantInteraction(Interaction::Navigate);
         return;
     }
 
     if (_keyHelper.isPrintable(keycode)) {
-        ModificationManager::GetInstance()->interactionNormal(
-            _currentCursorPosition.load(),
-            _keyHelper.toPrintable(keycode)
-        );
-        (void)WindowManager::GetInstance()->sendDoubleInsert();
-        _handleInteraction(Interaction::NormalInput, keycode);
+        (void) WindowManager::GetInstance()->sendDoubleInsert();
+        _handleInstantInteraction(Interaction::NormalInput, keycode);
+        _delayInteraction(Interaction::NormalInput, _keyHelper.toPrintable(keycode));
         return;
     }
 
@@ -132,28 +133,26 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) noexcept {
             if (const auto [key, modifiers] = keyCombinationOpt.value(); modifiers.empty()) {
                 switch (key) {
                     case Key::BackSpace: {
-                        ModificationManager::GetInstance()->interactionDelete(_currentCursorPosition.load());
-                        (void)WindowManager::GetInstance()->sendDoubleInsert();
-                        _queueInteractionIntoBuffer(Interaction::DeleteInput);
+                        (void) WindowManager::GetInstance()->sendDoubleInsert();
+                        _delayInteraction(Interaction::DeleteInput);
                         break;
                     }
                     case Key::Tab: {
-                        _handleInteraction(Interaction::AcceptCompletion);
+                        _handleInstantInteraction(Interaction::AcceptCompletion);
                         break;
                     }
                     case Key::Enter: {
-                        _queueInteractionIntoBuffer(Interaction::EnterInput);
+                        _delayInteraction(Interaction::EnterInput);
                         break;
                     }
                     case Key::Escape: {
                         if (Configurator::GetInstance()->version().first == SiVersion::Major::V40) {
                             thread([this] {
                                 this_thread::sleep_for(chrono::milliseconds(150));
-                                _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
+                                _handleInstantInteraction(Interaction::CancelCompletion, make_tuple(false, true));
                             }).detach();
-                        }
-                        else {
-                            _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
+                        } else {
+                            _handleInstantInteraction(Interaction::CancelCompletion, make_tuple(false, true));
                         }
                         break;
                     }
@@ -162,21 +161,20 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) noexcept {
                         break;
                     }
                 }
-            }
-            else {
+            } else {
                 if (modifiers.size() == 1 && modifiers.contains(Modifier::Ctrl)) {
                     switch (key) {
                         case Key::S: {
                             ModificationManager::GetInstance()->reloadTab();
-                            _handleInteraction(Interaction::Save);
+                            _handleInstantInteraction(Interaction::Save);
                             break;
                         }
                         case Key::V: {
-                            _handleInteraction(Interaction::Paste);
+                            _handleInstantInteraction(Interaction::Paste);
                             break;
                         }
                         case Key::Z: {
-                            _handleInteraction(Interaction::Undo);
+                            _handleInstantInteraction(Interaction::Undo);
                             break;
                         }
                         default: {
@@ -186,23 +184,43 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) noexcept {
                 }
             }
         }
-    }
-    catch (...) {
+    } catch (...) {
     }
 }
 
-void InteractionMonitor::_handleInteraction(const Interaction interaction, const std::any&data) const noexcept {
+void InteractionMonitor::_handleDelayedInteraction(
+    const Interaction interaction,
+    const CaretPosition newPosition,
+    const CaretPosition oldPosition,
+    const std::any& data
+) const noexcept {
     try {
-        for (const auto&handler: _handlers.at(interaction)) {
+        for (const auto& handler: _delayedHandlers.at(interaction)) {
+            handler(newPosition, oldPosition, data);
+        }
+    } catch (out_of_range&) {
+        logger::log(format("No delayed handlers for interaction '{}'", enum_name(interaction)));
+    }
+    catch (exception& e) {
+        logger::log(format(
+            "Exception when processing delayed interaction '{}' : {}",
+            enum_name(interaction),
+            e.what()
+        ));
+    }
+}
+
+void InteractionMonitor::_handleInstantInteraction(const Interaction interaction, const std::any& data) const noexcept {
+    try {
+        for (const auto& handler: _instantHandlers.at(interaction)) {
             handler(data);
         }
+    } catch (out_of_range&) {
+        logger::log(format("No instant handlers for interaction '{}'", enum_name(interaction)));
     }
-    catch (out_of_range&) {
-        logger::log(format("No handlers for interaction '{}'", enum_name(interaction)));
-    }
-    catch (exception&e) {
+    catch (exception& e) {
         logger::log(format(
-            "Exception when processing interaction '{}' : {}",
+            "Exception when processing instant interaction '{}' : {}",
             enum_name(interaction),
             e.what()
         ));
@@ -241,21 +259,20 @@ void InteractionMonitor::_monitorCursorPosition() {
                 sizeof(newCursorPosition.character),
                 nullptr
             );
-            if (const auto currentCursorPosition = _currentCursorPosition.load();
-                currentCursorPosition != newCursorPosition) {
+            if (const auto oldCursorPosition = _currentCursorPosition.load();
+                oldCursorPosition != newCursorPosition) {
                 this->_currentCursorPosition.store(newCursorPosition); {
-                    shared_lock lock(_interactionBufferMutex);
-                    thread([this, interactionQueue = _interactionBuffer, currentCursorPosition, newCursorPosition] {
-                        for (const auto&interaction: interactionQueue) {
-                            _handleInteraction(interaction, make_tuple(newCursorPosition, currentCursorPosition));
+                    shared_lock lock(_delayedInteractionsMutex);
+                    thread([this, interactionBuffer = _delayedInteractions, oldCursorPosition, newCursorPosition] {
+                        for (const auto& [interaction,data]: interactionBuffer) {
+                            _handleDelayedInteraction(interaction, newCursorPosition, oldCursorPosition, data);
                         }
                     }).detach();
                 } {
-                    unique_lock lock(_interactionBufferMutex);
-                    _interactionBuffer.clear();
+                    unique_lock lock(_delayedInteractionsMutex);
+                    _delayedInteractions.clear();
                 }
             }
-            this_thread::sleep_for(chrono::milliseconds(1));
         }
     }).detach();
 }
@@ -282,14 +299,12 @@ void InteractionMonitor::_monitorEditorInfo() const {
                 CompletionManager::GetInstance()->retrieveWithCurrentPrefix(
                     convertLineEndings(currentLinePrefixOpt.value())
                 );
-            }
-            else {
+            } else {
                 optional<string> suffixOpt, prefixOpt;
                 if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
                     suffixOpt = system::getEnvironmentVariable(suffixKey);
                     prefixOpt = system::getEnvironmentVariable(prefixKey);
-                }
-                else {
+                } else {
                     suffixOpt = system::getRegValue(_subKey, suffixKey);
                     prefixOpt = system::getRegValue(_subKey, prefixKey);
                 }
@@ -309,8 +324,7 @@ void InteractionMonitor::_monitorEditorInfo() const {
                     if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
                         system::setEnvironmentVariable(suffixKey);
                         system::setEnvironmentVariable(prefixKey);
-                    }
-                    else {
+                    } else {
                         system::deleteRegValue(_subKey, suffixKey);
                         system::deleteRegValue(_subKey, prefixKey);
                     }
@@ -346,17 +360,17 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
         switch (windowProcData->message) {
             case WM_KILLFOCUS: {
                 if (WindowManager::GetInstance()->checkNeedCancelWhenLostFocus(windowProcData->wParam)) {
-                    _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
+                    _handleInstantInteraction(Interaction::CancelCompletion, make_tuple(false, true));
                 }
                 break;
             }
             case WM_MOUSEACTIVATE: {
-                _queueInteractionIntoBuffer(Interaction::Navigate);
+                _delayInteraction(Interaction::Navigate);
                 break;
             }
             case WM_SETFOCUS: {
                 if (WindowManager::GetInstance()->checkNeedCancelWhenGainFocus(currentWindow)) {
-                    _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
+                    _handleInstantInteraction(Interaction::CancelCompletion, make_tuple(false, true));
                 }
                 break;
             }
@@ -371,12 +385,7 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
     }
 }
 
-void InteractionMonitor::_queueInteractionIntoBuffer(const Interaction interaction) {
-    unique_lock lock(_interactionBufferMutex);
-    _interactionBuffer.emplace(interaction);
-}
-
-void InteractionMonitor::_retrieveProjectId(const std::string&project) const {
+void InteractionMonitor::_retrieveProjectId(const std::string& project) const {
     const auto projectListKey = _subKey + "\\Project List";
     const auto projectHash = crypto::sha1(project);
     string projectId;
@@ -389,8 +398,7 @@ void InteractionMonitor::_retrieveProjectId(const std::string&project) const {
         projectId = InputBox("Please input current project's iSoft ID", "Input Project ID");
         if (projectId.empty()) {
             logger::error("Project ID is empty, please input a valid Project ID.");
-        }
-        else {
+        } else {
             system::setRegValue(projectListKey, projectHash, projectId);
         }
     }
