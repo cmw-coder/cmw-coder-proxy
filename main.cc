@@ -93,6 +93,11 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 &CompletionManager::instantCancel
             );
             InteractionMonitor::GetInstance()->addInstantHandler(
+                Interaction::Navigate,
+                CompletionManager::GetInstance(),
+                &CompletionManager::instantNavigate
+            );
+            InteractionMonitor::GetInstance()->addInstantHandler(
                 Interaction::NormalInput,
                 CompletionManager::GetInstance(),
                 &CompletionManager::instantNormal

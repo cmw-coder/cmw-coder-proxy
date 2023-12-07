@@ -4,14 +4,16 @@
 #include <utility>
 
 #include <types/Modification.h>
+#include <utils/crypto.h>
 #include <utils/fs.h>
 #include <utils/logger.h>
 
+using namespace helpers;
 using namespace std;
 using namespace types;
 using namespace utils;
 
-Modification::Modification(string path) : path(move(path)) {
+Modification::Modification(string path): path(move(path)) {
     reload();
 }
 
@@ -26,21 +28,20 @@ bool Modification::add(const CaretPosition position, const char character) {
                 _lineOffsets[position.line] + position.character + 1
             );
             _lineOffsets[position.line] += position.character + 1;
-            for (auto&offset: _lineOffsets | views::drop(position.line + 1)) {
+            for (auto& offset: _lineOffsets | views::drop(position.line + 1)) {
                 offset += 1;
             }
-        }
-        else {
+        } else {
             // Insert character
             _content.insert(lineOffset + position.character, 1, character);
-            for (auto&offset: _lineOffsets | views::drop(position.line + 1)) {
+            for (auto& offset: _lineOffsets | views::drop(position.line + 1)) {
                 offset += 1;
             }
         }
-    }
-    catch (out_of_range&) {
+    } catch (out_of_range&) {
         return false;
     }
+    _syncContent();
     return true;
 }
 
@@ -48,10 +49,12 @@ void Modification::reload() {
     logger::debug(format("Reloading with path: '{}'", path));
     logger::debug(format("Old content: \n{}", _content));
     _content = fs::readFile(path);
+    _syncContent();
+    _lineOffsets.clear();
     logger::debug(format("New content: \n{}", _content));
     // Calculate each line's offset
     _lineOffsets.push_back(0);
-    for (const auto&line: _content | views::split('\n')) {
+    for (const auto& line: _content | views::split('\n')) {
         _lineOffsets.push_back(_lineOffsets.back() + line.size() + 1);
     }
     _lineOffsets.pop_back();
@@ -67,68 +70,48 @@ bool Modification::remove(CaretPosition position) {
             // Delete new line
             _content.erase(lineOffset - 1, 1);
             _lineOffsets.erase(_lineOffsets.begin() + static_cast<int>(position.line));
-            for (auto&offset: _lineOffsets | views::drop(position.line)) {
+            for (auto& offset: _lineOffsets | views::drop(position.line)) {
                 offset -= 1;
             }
-        }
-        else {
+        } else {
             // Delete character
-            _content.erase(lineOffset + position.character, 1);
-            for (auto&offset: _lineOffsets | views::drop(position.line)) {
+            _content.erase(lineOffset + position.character - 1, 1);
+            for (auto& offset: _lineOffsets | views::drop(position.line + 1)) {
                 offset -= 1;
             }
         }
-    }
-    catch (out_of_range&) {
+    } catch (out_of_range&) {
         return false;
     }
+    _syncContent();
     return true;
 }
 
-// bool Modification::modifySingle(const Type type, const CaretPosition modifyPosition, const char character) {
-//     if (modifyPosition < startPosition || modifyPosition > endPosition + CaretPosition{1, 0}) {
-//         return false;
-//     }
-//     const auto relativePosition = modifyPosition - startPosition;
-//     switch (type) {
-//         case Type::Addition: {
-//             if (character == '\n') {
-//                 // TODO: Deal with auto indentation
-//                 // Split current line into two lines
-//                 const auto newLineContent = _content[relativePosition.line].substr(relativePosition.character);
-//                 _content[relativePosition.line].erase(relativePosition.character);
-//                 _content.insert(
-//                     _content.begin() + static_cast<int>(relativePosition.line) + 1,
-//                     newLineContent
-//                 );
-//             }
-//             else {
-//                 _content[relativePosition.line].insert(relativePosition.character, 1, character);
-//             }
-//             _updateEndPositionWithContent();
-//             break;
-//         }
-//         case Type::Deletion: {
-//             if (modifyPosition.character == 0) {
-//                 if (modifyPosition.line == 0) {
-//                     return false;
-//                 }
-//                 // Merge current line with previous line
-//                 _content[relativePosition.line - 1].append(_content[relativePosition.line]);
-//                 _content.erase(_content.begin() + static_cast<int>(relativePosition.line));
-//             }
-//             else {
-//                 _content[relativePosition.line].erase(relativePosition.character, 1);
-//             }
-//             _updateEndPositionWithContent();
-//             break;
-//         }
-//         default: {
-//             return false;
-//         }
-//     }
-//     return true;
-// }
+void Modification::_syncContent() {
+    thread([content = _content, path=path] {
+        nlohmann::json requestBody = {
+            {"content", encode(content, crypto::Encoding::Base64)},
+            {"path", encode(path, crypto::Encoding::Base64)}
+        };
+        try {
+            if (const auto [status, responseBody] = HttpHelper(
+                    "http://localhost:3001",
+                    chrono::seconds(10)
+                ).post("/modify", move(requestBody));
+                status != 200) {
+                logger::log(format("(/modify) HTTP Code: {}, body: {}", status, responseBody.dump()));
+            }
+        } catch (HttpHelper::HttpError& e) {
+            logger::error(format("(/modify) Http error: {}", e.what()));
+        }
+        catch (exception& e) {
+            logger::log(format("(/modify) Exception: {}", e.what()));
+        }
+        catch (...) {
+            logger::log("(/modify) Unknown exception.");
+        }
+    }).detach();
+}
 
 // bool Modification::merge(const Modification&other) {
 //     switch (other.type) {

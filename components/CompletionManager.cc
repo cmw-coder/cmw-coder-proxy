@@ -13,6 +13,7 @@
 #include <utils/system.h>
 
 using namespace components;
+using namespace helpers;
 using namespace std;
 using namespace types;
 using namespace utils;
@@ -25,9 +26,6 @@ namespace {
         system::setEnvironmentVariable(completionGeneratedKey, completionString);
         WindowManager::GetInstance()->sendInsertCompletion();
     };
-}
-
-CompletionManager::CompletionManager(): _httpHelper("http://localhost:3000", chrono::seconds(10)) {
 }
 
 void CompletionManager::delayedDelete(const CaretPosition newPosition, const CaretPosition oldPosition, const any&) {
@@ -253,7 +251,10 @@ void CompletionManager::_reactToCompletion(Completion&& completion, const bool i
         };
     }
     try {
-        if (const auto [status, responseBody] = _httpHelper.post(path, move(requestBody)); status == 200) {
+        if (const auto [status, responseBody] = HttpHelper(
+                "http://localhost:3000", chrono::seconds(10)
+            ).post(path, move(requestBody));
+            status == 200) {
             logger::log(format("({}) Result: {}", path, responseBody["result"].get<string>()));
         } else {
             logger::log(
@@ -287,7 +288,9 @@ void CompletionManager::_retrieveCompletion(const string& prefix) {
             };
         }
         try {
-            if (const auto [status, responseBody] = _httpHelper.post("/completion/generate", move(requestBody));
+            if (const auto [status, responseBody] = HttpHelper(
+                    "http://localhost:3000", chrono::seconds(10)
+                ).post("/completion/generate", move(requestBody));
                 status == 200) {
                 const auto result = responseBody["result"].get<string>();
                 if (const auto& contents = responseBody["contents"];

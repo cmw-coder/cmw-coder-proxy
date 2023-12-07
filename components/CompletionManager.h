@@ -26,7 +26,7 @@ namespace components {
             std::string version;
         };
 
-        CompletionManager();
+        CompletionManager() = default;
 
         void delayedDelete(types::CaretPosition newPosition, types::CaretPosition oldPosition, const std::any&);
 
@@ -60,7 +60,6 @@ namespace components {
         mutable std::shared_mutex _componentsMutex, _editorInfoMutex;
         Components _components;
         EditorInfo _editorInfo;
-        helpers::HttpHelper _httpHelper;
         std::atomic<bool> _isAutoCompletion{true}, _isContinuousEnter{}, _isJustAccepted{};
         std::atomic<types::Time> _currentRetrieveTime;
         types::CompletionCache _completionCache;

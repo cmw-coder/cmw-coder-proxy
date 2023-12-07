@@ -3,8 +3,7 @@
 #include <string>
 #include <vector>
 
-#include <nlohmann/json.hpp>
-
+#include <helpers/HttpHelper.h>
 #include <types/CaretPosition.h>
 
 namespace types {
@@ -12,7 +11,7 @@ namespace types {
     public:
         const std::string path;
 
-        explicit Modification(std::string  path);
+        explicit Modification(std::string path);
 
         bool add(CaretPosition position, char character);
 
@@ -29,5 +28,7 @@ namespace types {
     private:
         std::string _content;
         std::vector<uint32_t> _lineOffsets;
+
+        void _syncContent();
     };
 }
