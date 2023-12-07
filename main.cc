@@ -72,6 +72,11 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 &CompletionManager::delayedEnter
             );
             InteractionMonitor::GetInstance()->addDelayedHandler(
+                Interaction::EnterInput,
+                ModificationManager::GetInstance(),
+                &ModificationManager::delayedEnter
+            );
+            InteractionMonitor::GetInstance()->addDelayedHandler(
                 Interaction::Navigate,
                 CompletionManager::GetInstance(),
                 &CompletionManager::delayedNavigate

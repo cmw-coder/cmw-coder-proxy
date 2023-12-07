@@ -19,24 +19,17 @@ Modification::Modification(string path): path(move(path)) {
 
 bool Modification::add(const CaretPosition position, const char character) {
     try {
-        const auto lineOffset = _lineOffsets.at(position.line);
+        const auto charactorOffset = _lineOffsets.at(position.line) + position.character;
+        for (auto& offset: _lineOffsets | views::drop(position.line + 1)) {
+            offset += 1;
+        }
+        _content.insert(charactorOffset, 1, character);
         if (character == '\n') {
             // Insert new line
-            _content.insert(lineOffset + position.character, 1, character);
             _lineOffsets.insert(
                 _lineOffsets.begin() + static_cast<int>(position.line) + 1,
-                _lineOffsets[position.line] + position.character + 1
+                charactorOffset + 1
             );
-            _lineOffsets[position.line] += position.character + 1;
-            for (auto& offset: _lineOffsets | views::drop(position.line + 1)) {
-                offset += 1;
-            }
-        } else {
-            // Insert character
-            _content.insert(lineOffset + position.character, 1, character);
-            for (auto& offset: _lineOffsets | views::drop(position.line + 1)) {
-                offset += 1;
-            }
         }
     } catch (out_of_range&) {
         return false;
@@ -60,25 +53,19 @@ void Modification::reload() {
     _lineOffsets.pop_back();
 }
 
-bool Modification::remove(CaretPosition position) {
+bool Modification::remove(const CaretPosition position) {
     try {
-        const auto lineOffset = _lineOffsets.at(position.line);
+        if (position.character == 0 && position.line == 0) {
+            return false;
+        }
+        const auto charactorOffset = _lineOffsets.at(position.line) + position.character;
+        _content.erase(charactorOffset - 1, 1);
+        for (auto& offset: _lineOffsets | views::drop(position.line + 1)) {
+            offset -= 1;
+        }
         if (position.character == 0) {
-            if (position.line == 0) {
-                return false;
-            }
             // Delete new line
-            _content.erase(lineOffset - 1, 1);
             _lineOffsets.erase(_lineOffsets.begin() + static_cast<int>(position.line));
-            for (auto& offset: _lineOffsets | views::drop(position.line)) {
-                offset -= 1;
-            }
-        } else {
-            // Delete character
-            _content.erase(lineOffset + position.character - 1, 1);
-            for (auto& offset: _lineOffsets | views::drop(position.line + 1)) {
-                offset -= 1;
-            }
         }
     } catch (out_of_range&) {
         return false;

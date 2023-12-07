@@ -25,6 +25,10 @@ void ModificationManager::delayedDelete(CaretPosition, const CaretPosition oldPo
     }
 }
 
+void ModificationManager::delayedEnter(CaretPosition, const CaretPosition oldPosition, const std::any&) {
+    delayedNormal({}, oldPosition, '\n');
+}
+
 void ModificationManager::delayedNormal(CaretPosition, const CaretPosition oldPosition, const any& data) {
     try {
         const auto keycode = any_cast<char>(data);

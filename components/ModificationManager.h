@@ -18,6 +18,8 @@ namespace components {
 
         void delayedDelete(types::CaretPosition, types::CaretPosition oldPosition, const std::any&);
 
+        void delayedEnter(types::CaretPosition, types::CaretPosition oldPosition, const std::any&);
+
         void delayedNormal(types::CaretPosition, types::CaretPosition oldPosition, const std::any& data);
 
         std::string getCurrentTabContent();

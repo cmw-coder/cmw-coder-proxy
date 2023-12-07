@@ -125,7 +125,7 @@ Keycode KeyHelper::toKeycode(const Key key, const std::unordered_set<Modifier>&m
     return keycode;
 }
 
-char KeyHelper::toPrintable(types::Keycode keycode) const noexcept {
+char KeyHelper::toPrintable(const Keycode keycode) const noexcept {
     for (const auto&[modifier, modifierValue]: _modifierMap) {
         if (modifier != Modifier::Shift && (keycode & modifierValue) == modifierValue) {
             return false;
