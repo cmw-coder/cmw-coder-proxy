@@ -29,7 +29,7 @@ namespace {
         {
             SiVersion::Major::V35, {
                 {SiVersion::Minor::V0076, {0x1CBEFC, 0x1CBF00}},
-                {SiVersion::Minor::V0086, {0x1BE0CC, 0x1CD3E0}}
+                {SiVersion::Minor::V0086, {0x1CD3DC, 0x1CD3E0}}
             }
         },
         {
