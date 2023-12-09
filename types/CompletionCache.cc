@@ -31,7 +31,7 @@ optional<pair<char, optional<Completion>>> CompletionCache::next() {
     return make_pair(currentChar, nullopt);
 }
 
-Completion CompletionCache::current() {
+Completion CompletionCache::completion() {
     shared_lock lock(_shared_mutex);
     return {_isSnippet, _content};
 }
