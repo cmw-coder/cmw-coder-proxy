@@ -26,6 +26,11 @@ namespace {
         CompletionManager::Construct();
         InteractionMonitor::Construct();
         WindowManager::Construct();
+
+        ModificationManager::GetInstance()->addTab(
+            "main.c",
+            "C:/Users/particleg/Documents/Source Insight 4.0/Projects/FunctionTest/main.c"
+        );
     }
 
     void finalize() {
@@ -56,31 +61,31 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 CompletionManager::GetInstance(),
                 &CompletionManager::delayedDelete
             );
-            // InteractionMonitor::GetInstance()->addDelayedHandler(
-            //     Interaction::DeleteInput,
-            //     ModificationManager::GetInstance(),
-            //     &ModificationManager::delayedDelete
-            // );
+            InteractionMonitor::GetInstance()->addDelayedHandler(
+                Interaction::DeleteInput,
+                ModificationManager::GetInstance(),
+                &ModificationManager::delayedDelete
+            );
             InteractionMonitor::GetInstance()->addDelayedHandler(
                 Interaction::EnterInput,
                 CompletionManager::GetInstance(),
                 &CompletionManager::delayedEnter
             );
-            // InteractionMonitor::GetInstance()->addDelayedHandler(
-            //     Interaction::EnterInput,
-            //     ModificationManager::GetInstance(),
-            //     &ModificationManager::delayedEnter
-            // );
+            InteractionMonitor::GetInstance()->addDelayedHandler(
+                Interaction::EnterInput,
+                ModificationManager::GetInstance(),
+                &ModificationManager::delayedEnter
+            );
             InteractionMonitor::GetInstance()->addDelayedHandler(
                 Interaction::Navigate,
                 CompletionManager::GetInstance(),
                 &CompletionManager::delayedNavigate
             );
-            // InteractionMonitor::GetInstance()->addDelayedHandler(
-            //     Interaction::NormalInput,
-            //     ModificationManager::GetInstance(),
-            //     &ModificationManager::delayedNormal
-            // );
+            InteractionMonitor::GetInstance()->addDelayedHandler(
+                Interaction::NormalInput,
+                ModificationManager::GetInstance(),
+                &ModificationManager::delayedNormal
+            );
 
             InteractionMonitor::GetInstance()->addInstantHandler(
                 Interaction::AcceptCompletion,
