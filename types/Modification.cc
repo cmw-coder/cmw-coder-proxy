@@ -91,6 +91,7 @@ bool Modification::flush() {
 }
 
 void Modification::navigate(const Key key) {
+    flush();
     switch (key) {
         case Key::Home: {
             break;
@@ -105,24 +106,41 @@ void Modification::navigate(const Key key) {
             break;
         }
         case Key::Left: {
-            flush();
-            if (_lastPosition.character + _buffer.length() > 0) {
+            if (_lastPosition.character > 0) {
+                _lastPosition.addCharactor(-1);
             } else if (_lastPosition.line > 0) {
-                flush({_lastPosition.line - 1, _content[_lastPosition.line - 1].length()});
+                _lastPosition.addLine(-1);
+                _lastPosition.character = _content.at(_lastPosition.line).length();
             }
             break;
         }
         case Key::Up: {
             if (_lastPosition.line > 0) {
-                flush({_lastPosition.line - 1, _lastPosition.character});
+                _lastPosition.addLine(-1);
+                if (const auto lineLength = _content.at(_lastPosition.line).length();
+                    lineLength < _lastPosition.character) {
+                    _lastPosition.character = lineLength;
+                }
             }
             break;
         }
         case Key::Right: {
-            if (_content.)
-                break;
+            if (_lastPosition.character < _content.at(_lastPosition.line).length()) {
+                _lastPosition.addCharactor(1);
+            } else if (_lastPosition.line < _content.size() - 1) {
+                _lastPosition.addLine(1);
+                _lastPosition.character = 0;
+            }
+            break;
         }
         case Key::Down: {
+            if (_lastPosition.line < _content.size() - 1) {
+                _lastPosition.addLine(1);
+                if (const auto lineLength = _content.at(_lastPosition.line).length();
+                    lineLength < _lastPosition.character) {
+                    _lastPosition.character = lineLength;
+                }
+            }
             break;
         }
         default: {
