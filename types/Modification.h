@@ -3,7 +3,6 @@
 #include <string>
 #include <vector>
 
-#include <helpers/HttpHelper.h>
 #include <types/CaretPosition.h>
 #include <types/Key.h>
 
@@ -16,7 +15,7 @@ namespace types {
 
         void add(char character);
 
-        bool flush();
+        void navigate(CaretPosition newPosition);
 
         void navigate(Key key);
 
@@ -32,10 +31,11 @@ namespace types {
 
     private:
         CaretPosition _lastPosition;
-        std::string _buffer;
-        std::vector<std::string> _content;
-        uint32_t _removeCount{};
+        std::string _content;
+        std::vector<uint32_t> _lineOffsets;
 
         void _syncContent();
+
+        [[nodiscard]] uint32_t _getLineLength(uint32_t lineIndex) const;
     };
 }
