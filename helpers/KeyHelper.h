@@ -16,8 +16,6 @@ namespace helpers {
 
         [[nodiscard]] std::optional<KeyCombination> fromKeycode(types::Keycode keycode) const noexcept;
 
-        [[nodiscard]] bool isNavigate(types::Keycode keycode) const noexcept;
-
         [[nodiscard]] bool isPrintable(types::Keycode keycode) const noexcept;
 
         [[nodiscard]] types::Keycode toKeycode(types::Key key, types::Modifier modifier) const noexcept;
@@ -28,7 +26,7 @@ namespace helpers {
 
     private:
         const types::Keycode _keyMask;
-        const std::pair<types::Keycode, types::Keycode> _navigateRange, _printableRange = {0x000020, 0x00007E};
+        const std::pair<types::Keycode, types::Keycode> _printableRange = {0x000020, 0x00007E};
         const std::unordered_map<types::Key, types::Keycode> _keyMap;
         const std::unordered_map<types::Modifier, types::Keycode> _modifierMap;
     };

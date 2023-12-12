@@ -16,11 +16,15 @@ namespace components {
 
         void addTab(const std::string& tabName, const std::string& path);
 
-        void delayedDelete(types::CaretPosition, types::CaretPosition oldPosition, const std::any&);
+        void instantCaret(const std::any& data);
 
-        void delayedEnter(types::CaretPosition, types::CaretPosition oldPosition, const std::any&);
+        void instantDelete(const std::any&);
 
-        void delayedNormal(types::CaretPosition, types::CaretPosition oldPosition, const std::any& data);
+        void instantEnter(const std::any&);
+
+        void instantNavigate(const std::any& data);
+
+        void instantNormal(const std::any& data);
 
         std::string getCurrentTabContent();
 

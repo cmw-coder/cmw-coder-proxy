@@ -4,6 +4,7 @@ namespace types {
     enum class Interaction {
         AcceptCompletion,
         CancelCompletion,
+        CaretUpdate,
         DeleteInput,
         EnterInput,
         Navigate,

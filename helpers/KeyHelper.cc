@@ -24,6 +24,14 @@ namespace {
                 {Key::F10, 0x1079},
                 {Key::F11, 0x107A},
                 {Key::F12, 0x107B},
+                {Key::Home, 0x8021},
+                {Key::End, 0x8022},
+                {Key::PageDown, 0x8023},
+                {Key::PageUp, 0x8024},
+                {Key::Left, 0x8025},
+                {Key::Up, 0x8026},
+                {Key::Right, 0x8027},
+                {Key::Down, 0x8028},
                 {Key::Insert, 0x802D},
                 {Key::Delete, 0x802E},
             }
@@ -43,6 +51,14 @@ namespace {
                 {Key::F10, 0x100079},
                 {Key::F11, 0x10007A},
                 {Key::F12, 0x10007B},
+                {Key::Home, 0x800021},
+                {Key::End, 0x800022},
+                {Key::PageDown, 0x800023},
+                {Key::PageUp, 0x800024},
+                {Key::Left, 0x800025},
+                {Key::Up, 0x800026},
+                {Key::Right, 0x800027},
+                {Key::Down, 0x800028},
                 {Key::Insert, 0x80002D},
                 {Key::Delete, 0x80002E},
             }
@@ -73,19 +89,15 @@ namespace {
 }
 
 KeyHelper::KeyHelper(const SiVersion::Major siVersion) noexcept: _keyMask(keyMasks.at(siVersion)),
-                                                                 _navigateRange(
-                                                                     siVersion == SiVersion::Major::V35
-                                                                         ? make_pair(0x8021, 0x8028)
-                                                                         : make_pair(0x800021, 0x800028)),
                                                                  _keyMap(keyMaps.at(siVersion)),
                                                                  _modifierMap(modifierMaps.at(siVersion)) {
 }
 
 optional<KeyHelper::KeyCombination> KeyHelper::fromKeycode(const Keycode keycode) const noexcept {
-    for (const auto&[key, keyValue]: _keyMap) {
+    for (const auto& [key, keyValue]: _keyMap) {
         ModifierSet modifiers{};
         Keycode modifierAccumulated{};
-        for (const auto&[modifier, modifierValue]: _modifierMap) {
+        for (const auto& [modifier, modifierValue]: _modifierMap) {
             if ((keycode & keyValue + modifierValue) == keyValue + modifierValue) {
                 modifiers.insert(modifier);
                 modifierAccumulated += modifierValue;
@@ -98,13 +110,8 @@ optional<KeyHelper::KeyCombination> KeyHelper::fromKeycode(const Keycode keycode
     return nullopt;
 }
 
-bool KeyHelper::isNavigate(const Keycode keycode) const noexcept {
-    const auto maskedKeycode = keycode & _keyMask;
-    return maskedKeycode >= _navigateRange.first && maskedKeycode <= _navigateRange.second;
-}
-
 bool KeyHelper::isPrintable(const Keycode keycode) const noexcept {
-    for (const auto&[modifier, modifierValue]: _modifierMap) {
+    for (const auto& [modifier, modifierValue]: _modifierMap) {
         if (modifier != Modifier::Shift && (keycode & modifierValue) == modifierValue) {
             return false;
         }
@@ -117,16 +124,16 @@ Keycode KeyHelper::toKeycode(const Key key, const Modifier modifier) const noexc
     return _keyMap.at(key) + _modifierMap.at(modifier);
 }
 
-Keycode KeyHelper::toKeycode(const Key key, const std::unordered_set<Modifier>&modifiers) const noexcept {
+Keycode KeyHelper::toKeycode(const Key key, const std::unordered_set<Modifier>& modifiers) const noexcept {
     auto keycode = _keyMap.at(key);
-    for (const auto&modifier: modifiers) {
+    for (const auto& modifier: modifiers) {
         keycode += _modifierMap.at(modifier);
     }
     return keycode;
 }
 
 char KeyHelper::toPrintable(const Keycode keycode) const noexcept {
-    for (const auto&[modifier, modifierValue]: _modifierMap) {
+    for (const auto& [modifier, modifierValue]: _modifierMap) {
         if (modifier != Modifier::Shift && (keycode & modifierValue) == modifierValue) {
             return false;
         }

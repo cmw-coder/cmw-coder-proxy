@@ -5,6 +5,7 @@
 
 #include <helpers/HttpHelper.h>
 #include <types/CaretPosition.h>
+#include <types/Key.h>
 
 namespace types {
     class Modification {
@@ -13,11 +14,15 @@ namespace types {
 
         explicit Modification(std::string path);
 
-        bool add(CaretPosition position, char character);
+        void add(char character);
+
+        bool flush();
+
+        void navigate(Key key);
 
         void reload();
 
-        bool remove(CaretPosition position);
+        void remove();
 
         // bool modifySingle(Type type, CaretPosition modifyPosition, char character = {});
 
@@ -26,8 +31,10 @@ namespace types {
         // [[nodiscard]] nlohmann::json parse() const;
 
     private:
-        std::string _content;
-        std::vector<uint32_t> _lineOffsets;
+        CaretPosition _lastPosition;
+        std::string _buffer;
+        std::vector<std::string> _content;
+        uint32_t _removeCount{};
 
         void _syncContent();
     };

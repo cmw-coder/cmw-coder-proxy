@@ -109,32 +109,22 @@ InteractionMonitor::~InteractionMonitor() {
     _isRunning.store(false);
 }
 
-void InteractionMonitor::_delayInteraction(const Interaction interaction, any&& data) {
-    unique_lock lock(_delayedInteractionsMutex);
-    _delayedInteractions.emplace_back(interaction, move(data));
-}
-
-void InteractionMonitor::_handleKeycode(Keycode keycode) noexcept {
-    if (_keyHelper.isNavigate(keycode)) {
-        _handleInstantInteraction(Interaction::Navigate);
-        return;
-    }
-
+void InteractionMonitor::_handleKeycode(const Keycode keycode) const noexcept {
     if (_keyHelper.isPrintable(keycode)) {
         (void) WindowManager::GetInstance()->sendDoubleInsert();
-        _handleInstantInteraction(Interaction::NormalInput, keycode);
-        _delayInteraction(Interaction::NormalInput, _keyHelper.toPrintable(keycode));
+        _handleInstantInteraction(Interaction::NormalInput, _keyHelper.toPrintable(keycode));
         return;
     }
 
     const auto keyCombinationOpt = _keyHelper.fromKeycode(keycode);
     try {
         if (keyCombinationOpt.has_value()) {
-            if (const auto [key, modifiers] = keyCombinationOpt.value(); modifiers.empty()) {
+            if (const auto [key, modifiers] = keyCombinationOpt.value();
+                modifiers.empty()) {
                 switch (key) {
                     case Key::BackSpace: {
                         (void) WindowManager::GetInstance()->sendDoubleInsert();
-                        _delayInteraction(Interaction::DeleteInput);
+                        _handleInstantInteraction(Interaction::DeleteInput);
                         break;
                     }
                     case Key::Tab: {
@@ -142,7 +132,7 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) noexcept {
                         break;
                     }
                     case Key::Enter: {
-                        _delayInteraction(Interaction::EnterInput);
+                        _handleInstantInteraction(Interaction::EnterInput);
                         break;
                     }
                     case Key::Escape: {
@@ -154,6 +144,17 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) noexcept {
                         } else {
                             _handleInstantInteraction(Interaction::CancelCompletion, make_tuple(false, true));
                         }
+                        break;
+                    }
+                    case Key::Home:
+                    case Key::End:
+                    case Key::PageDown:
+                    case Key::PageUp:
+                    case Key::Left:
+                    case Key::Up:
+                    case Key::Right:
+                    case Key::Down: {
+                        _handleInstantInteraction(Interaction::Navigate, key);
                         break;
                     }
                     default: {
@@ -185,28 +186,6 @@ void InteractionMonitor::_handleKeycode(Keycode keycode) noexcept {
             }
         }
     } catch (...) {
-    }
-}
-
-void InteractionMonitor::_handleDelayedInteraction(
-    const Interaction interaction,
-    const CaretPosition newPosition,
-    const CaretPosition oldPosition,
-    const std::any& data
-) const noexcept {
-    try {
-        for (const auto& handler: _delayedHandlers.at(interaction)) {
-            handler(newPosition, oldPosition, data);
-        }
-    } catch (out_of_range&) {
-        logger::log(format("No delayed handlers for interaction '{}'", enum_name(interaction)));
-    }
-    catch (exception& e) {
-        logger::log(format(
-            "Exception when processing delayed interaction '{}' : {}",
-            enum_name(interaction),
-            e.what()
-        ));
     }
 }
 
@@ -261,17 +240,8 @@ void InteractionMonitor::_monitorCursorPosition() {
             );
             if (const auto oldCursorPosition = _currentCursorPosition.load();
                 oldCursorPosition != newCursorPosition) {
-                this->_currentCursorPosition.store(newCursorPosition); {
-                    shared_lock lock(_delayedInteractionsMutex);
-                    thread([this, interactionBuffer = _delayedInteractions, oldCursorPosition, newCursorPosition] {
-                        for (const auto& [interaction,data]: interactionBuffer) {
-                            _handleDelayedInteraction(interaction, newCursorPosition, oldCursorPosition, data);
-                        }
-                    }).detach();
-                } {
-                    unique_lock lock(_delayedInteractionsMutex);
-                    _delayedInteractions.clear();
-                }
+                this->_currentCursorPosition.store(newCursorPosition);
+                _handleInstantInteraction(Interaction::CaretUpdate, make_tuple(newCursorPosition, oldCursorPosition));
             }
         }
     }).detach();
@@ -365,7 +335,7 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                 break;
             }
             case WM_MOUSEACTIVATE: {
-                _delayInteraction(Interaction::Navigate);
+                _handleInstantInteraction(Interaction::Navigate);
                 break;
             }
             case WM_SETFOCUS: {

@@ -14,31 +14,49 @@ void ModificationManager::addTab(const string& tabName, const string& path) {
     }
 }
 
-void ModificationManager::delayedDelete(CaretPosition, const CaretPosition oldPosition, const any&) {
+void ModificationManager::instantCaret(const std::any& data) {
+    try {
+        const auto position = any_cast<CaretPosition>(data);
+        unique_lock lock(_currentModificationMutex);
+        _modificationMap.at(_currentTabName).flush(position);
+    } catch (const bad_any_cast& e) {
+        logger::log(format("Invalid instantNormal data: {}", e.what()));
+    }
+    catch (out_of_range&) {
+    }
+}
+
+void ModificationManager::instantDelete(const any&) {
     try {
         unique_lock lock(_currentModificationMutex);
-        if (auto& currentTab = _modificationMap.at(_currentTabName);
-            currentTab.remove(oldPosition)) {
-            logger::debug("Delete input at " + to_string(oldPosition.line) + ", " + to_string(oldPosition.character));
-        }
+        _modificationMap.at(_currentTabName).remove();
     } catch (out_of_range&) {
     }
 }
 
-void ModificationManager::delayedEnter(CaretPosition, const CaretPosition oldPosition, const std::any&) {
-    delayedNormal({}, oldPosition, '\n');
+void ModificationManager::instantEnter(const std::any&) {
+    instantNormal('\n');
 }
 
-void ModificationManager::delayedNormal(CaretPosition, const CaretPosition oldPosition, const any& data) {
+void ModificationManager::instantNavigate(const std::any& data) {
+    try {
+        const auto key = any_cast<Key>(data);
+        unique_lock lock(_currentModificationMutex);
+        _modificationMap.at(_currentTabName).navigate(key);
+    } catch (const bad_any_cast& e) {
+        logger::log(format("Invalid instantNormal data: {}", e.what()));
+    }
+    catch (out_of_range&) {
+    }
+}
+
+void ModificationManager::instantNormal(const any& data) {
     try {
         const auto keycode = any_cast<char>(data);
         unique_lock lock(_currentModificationMutex);
-        if (auto& currentTab = _modificationMap.at(_currentTabName);
-            currentTab.add(oldPosition, keycode)) {
-            logger::debug("Normal input at " + to_string(oldPosition.line) + ", " + to_string(oldPosition.character));
-        }
+        _modificationMap.at(_currentTabName).add(keycode);
     } catch (const bad_any_cast& e) {
-        logger::log(format("Invalid interactionNormal data: {}", e.what()));
+        logger::log(format("Invalid instantNormal data: {}", e.what()));
     }
     catch (out_of_range&) {
     }
