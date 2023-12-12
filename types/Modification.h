@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include <helpers/WsHelper.h>
 #include <types/CaretPosition.h>
 #include <types/Key.h>
 
@@ -31,6 +32,7 @@ namespace types {
 
     private:
         CaretPosition _lastPosition;
+        helpers::WsHelper _wsHelper;
         std::string _content;
         std::vector<uint32_t> _lineOffsets;
 

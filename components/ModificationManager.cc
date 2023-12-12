@@ -18,7 +18,7 @@ void ModificationManager::instantCaret(const std::any& data) {
     try {
         const auto position = any_cast<CaretPosition>(data);
         unique_lock lock(_currentModificationMutex);
-        _modificationMap.at(_currentTabName).flush(position);
+        _modificationMap.at(_currentTabName).navigate(position);
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid instantNormal data: {}", e.what()));
     }

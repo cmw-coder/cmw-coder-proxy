@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake"
         CACHE STRING "Vcpkg toolchain file")
+set(VCPKG_TARGET_TRIPLET "x86-windows-static")
 
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg.json VCPKG_JSON)
 string(JSON VERSION_STRING GET ${VCPKG_JSON} version-string)
@@ -18,15 +19,9 @@ add_compile_definitions(CMAKE_PROJECT_NAME="${PROJECT_NAME}")
 add_compile_definitions(PROXY_MODULE_NAME="${PROXY_MODULE_NAME}")
 add_compile_definitions(VERSION_STRING="${VERSION_STRING}")
 
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    message(STATUS "Compiler is Clang")
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    message(STATUS "Compiler is GCC")
-    add_compile_options(-Wno-volatile)
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-    message(STATUS "Compiler is Intel C++")
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    message(STATUS "Compiler is Visual Studio C++")
+message("Platform arch: ${CMAKE_GENERATOR_PLATFORM}")
+
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     add_compile_options(/MP /utf-8)
     add_compile_definitions(
             _CRT_SECURE_NO_WARNINGS
@@ -34,6 +29,8 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
             NOGDI
             WIN32_LEAN_AND_MEAN
     )
+else()
+    message(FATAL_ERROR "Compiler is not supported")
 endif ()
 
 add_library(${PROXY_MODULE_NAME} SHARED proxy.cc main.cc)
@@ -42,12 +39,14 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_singleton.cmake)
 
 find_package(cryptopp CONFIG REQUIRED)
 find_package(httplib CONFIG REQUIRED)
+find_package(ixwebsocket CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
 target_link_libraries(${PROXY_MODULE_NAME} PRIVATE
         cryptopp::cryptopp
         httplib::httplib
+        ixwebsocket::ixwebsocket
         magic_enum::magic_enum
         nlohmann_json::nlohmann_json
         singleton::singleton

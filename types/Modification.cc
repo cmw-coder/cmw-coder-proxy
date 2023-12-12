@@ -14,7 +14,7 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
-Modification::Modification(string path): path(move(path)) {
+Modification::Modification(string path): path(move(path)), _wsHelper("ws://127.0.0.1:3000") {
     reload();
 }
 
@@ -140,28 +140,29 @@ void Modification::remove() {
 }
 
 void Modification::_syncContent() {
-    thread([content = _content, path=path] {
-        nlohmann::json requestBody = {
+    thread([this, content = _content, path=path] {
+        const nlohmann::json requestBody = {
             {"content", encode(content, crypto::Encoding::Base64)},
             {"path", encode(path, crypto::Encoding::Base64)}
         };
-        try {
-            if (const auto [status, responseBody] = HttpHelper(
-                    "http://localhost:3001",
-                    chrono::seconds(10)
-                ).post("/modify", move(requestBody));
-                status != 200) {
-                logger::log(format("(/modify) HTTP Code: {}, body: {}", status, responseBody.dump()));
-            }
-        } catch (HttpHelper::HttpError& e) {
-            logger::error(format("(/modify) Http error: {}", e.what()));
-        }
-        catch (exception& e) {
-            logger::log(format("(/modify) Exception: {}", e.what()));
-        }
-        catch (...) {
-            logger::log("(/modify) Unknown exception.");
-        }
+        _wsHelper.send(requestBody.dump());
+        // try {
+        //     if (const auto [status, responseBody] = HttpHelper(
+        //             "http://localhost:3001",
+        //             chrono::seconds(10)
+        //         ).post("/modify", move(requestBody));
+        //         status != 200) {
+        //         logger::log(format("(/modify) HTTP Code: {}, body: {}", status, responseBody.dump()));
+        //     }
+        // } catch (HttpHelper::HttpError& e) {
+        //     logger::error(format("(/modify) Http error: {}", e.what()));
+        // }
+        // catch (exception& e) {
+        //     logger::log(format("(/modify) Exception: {}", e.what()));
+        // }
+        // catch (...) {
+        //     logger::log("(/modify) Unknown exception.");
+        // }
     }).detach();
 }
 

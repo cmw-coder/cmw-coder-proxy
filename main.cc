@@ -1,5 +1,7 @@
 #include <format>
 
+#include <ixwebsocket/IXNetSystem.h>
+
 #include <components/CompletionManager.h>
 #include <components/Configurator.h>
 #include <components/InteractionMonitor.h>
@@ -19,6 +21,8 @@ using namespace utils;
 namespace {
     void initialize() {
         logger::log("Comware Coder Proxy is initializing...");
+
+        ix::initNetSystem();
 
         ModuleProxy::Construct();
         Configurator::Construct();
@@ -42,6 +46,8 @@ namespace {
         ModificationManager::Destruct();
         Configurator::Destruct();
         ModuleProxy::Destruct();
+
+        ix::uninitNetSystem();
     }
 }
 
