@@ -68,8 +68,7 @@ void Modification::navigate(const Key key) {
         case Key::Up: {
             if (_lastPosition.line > 0) {
                 _lastPosition.addLine(-1);
-                if (const auto lineLength = _lineOffsets.at(_lastPosition.line - 1) -
-                                            _lineOffsets.at(_lastPosition.line) - 1;
+                if (const auto lineLength = _getLineLength(_lastPosition.line);
                     lineLength < _lastPosition.character) {
                     _lastPosition.character = lineLength;
                 }
@@ -77,27 +76,24 @@ void Modification::navigate(const Key key) {
             break;
         }
         case Key::Right: {
-            if (_lastPosition.line == _lineOffsets.size() - 1) {
-                if (_lastPosition.character < _content.size() - _lineOffsets.back()) {
-                    _lastPosition.addCharactor(1);
+            if (const auto lineLength = _getLineLength(_lastPosition.line);
+                _lastPosition.character == lineLength) {
+                if (_lastPosition.line < _lineOffsets.size() - 1) {
+                    _lastPosition.addLine(1);
+                    _lastPosition.character = 0;
                 }
             } else {
-                if (_lastPosition.character == _lineOffsets.at(_lastPosition.line + 1) -
-                    _lineOffsets.at(_lastPosition.line) - 1) {
-                    _lastPosition.character = 0;
-                    _lastPosition.addLine(1);
-                } else {
-                    _lastPosition.addCharactor(1);
-                }
+                _lastPosition.addCharactor(1);
             }
             break;
         }
         case Key::Down: {
             if (_lastPosition.line < _lineOffsets.size() - 1) {
-                if (_lastPosition.character < _content.size() - _lineOffsets.back()) {
-                    _lastPosition.addCharactor(1);
-                }
                 _lastPosition.addLine(1);
+                if (const auto lineLength = _getLineLength(_lastPosition.line);
+                    lineLength < _lastPosition.character) {
+                    _lastPosition.character = lineLength;
+                }
             }
             break;
         }
