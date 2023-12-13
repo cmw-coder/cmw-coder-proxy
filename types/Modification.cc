@@ -170,8 +170,8 @@ void Modification::_syncContent() {
 }
 
 uint32_t Modification::_getLineLength(const uint32_t lineIndex) const {
-    if (lineIndex == 0) {
-        return _lineOffsets.front();
+    if (lineIndex == _lineOffsets.size() - 1) {
+        return _content.length() - _lineOffsets.back();
     }
-    return _lineOffsets.at(lineIndex) - _lineOffsets.at(lineIndex - 1) - 1;
+    return _lineOffsets.at(lineIndex + 1) - _lineOffsets.at(lineIndex) - 1;
 }
