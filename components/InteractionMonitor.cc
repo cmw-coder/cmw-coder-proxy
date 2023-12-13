@@ -69,20 +69,21 @@ namespace {
     constexpr auto versionKey = "CMWCODER_version";
 }
 
-InteractionMonitor::InteractionMonitor() : _subKey(Configurator::GetInstance()->version().first == SiVersion::Major::V35
-                                                       ? R"(SOFTWARE\Source Dynamics\Source Insight\3.0)"
-                                                       : R"(SOFTWARE\Source Dynamics\Source Insight\4.0)"),
-                                           _keyHelper(Configurator::GetInstance()->version().first),
-                                           _processHandle(GetCurrentProcess(), CloseHandle),
-                                           _windowHookHandle(
-                                               SetWindowsHookEx(
-                                                   WH_CALLWNDPROC,
-                                                   _windowProcedureHook,
-                                                   nullptr,
-                                                   GetCurrentThreadId()
-                                               ),
-                                               UnhookWindowsHookEx
-                                           ) {
+InteractionMonitor::InteractionMonitor()
+    : _subKey(Configurator::GetInstance()->version().first == SiVersion::Major::V35
+                  ? R"(SOFTWARE\Source Dynamics\Source Insight\3.0)"
+                  : R"(SOFTWARE\Source Dynamics\Source Insight\4.0)"),
+      _keyHelper(Configurator::GetInstance()->version().first),
+      _processHandle(GetCurrentProcess(), CloseHandle),
+      _windowHookHandle(
+          SetWindowsHookEx(
+              WH_CALLWNDPROC,
+              _windowProcedureHook,
+              GetModuleHandle(nullptr),
+              GetCurrentThreadId()
+          ),
+          UnhookWindowsHookEx
+      ) {
     if (!_processHandle) {
         throw runtime_error("Failed to get Source Insight's process handle");
     }
