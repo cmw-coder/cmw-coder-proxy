@@ -16,11 +16,11 @@ void ModificationManager::addTab(const string& tabName, const string& path) {
 
 void ModificationManager::instantCaret(const std::any& data) {
     try {
-        const auto position = any_cast<CaretPosition>(data);
+        const auto [newCursorPosition, oldCursorPosition] = any_cast<tuple<CaretPosition, CaretPosition>>(data);
         unique_lock lock(_currentModificationMutex);
-        _modificationMap.at(_currentTabName).navigate(position);
+        _modificationMap.at(_currentTabName).navigate(newCursorPosition);
     } catch (const bad_any_cast& e) {
-        logger::log(format("Invalid instantNormal data: {}", e.what()));
+        logger::log(format("Invalid instantCaret data: {}", e.what()));
     }
     catch (out_of_range&) {
     }
@@ -39,12 +39,15 @@ void ModificationManager::instantEnter(const std::any&) {
 }
 
 void ModificationManager::instantNavigate(const std::any& data) {
+    if (!data.has_value()) {
+        return;
+    }
     try {
         const auto key = any_cast<Key>(data);
         unique_lock lock(_currentModificationMutex);
         _modificationMap.at(_currentTabName).navigate(key);
     } catch (const bad_any_cast& e) {
-        logger::log(format("Invalid instantNormal data: {}", e.what()));
+        logger::log(format("Invalid instantNavigate data: {}", e.what()));
     }
     catch (out_of_range&) {
     }

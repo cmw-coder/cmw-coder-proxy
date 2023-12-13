@@ -33,7 +33,7 @@ namespace {
 
         ModificationManager::GetInstance()->addTab(
             "main.c",
-            "C:/Users/particleg/Documents/Source Insight 4.0/Projects/FunctionTest/main.c"
+            "C:/Users/particleg/Documents/Source Insight/Projects/FunctionTest/main.c"
         );
     }
 

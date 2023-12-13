@@ -51,7 +51,7 @@ namespace components {
 
         void _monitorEditorInfo() const;
 
-        void _processWindowMessage(long lParam);
+        void _processWindowMessage(long lParam) const;
 
         void _retrieveProjectId(const std::string& project) const;
 

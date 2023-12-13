@@ -5,22 +5,20 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake"
         CACHE STRING "Vcpkg toolchain file")
-set(VCPKG_TARGET_TRIPLET "x86-windows-static")
 
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg.json VCPKG_JSON)
 string(JSON VERSION_STRING GET ${VCPKG_JSON} version-string)
 message(STATUS "Project version: ${VERSION_STRING}")
 
+set(USE_ZLIB OFF CACHE BOOL "Use zlib" FORCE)
+
 project(cmw-coder-proxy CXX)
 
-set(PROXY_MODULE_NAME "msimg32")
-
-add_compile_definitions(CMAKE_PROJECT_NAME="${PROJECT_NAME}")
-add_compile_definitions(PROXY_MODULE_NAME="${PROXY_MODULE_NAME}")
-add_compile_definitions(VERSION_STRING="${VERSION_STRING}")
-
-message("Platform arch: ${CMAKE_GENERATOR_PLATFORM}")
-
+if ("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4")
+    message("Architecture: i386")
+else ()
+    message(FATAL_ERROR "Platform arch is not supported")
+endif ()
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     add_compile_options(/MP /utf-8)
     add_compile_definitions(
@@ -29,9 +27,15 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
             NOGDI
             WIN32_LEAN_AND_MEAN
     )
-else()
+else ()
     message(FATAL_ERROR "Compiler is not supported")
 endif ()
+
+set(PROXY_MODULE_NAME "msimg32")
+
+add_compile_definitions(CMAKE_PROJECT_NAME="${PROJECT_NAME}")
+add_compile_definitions(PROXY_MODULE_NAME="${PROXY_MODULE_NAME}")
+add_compile_definitions(VERSION_STRING="${VERSION_STRING}")
 
 add_library(${PROXY_MODULE_NAME} SHARED proxy.cc main.cc)
 

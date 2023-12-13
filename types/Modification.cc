@@ -141,11 +141,13 @@ void Modification::remove() {
 
 void Modification::_syncContent() {
     thread([this, content = _content, path=path] {
-        const nlohmann::json requestBody = {
-            {"content", encode(content, crypto::Encoding::Base64)},
-            {"path", encode(path, crypto::Encoding::Base64)}
-        };
-        _wsHelper.send(requestBody.dump());
+        _wsHelper.sendAction(
+            WsHelper::Action::Sync,
+            {
+                {"content", encode(content, crypto::Encoding::Base64)},
+                {"path", encode(path, crypto::Encoding::Base64)}
+            }
+        );
         // try {
         //     if (const auto [status, responseBody] = HttpHelper(
         //             "http://localhost:3001",

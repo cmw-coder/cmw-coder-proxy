@@ -323,7 +323,7 @@ void InteractionMonitor::_monitorEditorInfo() const {
     }).detach();
 }
 
-void InteractionMonitor::_processWindowMessage(const long lParam) {
+void InteractionMonitor::_processWindowMessage(const long lParam) const {
     const auto windowProcData = reinterpret_cast<PCWPSTRUCT>(lParam);
     if (const auto currentWindow = reinterpret_cast<int64_t>(windowProcData->hwnd);
         window::getWindowClassName(currentWindow) == "si_Sw") {
