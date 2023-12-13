@@ -110,6 +110,7 @@ void Modification::navigate(const Key key) {
 void Modification::reload() {
     logger::debug(format("Reloading with path: '{}'", path));
     _content = fs::readFile(path);
+    _lineOffsets.clear();
     _syncContent();
     // Split content by '\n' or '\r\n' then store them in _content
     _lineOffsets.push_back(0);

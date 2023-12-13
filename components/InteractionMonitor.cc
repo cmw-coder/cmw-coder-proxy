@@ -109,7 +109,7 @@ InteractionMonitor::~InteractionMonitor() {
     _isRunning.store(false);
 }
 
-void InteractionMonitor::_handleKeycode(const Keycode keycode) const noexcept {
+void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
     if (_keyHelper.isPrintable(keycode)) {
         (void) WindowManager::GetInstance()->sendDoubleInsert();
         _handleInstantInteraction(Interaction::NormalInput, _keyHelper.toPrintable(keycode));
@@ -154,7 +154,7 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) const noexcept {
                     case Key::Up:
                     case Key::Right:
                     case Key::Down: {
-                        _handleInstantInteraction(Interaction::Navigate, key);
+                        _navigateBuffer.store(key);
                         break;
                     }
                     default: {
@@ -223,6 +223,13 @@ void InteractionMonitor::_monitorAutoCompletion() const {
 void InteractionMonitor::_monitorCursorPosition() {
     thread([this] {
         while (_isRunning.load()) {
+            if (const auto navigationBufferOpt = _navigateBuffer.load();
+                navigationBufferOpt.has_value()) {
+                _handleInstantInteraction(Interaction::Navigate, navigationBufferOpt.value());
+                _navigateBuffer.store(nullopt);
+                continue;
+            }
+
             CaretPosition newCursorPosition{};
             ReadProcessMemory(
                 _processHandle.get(),
@@ -323,7 +330,7 @@ void InteractionMonitor::_monitorEditorInfo() const {
     }).detach();
 }
 
-void InteractionMonitor::_processWindowMessage(const long lParam) const {
+void InteractionMonitor::_processWindowMessage(const long lParam) {
     const auto windowProcData = reinterpret_cast<PCWPSTRUCT>(lParam);
     if (const auto currentWindow = reinterpret_cast<int64_t>(windowProcData->hwnd);
         window::getWindowClassName(currentWindow) == "si_Sw") {

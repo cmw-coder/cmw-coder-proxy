@@ -35,11 +35,12 @@ namespace components {
         helpers::KeyHelper _keyHelper;
         std::atomic<bool> _isRunning{true};
         std::atomic<types::CaretPosition> _currentCursorPosition;
+        std::atomic<std::optional<types::Key>> _navigateBuffer;
         std::shared_ptr<void> _processHandle, _windowHookHandle;
         std::unordered_map<types::Interaction, std::vector<InstantCallBack>> _instantHandlers;
         uint32_t _cursorLineAddress, _cursorCharAddress;
 
-        void _handleKeycode(types::Keycode keycode) const noexcept;
+        void _handleKeycode(types::Keycode keycode) noexcept;
 
         void _handleInstantInteraction(types::Interaction interaction, const std::any& data = {}) const noexcept;
 
@@ -51,7 +52,7 @@ namespace components {
 
         void _monitorEditorInfo() const;
 
-        void _processWindowMessage(long lParam) const;
+        void _processWindowMessage(long lParam);
 
         void _retrieveProjectId(const std::string& project) const;
 
