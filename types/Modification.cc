@@ -32,6 +32,7 @@ void Modification::add(const char character) {
         );
         _lastPosition.addLine(1);
         _lastPosition.character = 0;
+        _lastPosition.maxCharacter = 0;
     } else {
         _lastPosition.addCharactor(1);
     }
@@ -63,6 +64,7 @@ void Modification::navigate(const Key key) {
                 _lastPosition.character = _getLineLength(_lastPosition.line - 1);
                 _lastPosition.addLine(-1);
             }
+
             break;
         }
         case Key::Up: {
@@ -71,6 +73,7 @@ void Modification::navigate(const Key key) {
                 if (const auto lineLength = _getLineLength(_lastPosition.line);
                     lineLength < _lastPosition.character) {
                     _lastPosition.character = lineLength;
+                    _lastPosition.character = min(lineLength, _lastPosition.maxCharacter);
                 }
             }
             break;
@@ -81,10 +84,12 @@ void Modification::navigate(const Key key) {
                 if (_lastPosition.line < _lineOffsets.size() - 1) {
                     _lastPosition.addLine(1);
                     _lastPosition.character = 0;
+                    _lastPosition.maxCharacter = 0;
                 }
             } else {
                 _lastPosition.addCharactor(1);
             }
+
             break;
         }
         case Key::Down: {
@@ -92,7 +97,7 @@ void Modification::navigate(const Key key) {
                 _lastPosition.addLine(1);
                 if (const auto lineLength = _getLineLength(_lastPosition.line);
                     lineLength < _lastPosition.character) {
-                    _lastPosition.character = lineLength;
+                    _lastPosition.character = min(lineLength, _lastPosition.maxCharacter);
                 }
             }
             break;

@@ -2,11 +2,12 @@
 
 using namespace types;
 
-CaretPosition::CaretPosition(const uint32_t character, const uint32_t line): character(character), line(line) {
+CaretPosition::CaretPosition(const uint32_t character, const uint32_t line): character(character), line(line), maxCharacter(line) {
 }
 
 CaretPosition& CaretPosition::addCharactor(const int64_t charactor) {
     this->character += charactor;
+    this->maxCharacter += charactor;
     return *this;
 }
 

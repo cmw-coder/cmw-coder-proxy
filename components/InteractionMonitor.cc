@@ -246,6 +246,7 @@ void InteractionMonitor::_monitorCursorPosition() {
                 sizeof(newCursorPosition.character),
                 nullptr
             );
+            newCursorPosition.maxCharacter = newCursorPosition.character;
             if (const auto oldCursorPosition = _currentCursorPosition.load();
                 oldCursorPosition != newCursorPosition) {
                 this->_currentCursorPosition.store(newCursorPosition);

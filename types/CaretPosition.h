@@ -7,6 +7,7 @@ namespace types {
     public:
         uint32_t character{};
         uint32_t line{};
+        uint32_t maxCharacter{};
 
         CaretPosition() = default;
 
