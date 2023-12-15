@@ -2,7 +2,8 @@
 
 using namespace types;
 
-CaretPosition::CaretPosition(const uint32_t character, const uint32_t line): character(character), line(line), maxCharacter(line) {
+CaretPosition::CaretPosition(const uint32_t character, const uint32_t line): character(character), line(line),
+                                                                             maxCharacter(line) {
 }
 
 CaretPosition& CaretPosition::addCharactor(const int64_t charactor) {
@@ -16,43 +17,43 @@ CaretPosition& CaretPosition::addLine(const int64_t line) {
     return *this;
 }
 
-bool CaretPosition::operator<(const CaretPosition&other) const {
+bool CaretPosition::operator<(const CaretPosition& other) const {
     return this->line < other.line || (this->line == other.line && this->character < other.character);
 }
 
-bool CaretPosition::operator<=(const CaretPosition&other) const {
+bool CaretPosition::operator<=(const CaretPosition& other) const {
     return this->line < other.line || (this->line == other.line && this->character <= other.character);
 }
 
-bool CaretPosition::operator==(const CaretPosition&other) const {
+bool CaretPosition::operator==(const CaretPosition& other) const {
     return this->line == other.line && this->character == other.character;
 }
 
-bool CaretPosition::operator!=(const CaretPosition&other) const {
+bool CaretPosition::operator!=(const CaretPosition& other) const {
     return this->line != other.line || this->character != other.character;
 }
 
-bool CaretPosition::operator>(const CaretPosition&other) const {
+bool CaretPosition::operator>(const CaretPosition& other) const {
     return this->line > other.line || (this->line == other.line && this->character > other.character);
 }
 
-bool CaretPosition::operator>=(const CaretPosition&other) const {
+bool CaretPosition::operator>=(const CaretPosition& other) const {
     return this->line > other.line || (this->line == other.line && this->character >= other.character);
 }
 
-CaretPosition& CaretPosition::operator+=(const CaretPosition&other) {
+CaretPosition& CaretPosition::operator+=(const CaretPosition& other) {
     return addCharactor(other.character).addLine(other.line);
 }
 
-CaretPosition& CaretPosition::operator-=(const CaretPosition&other) {
+CaretPosition& CaretPosition::operator-=(const CaretPosition& other) {
     return addCharactor(-other.character).addLine(-other.line);
 }
 
-CaretPosition types::operator+(const CaretPosition&lhs, const CaretPosition&rhs) {
+CaretPosition types::operator+(const CaretPosition& lhs, const CaretPosition& rhs) {
     return {lhs.character + rhs.character, lhs.line + rhs.line};
 }
 
-CaretPosition types::operator-(const CaretPosition&lhs, const CaretPosition&rhs) {
+CaretPosition types::operator-(const CaretPosition& lhs, const CaretPosition& rhs) {
     return {
         lhs.character < rhs.character ? 0 : lhs.character - rhs.character,
         lhs.line < rhs.line ? 0 : lhs.line - rhs.line

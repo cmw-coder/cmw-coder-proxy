@@ -14,13 +14,13 @@ namespace helpers {
             explicit HttpError(const char* message): runtime_error(message) {
             }
 
-            explicit HttpError(const std::string&message): runtime_error(message) {
+            explicit HttpError(const std::string& message): runtime_error(message) {
             }
         };
 
-        explicit HttpHelper(std::string&&host, const std::chrono::microseconds&timeout);
+        explicit HttpHelper(std::string&& host, const std::chrono::microseconds& timeout);
 
-        std::pair<int, nlohmann::json> post(const std::string&path, nlohmann::json&&body);
+        std::pair<int, nlohmann::json> post(const std::string& path, nlohmann::json&& body);
 
     private:
         httplib::Client _client;

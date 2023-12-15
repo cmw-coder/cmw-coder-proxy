@@ -11,7 +11,7 @@ using namespace std;
 using namespace utils;
 
 namespace {
-    constexpr uint64_t fileTime2Timestamp(const FILETIME&fileTile) {
+    constexpr uint64_t fileTime2Timestamp(const FILETIME& fileTile) {
         return static_cast<uint64_t>(fileTile.dwHighDateTime) << 32 | fileTile.dwLowDateTime & 0xFFFFFFFF;
     }
 }
@@ -31,7 +31,7 @@ string system::formatSystemMessage(const long errorCode) {
     return errorMessage.substr(0, errorMessageLength > 0 ? errorMessageLength - 1 : 0);
 }
 
-optional<string> system::deleteRegValue(const string&subKey, const string&valueName) {
+optional<string> system::deleteRegValue(const string& subKey, const string& valueName) {
     if (const auto deleteResult = RegDeleteKeyValue(HKEY_CURRENT_USER, subKey.c_str(), valueName.c_str());
         deleteResult != ERROR_SUCCESS) {
         return formatSystemMessage(deleteResult);
@@ -39,7 +39,7 @@ optional<string> system::deleteRegValue(const string&subKey, const string&valueN
     return nullopt;
 }
 
-optional<string> system::getEnvironmentVariable(const string&name) {
+optional<string> system::getEnvironmentVariable(const string& name) {
     constexpr auto valueLength = 32767;
     string value;
     value.resize(valueLength);
@@ -93,7 +93,7 @@ string system::getModuleFileName(const uint64_t moduleAddress) {
     return moduleFileName.substr(0, copiedSize);
 }
 
-optional<string> system::getRegValue(const string&subKey, const string&valueName) {
+optional<string> system::getRegValue(const string& subKey, const string& valueName) {
     HKEY hKey;
     if (const auto openResult = RegOpenKeyEx(HKEY_CURRENT_USER, subKey.c_str(), 0, KEY_QUERY_VALUE, &hKey);
         openResult != ERROR_SUCCESS) {
@@ -119,7 +119,7 @@ optional<string> system::getRegValue(const string&subKey, const string&valueName
     return nullopt;
 }
 
-string system::getSystemPath(const string&relativePath) {
+string system::getSystemPath(const string& relativePath) {
     auto systemDirectory = string(MAX_PATH, 0);
     const auto length = GetSystemDirectory(systemDirectory.data(), MAX_PATH);
     return systemDirectory.substr(0, length) + R"(\)" + relativePath;
@@ -163,11 +163,11 @@ tuple<int, int, int, int> system::getVersion() {
     return {};
 }
 
-void system::setEnvironmentVariable(const string&name, const string&value) {
+void system::setEnvironmentVariable(const string& name, const string& value) {
     SetEnvironmentVariable(name.c_str(), value.empty() ? nullptr : value.c_str());
 }
 
-void system::setRegValue(const string&subKey, const string&valueName, const string&value) {
+void system::setRegValue(const string& subKey, const string& valueName, const string& value) {
     if (const auto setResult = RegSetKeyValue(
         HKEY_CURRENT_USER,
         subKey.c_str(),
