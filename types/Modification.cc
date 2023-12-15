@@ -57,7 +57,7 @@ void Modification::add(string characters) {
             index = characters.find('\n', preindex);
             _lineOffsets.insert(
                 _lineOffsets.begin() + static_cast<int>(_lastPosition.line) + 1,
-                 index- preindex + 1
+                index - preindex + 1
             );
             preindex = index + 1;
         }
