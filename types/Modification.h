@@ -16,6 +16,8 @@ namespace types {
 
         void add(char character);
 
+        void add(std::string characters);
+
         void navigate(CaretPosition newPosition);
 
         void navigate(Key key);

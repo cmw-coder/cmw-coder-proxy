@@ -12,6 +12,8 @@
 #include <utils/logger.h>
 #include <utils/system.h>
 
+#include "ModificationManager.h"
+
 using namespace components;
 using namespace helpers;
 using namespace std;
@@ -93,7 +95,8 @@ void CompletionManager::instantAccept(const any&) {
         logger::log(format("Accepted completion: {}", oldCompletion.stringify()));
         thread(&CompletionManager::_reactToCompletion, this, move(oldCompletion), true).detach();
     } else {
-        _retrieveEditorInfo();
+        // _retrieveEditorInfo();
+        ModificationManager::GetInstance()->instantNavigate(Key::Tab);
     }
 }
 

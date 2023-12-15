@@ -2,6 +2,7 @@
 #include <ranges>
 #include <regex>
 #include <utility>
+#include <algorithm>
 
 #include <helpers/HttpHelper.h>
 #include <types/Modification.h>
@@ -13,6 +14,8 @@ using namespace helpers;
 using namespace std;
 using namespace types;
 using namespace utils;
+
+#define TAB  "    "
 
 Modification::Modification(string path): path(move(path)), _wsHelper("ws://127.0.0.1:3000") {
     reload();
@@ -39,12 +42,41 @@ void Modification::add(const char character) {
     _syncContent();
 }
 
+void Modification::add(string characters) {
+    logger::info(format("add string line {} char {}", _lastPosition.line, _lastPosition.character));
+    const auto charactorOffset = _lineOffsets.at(_lastPosition.line) + _lastPosition.character;
+    for (auto& offset : _lineOffsets | views::drop(_lastPosition.line + 1)) {
+        offset += characters.length();
+    }
+    _content.insert(charactorOffset, characters);
+    if (const auto lineCount = count(characters.begin(), characters.end(), '\n');
+        lineCount > 0) {
+        int index = 0;
+        int preindex = 0;
+        for (int count = 0; count < lineCount; count++) {
+            index = characters.find('\n', preindex);
+            _lineOffsets.insert(
+                _lineOffsets.begin() + static_cast<int>(_lastPosition.line) + 1,
+                 index- preindex + 1
+            );
+            preindex = index + 1;
+        }
+        _lastPosition.addLine(lineCount);
+    }
+    _lastPosition.addCharactor(characters.length());
+    _syncContent();
+}
+
 void Modification::navigate(const CaretPosition newPosition) {
     _lastPosition = newPosition;
 }
 
 void Modification::navigate(const Key key) {
     switch (key) {
+        case Key::Tab: {
+            add(TAB);
+            break;
+        }
         case Key::Home: {
             break;
         }
