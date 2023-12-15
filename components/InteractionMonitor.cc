@@ -74,6 +74,15 @@ InteractionMonitor::InteractionMonitor()
                   ? R"(SOFTWARE\Source Dynamics\Source Insight\3.0)"
                   : R"(SOFTWARE\Source Dynamics\Source Insight\4.0)"),
       _keyHelper(Configurator::GetInstance()->version().first),
+      _mouseHookHandle(
+          SetWindowsHookEx(
+              WH_MOUSE,
+              _windowProcedureHook,
+              GetModuleHandle(nullptr),
+              GetCurrentThreadId()
+          ),
+          UnhookWindowsHookEx
+      ),
       _processHandle(GetCurrentProcess(), CloseHandle),
       _windowHookHandle(
           SetWindowsHookEx(

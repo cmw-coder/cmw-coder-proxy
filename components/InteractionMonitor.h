@@ -36,7 +36,7 @@ namespace components {
         std::atomic<bool> _isRunning{true};
         std::atomic<types::CaretPosition> _currentCursorPosition;
         std::atomic<std::optional<types::Key>> _navigateBuffer;
-        std::shared_ptr<void> _processHandle, _windowHookHandle;
+        std::shared_ptr<void> _mouseHookHandle, _processHandle, _windowHookHandle;
         std::unordered_map<types::Interaction, std::vector<InstantCallBack>> _instantHandlers;
         uint32_t _cursorLineAddress, _cursorCharAddress;
 
