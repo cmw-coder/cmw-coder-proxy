@@ -270,7 +270,7 @@ void InteractionMonitor::_monitorDebugLog() const {
         while (_isRunning.load()) {
             if (const auto debugStringOpt = system::getEnvironmentVariable(debugLogKey);
                 debugStringOpt.has_value()) {
-                logger::debug(format("[SI] {}", debugStringOpt.value()));
+                logger::debug(format("[SI] {}", regex_replace(debugStringOpt.value(), regex("\\n"), "\n")));
                 system::setEnvironmentVariable(debugLogKey);
             }
             this_thread::sleep_for(chrono::milliseconds(1));

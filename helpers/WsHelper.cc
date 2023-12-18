@@ -7,6 +7,7 @@ using namespace helpers;
 using namespace ix;
 using namespace magic_enum;
 using namespace std;
+using namespace types;
 using namespace utils;
 
 WsHelper::WsHelper(std::string&& url, const std::chrono::seconds& pingInterval) {
@@ -20,7 +21,7 @@ WsHelper::WsHelper(std::string&& url, const std::chrono::seconds& pingInterval) 
     _client.start();
 }
 
-void WsHelper::sendAction(const Action action, nlohmann::json&& data) {
+void WsHelper::sendAction(const WsAction action, nlohmann::json&& data) {
     sendRaw(nlohmann::json{
         {"action", enum_name(action)},
         {"data", move(data)}

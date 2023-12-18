@@ -176,7 +176,7 @@ void Modification::remove() {
 void Modification::_syncContent() {
     thread([this, content = _content, path=path] {
         _wsHelper.sendAction(
-            WsHelper::Action::Sync,
+            WsAction::DebugSync,
             {
                 {"content", encode(content, crypto::Encoding::Base64)},
                 {"path", encode(path, crypto::Encoding::Base64)}
