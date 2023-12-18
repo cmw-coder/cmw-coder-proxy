@@ -22,24 +22,31 @@ Modification::Modification(string path): path(move(path)), _wsHelper("ws://127.0
 }
 
 void Modification::add(const char character) {
+    logger::info(format("add char line {} char {}", _lastPosition.line, _lastPosition.character));
+    const IndentType indentType = IndentType::Simple;
     const auto charactorOffset = _lineOffsets.at(_lastPosition.line) + _lastPosition.character;
-    string codeLine = "";
-    codeLine += character;
+    string codeLine = string("") + character;
     uint32_t insertPos = charactorOffset;
     if (character == '\n') {
         // Insert new line
-        const auto codeIndent = _getCodeIndent(_lastPosition.line, IndentType::Simple);
-        const auto lineContent = _getLineContent(_lastPosition.line);
+        const auto codeIndent = _getCodeIndent(_lastPosition.line, indentType);
+        // simple 中只有“\n   }\n”再回车后上一行就变成了"\n\n   }\n" 而不是"\n    \n    }\n"
+        if (indentType == IndentType::Simple) {
+            const auto lineContent = _getLineContent(_lastPosition.line);
+            const auto charIndex = lineContent.find_first_not_of(' ');
+            const auto offsets = _lineOffsets.at(_lastPosition.line) + charIndex;
+            if (lineContent.at(charIndex) == '}' && charactorOffset <= offsets) {
+                insertPos = insertPos - codeIndent.length();
+            } else {
+                codeLine = codeLine + codeIndent;
+            }
+        }
+
         _lineOffsets.insert(
             _lineOffsets.begin() + static_cast<int>(_lastPosition.line) + 1,
             charactorOffset + 1
         );
-        // simple 中只有“\n   }\n”再回车后上一行就变成了"\n\n   }\n" 而不是"\n    \n    }\n"
-        if (lineContent.at(lineContent.find_first_not_of(' ')) == '}') {
-            insertPos = insertPos - codeIndent.length();
-        } else {
-            codeLine = codeLine + codeIndent;
-        }
+
         _lastPosition.addLine(1);
         _lastPosition.character = codeIndent.length();
         _lastPosition.maxCharacter = codeIndent.length();
