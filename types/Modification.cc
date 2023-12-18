@@ -23,21 +23,32 @@ Modification::Modification(string path): path(move(path)), _wsHelper("ws://127.0
 
 void Modification::add(const char character) {
     const auto charactorOffset = _lineOffsets.at(_lastPosition.line) + _lastPosition.character;
-    for (auto& offset: _lineOffsets | views::drop(_lastPosition.line + 1)) {
-        offset += 1;
-    }
-    _content.insert(charactorOffset, 1, character);
+    string codeLine = "";
+    codeLine += character;
+    uint32_t insertPos = charactorOffset;
     if (character == '\n') {
         // Insert new line
+        const auto codeIndent = _getCodeIndent(_lastPosition.line, IndentType::Simple);
+        const auto lineContent = _getLineContent(_lastPosition.line);
         _lineOffsets.insert(
             _lineOffsets.begin() + static_cast<int>(_lastPosition.line) + 1,
             charactorOffset + 1
         );
+        // simple 中只有“\n   }\n”再回车后上一行就变成了"\n\n   }\n" 而不是"\n    \n    }\n"
+        if (lineContent.at(lineContent.find_first_not_of(' ')) == '}') {
+            insertPos = insertPos - codeIndent.length();
+        } else {
+            codeLine = codeLine + codeIndent;
+        }
         _lastPosition.addLine(1);
-        _lastPosition.character = 0;
-        _lastPosition.maxCharacter = 0;
+        _lastPosition.character = codeIndent.length();
+        _lastPosition.maxCharacter = codeIndent.length();
     } else {
         _lastPosition.addCharactor(1);
+    }
+    _content.insert(insertPos, codeLine);
+    for (auto& offset : _lineOffsets | views::drop(_lastPosition.line + 1)) {
+        offset += codeLine.length();
     }
     _syncContent();
 }
@@ -94,6 +105,7 @@ void Modification::navigate(const Key key) {
                 _lastPosition.addCharactor(-1);
             } else if (_lastPosition.line > 0) {
                 _lastPosition.character = _getLineLength(_lastPosition.line - 1);
+                _lastPosition.maxCharacter = _lastPosition.character;
                 _lastPosition.addLine(-1);
             }
 
@@ -207,4 +219,31 @@ uint32_t Modification::_getLineLength(const uint32_t lineIndex) const {
         return _content.length() - _lineOffsets.back();
     }
     return _lineOffsets.at(lineIndex + 1) - _lineOffsets.at(lineIndex) - 1;
+}
+
+string Modification::_getCodeIndent(const uint32_t lineIndex, const IndentType type) {
+    if (type == IndentType::None) {
+        return "";
+    } else if (type == IndentType::Simple) {
+        const auto lineContent = _getLineContent(lineIndex);
+        auto charIndex = lineContent.find_first_not_of(' ');
+        if (string::npos == charIndex) {
+            return lineContent;
+        } else if (0 == charIndex){
+            return "";
+        } else {
+            return string(charIndex, ' ');
+        }
+    } else if (type == IndentType::Smart) {
+        // TODO:support smart auto code indent type
+        return "";
+    } else {
+        return "";
+    }
+}
+
+string Modification::_getLineContent(uint32_t lineIndex) const {
+    const auto charactorStartOffset = _lineOffsets.at(lineIndex);
+    const auto lineLength = _getLineLength(lineIndex);
+    return _content.substr(charactorStartOffset, lineLength);
 }

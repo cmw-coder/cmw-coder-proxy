@@ -6,6 +6,7 @@
 #include <helpers/WsHelper.h>
 #include <types/CaretPosition.h>
 #include <types/Key.h>
+#include <types/CodeIndentType.h>
 
 namespace types {
     class Modification {
@@ -41,5 +42,7 @@ namespace types {
         void _syncContent();
 
         [[nodiscard]] uint32_t _getLineLength(uint32_t lineIndex) const;
+        [[nodiscard]] std::string _getCodeIndent(uint32_t lineIndex, IndentType type) ;
+        [[nodiscard]] std::string _getLineContent(uint32_t lineIndex) const;
     };
 }
