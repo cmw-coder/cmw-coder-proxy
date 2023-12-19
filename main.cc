@@ -87,6 +87,21 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 ModificationManager::GetInstance(),
                 &ModificationManager::instantNormal
             );
+            InteractionMonitor::GetInstance()->addInstantHandler(
+                Interaction::Select,
+                ModificationManager::GetInstance(),
+                &ModificationManager::instantSelect
+            );
+            InteractionMonitor::GetInstance()->addInstantHandler(
+                Interaction::ClearSelect,
+                ModificationManager::GetInstance(),
+                &ModificationManager::instantSelect
+            );
+            InteractionMonitor::GetInstance()->addInstantHandler(
+                Interaction::AcceptCompletion,
+                CompletionManager::GetInstance(),
+                &CompletionManager::instantAccept
+            );
 
             const auto mainThreadId = system::getMainThreadId();
             logger::log(std::format(

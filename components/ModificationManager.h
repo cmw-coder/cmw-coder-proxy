@@ -26,6 +26,10 @@ namespace components {
 
         void instantNormal(const std::any& data);
 
+        void instantSelect(const std::any& data);
+
+        void instantClearSelect(const std::any&);
+
         std::string getCurrentTabContent();
 
         void reloadTab();

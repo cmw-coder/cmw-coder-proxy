@@ -3,9 +3,7 @@
 //
 #pragma once
 
-#include <ostream>
 #include <any>
-
 #include <types/CaretPosition.h>
 
 namespace types {
@@ -38,5 +36,18 @@ namespace types {
     };
 }
 
+
+#include <format>
+#include <string>
+namespace std {
+    template <>
+    struct std::formatter<types::Range> : std::formatter<std::string> {
+        template <class FormatContext>
+        auto format(const types::Range& Range, FormatContext& context) {
+            std::string base_str = std::format("Start: {}, End: {}", Range.start, Range.end);
+            return formatter<std::string>::format(base_str, context);
+        }
+    };
+}
 
 

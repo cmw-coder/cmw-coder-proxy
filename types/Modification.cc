@@ -42,7 +42,7 @@ void Modification::add(const char character) {
     _syncContent();
 }
 
-void Modification::add(string characters) {
+void Modification::add(const string& characters) {
     logger::info(format("add string line {} char {}", _lastPosition.line, _lastPosition.character));
     const auto charactorOffset = _lineOffsets.at(_lastPosition.line) + _lastPosition.character;
     for (auto& offset : _lineOffsets | views::drop(_lastPosition.line + 1)) {
@@ -173,6 +173,53 @@ void Modification::remove() {
     _syncContent();
 }
 
+void Modification::select(const Range range) {
+    _lastSelect = range;
+}
+
+void Modification::clearSelect() {
+    _lastSelect = Range(0, 0, 0, 0);
+}
+
+bool Modification::isSelect() const {
+    return _lastSelect.isEmpty();
+}
+
+std::string Modification::getText(Range range) {
+    const auto [startOffset, endOffset] = _rangeToCharactorOffset(range);
+    auto content = _content.substr(startOffset, endOffset - startOffset);
+    return content;
+}
+
+void Modification::replace(const std::string& characters) {
+    remove(_lastSelect);
+    add(characters);
+}
+
+void Modification::remove(Range range) {
+    const auto [startOffset, endOffset] = _rangeToCharactorOffset(range);
+    const auto subContent = getText(range);
+    const auto subLength = endOffset - startOffset;
+    _content.erase(startOffset, endOffset - startOffset);
+    const auto enterCount = count(subContent.begin(), subContent.end(), '\n');
+
+    for (auto it = (_lineOffsets.begin() + static_cast<int>(range.start.line) + 1);
+         it != _lineOffsets.end(); it++) {
+        if (distance(_lineOffsets.begin(), it) <= subLength) {
+            _lineOffsets.erase(it);
+        } else {
+            *it -=subContent.length();
+        }
+    }
+    _lastPosition = range.start;
+    _lastPosition.maxCharacter = _lastPosition.character;
+    _syncContent();
+}
+
+void Modification::selectRemove() {
+    remove(_lastSelect);
+}
+
 void Modification::_syncContent() {
     thread([this, content = _content, path=path] {
         _wsHelper.sendAction(
@@ -207,4 +254,10 @@ uint32_t Modification::_getLineLength(const uint32_t lineIndex) const {
         return _content.length() - _lineOffsets.back();
     }
     return _lineOffsets.at(lineIndex + 1) - _lineOffsets.at(lineIndex) - 1;
+}
+
+pair<uint32_t, uint32_t> Modification::_rangeToCharactorOffset(Range range) const {
+    uint32_t startCharactorOffset = _lineOffsets.at(range.start.line) + range.start.character;
+    uint32_t endCharactorOffset = _lineOffsets.at(range.end.line) + range.end.character;
+    return make_pair(startCharactorOffset, endCharactorOffset);
 }

@@ -8,6 +8,7 @@
 #include <components/InteractionMonitor.h>
 #include <components/WindowManager.h>
 #include <types/SiVersion.h>
+#include <types/Range.h>
 #include <utils/crypto.h>
 #include <utils/inputbox.h>
 #include <utils/logger.h>
@@ -357,6 +358,7 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                 break;
             }
             case WM_MOUSEACTIVATE: {
+                logger::debug("WM_MOUSEACTIVATE");
                 _handleInstantInteraction(Interaction::Navigate);
                 break;
             }
@@ -380,21 +382,24 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
 void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
     switch (wParam) {
         case WM_LBUTTONDOWN: {
-            logger::info("WM_LBUTTONDOWN");
+            logger::debug("WM_LBUTTONDOWN");
             isLMDown.store(true);
             break;
         }
         case WM_LBUTTONUP: {
-            logger::info("WM_LBUTTONUP");
+            logger::debug("WM_LBUTTONUP");
             if(isLMDown.load() && (_downCursorPosition.load() != _currentCursorPosition.load())) {
                 auto selectRange = Range::Range(_downCursorPosition, _currentCursorPosition);
+                _handleInstantInteraction(Interaction::Select, selectRange);
+                logger::debug(format("Range: {}", selectRange));
+            } else {
+                _handleInstantInteraction(Interaction::ClearSelect);
             }
-
             isLMDown.store(false);
             break;
         }
         case WM_LBUTTONDBLCLK: {
-            logger::info("WM_LBUTTONDBLCLK");
+            logger::debug("WM_LBUTTONDBLCLK");
             break;
         }
         default: {

@@ -12,5 +12,7 @@ namespace types {
         Paste,
         Save,
         Undo,
+        Select,
+        ClearSelect,
     };
 }
