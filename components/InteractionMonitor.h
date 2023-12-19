@@ -33,8 +33,8 @@ namespace components {
     private:
         const std::string _subKey;
         helpers::KeyHelper _keyHelper;
-        std::atomic<bool> _isRunning{true};
-        std::atomic<types::CaretPosition> _currentCursorPosition;
+        std::atomic<bool> _isRunning{true}, isLMDown{false};
+        std::atomic<types::CaretPosition> _currentCursorPosition, _downCursorPosition;
         std::atomic<std::optional<types::Key>> _navigateBuffer;
         std::shared_ptr<void> _mouseHookHandle, _processHandle, _windowHookHandle;
         std::unordered_map<types::Interaction, std::vector<InstantCallBack>> _instantHandlers;
@@ -53,6 +53,8 @@ namespace components {
         void _monitorEditorInfo() const;
 
         void _processWindowMessage(long lParam);
+
+        void _processWindowMouse(unsigned int wParam);
 
         void _retrieveProjectId(const std::string& project) const;
 

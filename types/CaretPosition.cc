@@ -59,3 +59,8 @@ CaretPosition types::operator-(const CaretPosition& lhs, const CaretPosition& rh
         lhs.line < rhs.line ? 0 : lhs.line - rhs.line
     };
 }
+
+std::ostream& types::operator<<(std::ostream& os, const CaretPosition& caretPosition) {
+    os << "line: "<< caretPosition.line << " character: " << caretPosition.character << " maxCharacter: " << caretPosition.maxCharacter;
+    return os;
+}

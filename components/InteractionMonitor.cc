@@ -256,6 +256,10 @@ void InteractionMonitor::_monitorCursorPosition() {
                 nullptr
             );
             newCursorPosition.maxCharacter = newCursorPosition.character;
+            if (!isLMDown.load()) {
+                this->_downCursorPosition.store(newCursorPosition);
+            }
+
             if (const auto oldCursorPosition = _currentCursorPosition.load();
                 oldCursorPosition != newCursorPosition) {
                 this->_currentCursorPosition.store(newCursorPosition);
@@ -373,6 +377,33 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
     }
 }
 
+void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
+    switch (wParam) {
+        case WM_LBUTTONDOWN: {
+            logger::info("WM_LBUTTONDOWN");
+            isLMDown.store(true);
+            break;
+        }
+        case WM_LBUTTONUP: {
+            logger::info("WM_LBUTTONUP");
+            if(isLMDown.load() && (_downCursorPosition.load() != _currentCursorPosition.load())) {
+                auto selectRange = Range::Range(_downCursorPosition, _currentCursorPosition);
+            }
+
+            isLMDown.store(false);
+            break;
+        }
+        case WM_LBUTTONDBLCLK: {
+            logger::info("WM_LBUTTONDBLCLK");
+            break;
+        }
+        default: {
+            break;
+        }
+    }
+}
+
+
 void InteractionMonitor::_retrieveProjectId(const std::string& project) const {
     const auto projectListKey = _subKey + "\\Project List";
     const auto projectHash = crypto::sha1(project);
@@ -396,5 +427,6 @@ void InteractionMonitor::_retrieveProjectId(const std::string& project) const {
 
 long InteractionMonitor::_windowProcedureHook(const int nCode, const unsigned int wParam, const long lParam) {
     GetInstance()->_processWindowMessage(lParam);
+    GetInstance()->_processWindowMouse(wParam);
     return CallNextHookEx(nullptr, nCode, wParam, lParam);
 }
