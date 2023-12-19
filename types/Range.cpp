@@ -77,7 +77,3 @@ Range Range::intersection(const Range& other) const {
     };
 }
 
-std::ostream& types::operator<<(std::ostream& os, const Range& range) {
-    os << range.start << " " << range.end;
-    return os;
-}

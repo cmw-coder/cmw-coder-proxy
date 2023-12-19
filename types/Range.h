@@ -35,7 +35,6 @@ namespace types {
         // 交集
         [[nodiscard]] Range intersection(const Range& other) const;
 
-        friend std::ostream& operator<<(std::ostream& os, const Range& range);
     };
 }
 

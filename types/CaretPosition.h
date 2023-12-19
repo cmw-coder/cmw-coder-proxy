@@ -37,7 +37,5 @@ namespace types {
         friend CaretPosition operator+(const CaretPosition&lhs, const CaretPosition&rhs);
 
         friend CaretPosition operator-(const CaretPosition&lhs, const CaretPosition&rhs);
-
-        friend std::ostream& operator<<(std::ostream& os, const CaretPosition& caretPosition);
     };
 }
