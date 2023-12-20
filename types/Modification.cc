@@ -182,7 +182,7 @@ void Modification::clearSelect() {
 }
 
 bool Modification::isSelect() const {
-    return _lastSelect.isEmpty();
+    return !_lastSelect.isEmpty();
 }
 
 std::string Modification::getText(Range range) {
@@ -194,6 +194,7 @@ std::string Modification::getText(Range range) {
 void Modification::replace(const std::string& characters) {
     remove(_lastSelect);
     add(characters);
+    clearSelect();
 }
 
 void Modification::remove(Range range) {
@@ -207,8 +208,13 @@ void Modification::remove(Range range) {
          it != _lineOffsets.end(); it++) {
         if (distance(_lineOffsets.begin(), it) <= subLength) {
             _lineOffsets.erase(it);
+         it != _lineOffsets.end();) {
+        if (distance(_lineOffsets.begin(), it) <= enterCount) {
+            it = _lineOffsets.erase(it);
+            continue;
         } else {
             *it -=subContent.length();
+            it++;
         }
     }
     _lastPosition = range.start;
@@ -218,6 +224,7 @@ void Modification::remove(Range range) {
 
 void Modification::selectRemove() {
     remove(_lastSelect);
+    clearSelect();
 }
 
 void Modification::_syncContent() {

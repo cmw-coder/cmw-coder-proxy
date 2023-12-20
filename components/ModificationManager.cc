@@ -63,7 +63,7 @@ void ModificationManager::instantNormal(const any& data) {
         const auto keycode = any_cast<char>(data);
         unique_lock lock(_currentModificationMutex);
         if (_modificationMap.at(_currentTabName).isSelect()) {
-            _modificationMap.at(_currentTabName).replace(to_string(keycode));
+            _modificationMap.at(_currentTabName).replace(string(1,keycode));
         } else {
             _modificationMap.at(_currentTabName).add(keycode);
         }
@@ -81,7 +81,7 @@ void ModificationManager::instantSelect(const std::any& data) {
         unique_lock lock(_currentModificationMutex);
         _modificationMap.at(_currentTabName).select(range);
     } catch (const bad_any_cast& e) {
-        logger::log(format("Invalid instantNormal data: {}", e.what()));
+        logger::log(format("Invalid instantSelect data: {}", e.what()));
     }
     catch (out_of_range&) {
     }
@@ -92,7 +92,7 @@ void ModificationManager::instantClearSelect(const std::any&) {
         unique_lock lock(_currentModificationMutex);
         _modificationMap.at(_currentTabName).clearSelect();
     } catch (const bad_any_cast& e) {
-        logger::log(format("Invalid instantNormal data: {}", e.what()));
+        logger::log(format("Invalid instantClearSelect data: {}", e.what()));
     }
     catch (out_of_range&) {
     }
