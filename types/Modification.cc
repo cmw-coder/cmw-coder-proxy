@@ -205,9 +205,6 @@ void Modification::remove(Range range) {
     const auto enterCount = count(subContent.begin(), subContent.end(), '\n');
 
     for (auto it = (_lineOffsets.begin() + static_cast<int>(range.start.line) + 1);
-         it != _lineOffsets.end(); it++) {
-        if (distance(_lineOffsets.begin(), it) <= subLength) {
-            _lineOffsets.erase(it);
          it != _lineOffsets.end();) {
         if (distance(_lineOffsets.begin(), it) <= enterCount) {
             it = _lineOffsets.erase(it);
