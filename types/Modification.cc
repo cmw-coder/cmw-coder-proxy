@@ -192,12 +192,14 @@ std::string Modification::getText(Range range) {
 }
 
 void Modification::replace(const std::string& characters) {
-    remove(_lastSelect);
-    add(characters);
+    const auto selectRange = _lastSelect;
     clearSelect();
+    remove(selectRange);
+    add(characters);
+    _syncContent();
 }
 
-void Modification::remove(Range range) {
+void Modification::remove(const Range range) {
     const auto [startOffset, endOffset] = _rangeToCharactorOffset(range);
     const auto subContent = getText(range);
     const auto subLength = endOffset - startOffset;
@@ -222,6 +224,7 @@ void Modification::remove(Range range) {
 void Modification::selectRemove() {
     remove(_lastSelect);
     clearSelect();
+    _syncContent();
 }
 
 void Modification::_syncContent() {
@@ -262,6 +265,12 @@ uint32_t Modification::_getLineLength(const uint32_t lineIndex) const {
 
 pair<uint32_t, uint32_t> Modification::_rangeToCharactorOffset(Range range) const {
     uint32_t startCharactorOffset = _lineOffsets.at(range.start.line) + range.start.character;
-    uint32_t endCharactorOffset = _lineOffsets.at(range.end.line) + range.end.character;
+    uint32_t endCharactorOffset;
+    if (range.end.character == 4096) {
+        endCharactorOffset =  _lineOffsets.at(range.end.line) + _getLineLength(range.end.line) + 1;
+    } else {
+        endCharactorOffset = _lineOffsets.at(range.end.line) + range.end.character;
+    }
+
     return make_pair(startCharactorOffset, endCharactorOffset);
 }

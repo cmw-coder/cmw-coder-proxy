@@ -49,6 +49,13 @@ namespace {
             }
         },
     };
+    const unordered_map<SiVersion::Major, unordered_map<SiVersion::Minor, tuple<uint64_t, uint64_t, uint64_t, uint64_t>>> selectAddressMap = {
+        {
+            SiVersion::Major::V35, {
+                    {SiVersion::Minor::V0086, {0x1BE0CC, 0x1C574C, 0x1E3B9C, 0x1E3BA4}}
+            }
+        },
+    };
 
     constexpr auto convertLineEndings = [](const std::string& input) {
         return regex_replace(input, regex(R"(\\r\\n)"), "\r\n");
@@ -106,6 +113,12 @@ InteractionMonitor::InteractionMonitor()
         const auto [lineOffset, charOffset] = addressMap.at(majorVersion).at(minorVersion);
         _cursorLineAddress = baseAddress + lineOffset;
         _cursorCharAddress = baseAddress + charOffset;
+        const auto [startLineOffset, startCharOffset, endLineOffset, endCharOffset] =
+            selectAddressMap.at(majorVersion).at(minorVersion);
+        _cursorStartLineAddress = baseAddress + startLineOffset;
+        _cursorStartCharAddress = baseAddress + startCharOffset;
+        _cursorEndLineAddress = baseAddress + endLineOffset;
+        _cursorEndCharAddress = baseAddress + endCharOffset;
     } catch (out_of_range& e) {
         throw runtime_error(format("Unsupported Source Insight Version: ", e.what()));
     }
@@ -237,6 +250,42 @@ void InteractionMonitor::_monitorAutoCompletion() const {
     }).detach();
 }
 
+Range InteractionMonitor::_monitorCursorSelect() {
+    Range select{};
+    CaretPosition Position;
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_cursorStartLineAddress),
+        &Position.line,
+        sizeof(Position.line),
+        nullptr
+    );
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_cursorStartCharAddress),
+        &Position.character,
+        sizeof(Position.character),
+        nullptr
+    );
+    select.start = Position;
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_cursorEndLineAddress),
+        &Position.line,
+        sizeof(Position.line),
+        nullptr
+    );
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_cursorEndCharAddress),
+        &Position.character,
+        sizeof(Position.character),
+        nullptr
+    );
+    select.end = Position;
+    return select;
+}
+
 void InteractionMonitor::_monitorCursorPosition() {
     thread([this] {
         while (_isRunning.load()) {
@@ -263,10 +312,6 @@ void InteractionMonitor::_monitorCursorPosition() {
                 nullptr
             );
             newCursorPosition.maxCharacter = newCursorPosition.character;
-            if (!isLMDown.load()) {
-                this->_downCursorPosition.store(newCursorPosition);
-            }
-
             if (const auto oldCursorPosition = _currentCursorPosition.load();
                 oldCursorPosition != newCursorPosition) {
                 this->_currentCursorPosition.store(newCursorPosition);
@@ -365,6 +410,7 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
             }
             case WM_MOUSEACTIVATE: {
                 logger::debug("WM_MOUSEACTIVATE");
+                isSelect.store(false);
                 _handleInstantInteraction(Interaction::Navigate);
                 break;
             }
@@ -389,15 +435,25 @@ void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
     switch (wParam) {
         case WM_LBUTTONDOWN: {
             logger::debug("WM_LBUTTONDOWN");
-            isLMDown.store(true);
+            if (!isLMDown.load()) {
+                isLMDown.store(true);
+            }
+            break;
+        }
+        case WM_MOUSEMOVE: {
+            if (isLMDown.load()) {
+                logger::debug("WM_MOUSESELECT");
+                isSelect.store(true);
+            }
             break;
         }
         case WM_LBUTTONUP: {
             logger::debug("WM_LBUTTONUP");
             if(isLMDown.load() && (_downCursorPosition.load() != _currentCursorPosition.load())) {
                 auto selectRange = Range::Range(_downCursorPosition, _currentCursorPosition);
+            if (isSelect.load()) {
+                auto selectRange = _monitorCursorSelect();
                 _handleInstantInteraction(Interaction::Select, selectRange);
-                logger::debug(format("Range: {}", selectRange));
             } else {
                 _handleInstantInteraction(Interaction::ClearSelect);
             }
@@ -405,6 +461,7 @@ void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
             break;
         }
         case WM_LBUTTONDBLCLK: {
+            isSelect.store(true);
             logger::debug("WM_LBUTTONDBLCLK");
             break;
         }

@@ -8,7 +8,6 @@
 #include <types/CaretPosition.h>
 #include <types/Key.h>
 #include <types/Range.h>
-#include <types/CodeIndentType.h>
 
 
 namespace types {

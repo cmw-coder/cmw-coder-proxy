@@ -11,6 +11,7 @@
 #include <types/common.h>
 #include <types/CaretPosition.h>
 #include <types/Interaction.h>
+#include <types/Range.h>
 
 namespace components {
     class InteractionMonitor : public SingletonDclp<InteractionMonitor> {
@@ -39,6 +40,7 @@ namespace components {
         std::shared_ptr<void> _mouseHookHandle, _processHandle, _windowHookHandle;
         std::unordered_map<types::Interaction, std::vector<InstantCallBack>> _instantHandlers;
         uint32_t _cursorLineAddress, _cursorCharAddress;
+        uint32_t _cursorStartLineAddress, _cursorStartCharAddress, _cursorEndLineAddress, _cursorEndCharAddress;
 
         void _handleKeycode(types::Keycode keycode) noexcept;
 
@@ -57,6 +59,8 @@ namespace components {
         void _processWindowMouse(unsigned int wParam);
 
         void _retrieveProjectId(const std::string& project) const;
+
+        types::Range _monitorCursorSelect();
 
         static long __stdcall _windowProcedureHook(int nCode, unsigned int wParam, long lParam);
     };
