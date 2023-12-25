@@ -124,6 +124,7 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
     if (_keyHelper.isPrintable(keycode)) {
         (void) WindowManager::GetInstance()->sendDoubleInsert();
         _handleInstantInteraction(Interaction::NormalInput, _keyHelper.toPrintable(keycode));
+        isSelect.store(false);
         return;
     }
 
@@ -136,14 +137,17 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                     case Key::BackSpace: {
                         (void) WindowManager::GetInstance()->sendDoubleInsert();
                         _handleInstantInteraction(Interaction::DeleteInput);
+                        isSelect.store(false);
                         break;
                     }
                     case Key::Tab: {
                         _handleInstantInteraction(Interaction::AcceptCompletion);
+                        // 在select状态下会继续扩展
                         break;
                     }
                     case Key::Enter: {
                         _handleInstantInteraction(Interaction::EnterInput);
+                        isSelect.store(false);
                         break;
                     }
                     case Key::Escape: {
@@ -166,6 +170,8 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                     case Key::Right:
                     case Key::Down: {
                         _navigateBuffer.store(key);
+                        isSelect.store(false);
+                        _handleInstantInteraction(Interaction::ClearSelect);
                         break;
                     }
                     default: {

@@ -201,7 +201,7 @@ void Modification::remove(Range range) {
     const auto [startOffset, endOffset] = _rangeToCharactorOffset(range);
     const auto subContent = getText(range);
     const auto subLength = endOffset - startOffset;
-    _content.erase(startOffset, endOffset - startOffset);
+    _content.erase(startOffset, subLength);
     const auto enterCount = count(subContent.begin(), subContent.end(), '\n');
 
     for (auto it = (_lineOffsets.begin() + static_cast<int>(range.start.line) + 1);

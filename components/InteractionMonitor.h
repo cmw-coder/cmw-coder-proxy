@@ -33,7 +33,7 @@ namespace components {
     private:
         const std::string _subKey;
         helpers::KeyHelper _keyHelper;
-        std::atomic<bool> _isRunning{true}, isLMDown{false};
+        std::atomic<bool> _isRunning{true}, isLMDown{false}, isChange{true}, isSelect{false};
         std::atomic<types::CaretPosition> _currentCursorPosition, _downCursorPosition;
         std::atomic<std::optional<types::Key>> _navigateBuffer;
         std::shared_ptr<void> _mouseHookHandle, _processHandle, _windowHookHandle;
