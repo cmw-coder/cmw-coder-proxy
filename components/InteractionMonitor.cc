@@ -449,8 +449,6 @@ void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
         }
         case WM_LBUTTONUP: {
             logger::debug("WM_LBUTTONUP");
-            if(isLMDown.load() && (_downCursorPosition.load() != _currentCursorPosition.load())) {
-                auto selectRange = Range::Range(_downCursorPosition, _currentCursorPosition);
             if (isSelect.load()) {
                 auto selectRange = _monitorCursorSelect();
                 _handleInstantInteraction(Interaction::Select, selectRange);
