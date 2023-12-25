@@ -74,7 +74,12 @@ void Modification::navigate(const CaretPosition newPosition) {
 void Modification::navigate(const Key key) {
     switch (key) {
         case Key::Tab: {
-            add(TAB);
+            if (isSelect()) {
+                const auto selectContent = _getSelectTabContent(_lastSelect);
+                replace(_lastSelect, selectContent);
+            } else {
+                add(TAB);
+            }
             break;
         }
         case Key::Home: {
@@ -199,13 +204,18 @@ void Modification::replace(const std::string& characters) {
     _syncContent();
 }
 
+void Modification::replace(const Range selectRange, const std::string& characters) {
+    remove(selectRange);
+    add(characters);
+    _syncContent();
+}
+
 void Modification::remove(const Range range) {
     const auto [startOffset, endOffset] = _rangeToCharactorOffset(range);
     const auto subContent = getText(range);
     const auto subLength = endOffset - startOffset;
     _content.erase(startOffset, subLength);
     const auto enterCount = count(subContent.begin(), subContent.end(), '\n');
-
     for (auto it = (_lineOffsets.begin() + static_cast<int>(range.start.line) + 1);
          it != _lineOffsets.end();) {
         if (distance(_lineOffsets.begin(), it) <= enterCount) {
@@ -273,4 +283,24 @@ pair<uint32_t, uint32_t> Modification::_rangeToCharactorOffset(Range range) cons
     }
 
     return make_pair(startCharactorOffset, endCharactorOffset);
+}
+
+std::string Modification::_getSelectTabContent(const Range range) {
+    string selectcontent = "";
+    const auto Content = getText(range);
+    if (const auto lineCount = count(Content.begin(), Content.end(), '\n');
+        lineCount >= 0) {
+        int index = 0;
+        int preindex = 0;
+        for (int count = 0; count <= lineCount; count++) {
+            index = Content.find('\n', preindex);
+            auto subContent = Content.substr(preindex, index-preindex);
+            selectcontent += TAB + subContent;
+            preindex = index + 1;
+            if (count < lineCount) {
+                selectcontent += "\n";
+            }
+        }
+    }
+    return selectcontent;
 }

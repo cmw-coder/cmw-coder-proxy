@@ -41,6 +41,8 @@ namespace types {
 
         void replace(const std::string& characters);
 
+        void replace(Range selectRange, const std::string& characters);
+
         [[nodiscard]] std::string getText(Range range);
 
         // bool modifySingle(Type type, CaretPosition modifyPosition, char character = {});
@@ -60,5 +62,6 @@ namespace types {
 
         [[nodiscard]] uint32_t _getLineLength(uint32_t lineIndex) const;
         [[nodiscard]] std::pair<uint32_t, uint32_t> _rangeToCharactorOffset(Range range) const;
+        std::string _getSelectTabContent(Range range);
     };
 }
