@@ -38,11 +38,11 @@ namespace types {
 
         void remove();
 
-        void remove(Range range);
+        void remove(const Range& range);
 
         void selectRemove();
 
-        void select(Range range);
+        void select(const Range& range);
 
         void clearSelect();
 
@@ -50,9 +50,9 @@ namespace types {
 
         void replace(const std::string& characters);
 
-        void replace(Range selectRange, const std::string& characters);
+        void replace(const Range& selectRange, const std::string& characters);
 
-        [[nodiscard]] std::string getText(Range range);
+        [[nodiscard]] std::string getText(const Range& range) const;
 
         // bool modifySingle(Type type, CaretPosition modifyPosition, char character = {});
 
@@ -71,9 +71,9 @@ namespace types {
 
         [[nodiscard]] uint32_t _getLineLength(uint32_t lineIndex) const;
 
-        [[nodiscard]] std::pair<uint32_t, uint32_t> _rangeToCharactorOffset(Range range) const;
+        [[nodiscard]] std::pair<uint32_t, uint32_t> _rangeToCharactorOffset(const Range& range) const;
 
-        std::string _getSelectTabContent(Range range);
+        [[nodiscard]] std::string _getSelectTabContent(const Range& range) const;
 
         [[nodiscard]] std::pair<uint32_t, uint32_t> _getLineRange(uint32_t lineIndex) const;
 

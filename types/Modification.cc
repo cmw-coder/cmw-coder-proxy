@@ -56,7 +56,7 @@ void Modification::add(const char character) {
         _lastPosition.addLine(1);
 
         switch (indentType) {
-            case IndentType::None: {
+            /*case IndentType::None: {
                 _lastPosition.character = 0;
                 _lastPosition.maxCharacter = 0;
                 _content.insert(charactorOffset, 1, character);
@@ -64,7 +64,7 @@ void Modification::add(const char character) {
                     offset += 1;
                 }
                 break;
-            }
+            }*/
             case IndentType::Simple: {
                 // Insert new line and indent
                 const auto insertContent = string(1, character).append(string(currentLineIndent, ' '));
@@ -86,8 +86,12 @@ void Modification::add(const char character) {
                 }
                 break;
             }
-            case IndentType::Smart: {
+            /*case IndentType::Smart: {
                 // TODO: Implement smart indent
+                break;
+            }*/
+            default: {
+                // ReSharper disable once CppDFAUnreachableCode
                 break;
             }
         }
@@ -105,7 +109,7 @@ void Modification::add(const char character) {
  * @brief Adds a string of characters to the content at the current position.
  * @param characters The string of characters to be added.
  */
-void Modification::add(const std::string& characters) {
+void Modification::add(const string& characters) {
     logger::info(format("Add string at ({}, {})", _lastPosition.line, _lastPosition.character));
     const auto charactorOffset = _lineOffsets.at(_lastPosition.line) + _lastPosition.character;
     for (auto& offset: _lineOffsets | views::drop(_lastPosition.line + 1)) {
@@ -256,7 +260,7 @@ void Modification::remove() {
     _syncContent();
 }
 
-void Modification::select(const Range range) {
+void Modification::select(const Range& range) {
     _lastSelect = range;
 }
 
@@ -268,13 +272,13 @@ bool Modification::isSelect() const {
     return !_lastSelect.isEmpty();
 }
 
-std::string Modification::getText(Range range) {
+string Modification::getText(const Range& range) const {
     const auto [startOffset, endOffset] = _rangeToCharactorOffset(range);
     auto content = _content.substr(startOffset, endOffset - startOffset);
     return content;
 }
 
-void Modification::replace(const std::string& characters) {
+void Modification::replace(const string& characters) {
     const auto selectRange = _lastSelect;
     clearSelect();
     remove(selectRange);
@@ -282,26 +286,25 @@ void Modification::replace(const std::string& characters) {
     _syncContent();
 }
 
-void Modification::replace(const Range selectRange, const std::string& characters) {
+void Modification::replace(const Range& selectRange, const string& characters) {
     remove(selectRange);
     add(characters);
     _syncContent();
 }
 
-void Modification::remove(const Range range) {
+void Modification::remove(const Range& range) {
     const auto [startOffset, endOffset] = _rangeToCharactorOffset(range);
     const auto subContent = getText(range);
     const auto subLength = endOffset - startOffset;
     _content.erase(startOffset, subLength);
-    const auto enterCount = count(subContent.begin(), subContent.end(), '\n');
+    const auto enterCount = ranges::count(subContent, '\n');
     for (auto it = (_lineOffsets.begin() + static_cast<int>(range.start.line) + 1);
          it != _lineOffsets.end();) {
         if (distance(_lineOffsets.begin(), it) <= enterCount) {
             it = _lineOffsets.erase(it);
-            continue;
         } else {
             *it -=subContent.length();
-            it++;
+            ++it;
         }
     }
     _lastPosition = range.start;
@@ -373,14 +376,7 @@ void Modification::_syncContent() {
     }).detach();
 }
 
-uint32_t Modification::_getLineLength(const uint32_t lineIndex) const {
-    if (lineIndex == _lineOffsets.size() - 1) {
-        return _content.length() - _lineOffsets.back();
-    }
-    return _lineOffsets.at(lineIndex + 1) - _lineOffsets.at(lineIndex) - 1;
-}
-
-pair<uint32_t, uint32_t> Modification::_rangeToCharactorOffset(Range range) const {
+pair<uint32_t, uint32_t> Modification::_rangeToCharactorOffset(const Range& range) const {
     uint32_t startCharactorOffset = _lineOffsets.at(range.start.line) + range.start.character;
     uint32_t endCharactorOffset;
     if (range.end.character == 4096) {
@@ -392,17 +388,16 @@ pair<uint32_t, uint32_t> Modification::_rangeToCharactorOffset(Range range) cons
     return make_pair(startCharactorOffset, endCharactorOffset);
 }
 
-std::string Modification::_getSelectTabContent(const Range range) {
-    string selectcontent = "";
+string Modification::_getSelectTabContent(const Range& range) const {
+    string selectcontent;
     const auto Content = getText(range);
-    if (const auto lineCount = count(Content.begin(), Content.end(), '\n');
+    if (const auto lineCount = ranges::count(Content, '\n');
         lineCount >= 0) {
-        int index = 0;
-        int preindex = 0;
+        uint32_t preindex = 0;
         for (int count = 0; count <= lineCount; count++) {
-            index = Content.find('\n', preindex);
+            const auto index = Content.find('\n', preindex);
             auto subContent = Content.substr(preindex, index-preindex);
-            selectcontent += TAB + subContent;
+            selectcontent += tabString + subContent;
             preindex = index + 1;
             if (count < lineCount) {
                 selectcontent += "\n";
