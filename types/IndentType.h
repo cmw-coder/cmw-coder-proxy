@@ -5,7 +5,7 @@
 #pragma once
 
 namespace types {
-    enum class IndentType{
+    enum class IndentType {
         None,
         Simple,
         Smart

@@ -1,3 +1,8 @@
+/**
+ * @file Modification.h
+ * @brief Contains the Modification class which is used to modify a file's content.
+ */
+
 #pragma once
 
 #include <string>
@@ -6,9 +11,12 @@
 #include <helpers/WsHelper.h>
 #include <types/CaretPosition.h>
 #include <types/Key.h>
-#include <types/CodeIndentType.h>
 
 namespace types {
+    /**
+     * @class Modification
+     * @brief A class to record modifications of a file's content.
+     */
     class Modification {
     public:
         const std::string path;
@@ -19,7 +27,7 @@ namespace types {
 
         void add(std::string characters);
 
-        void navigate(CaretPosition newPosition);
+        void navigate(const CaretPosition& newPosition);
 
         void navigate(Key key);
 
@@ -39,10 +47,12 @@ namespace types {
         std::string _content;
         std::vector<uint32_t> _lineOffsets;
 
-        void _syncContent();
+        [[nodiscard]] uint32_t _getLineIndent(uint32_t lineIndex) const;
 
         [[nodiscard]] uint32_t _getLineLength(uint32_t lineIndex) const;
-        [[nodiscard]] std::string _getCodeIndent(uint32_t lineIndex, IndentType type) ;
-        [[nodiscard]] std::string _getLineContent(uint32_t lineIndex) const;
+
+        [[nodiscard]] std::pair<uint32_t, uint32_t> _getLineRange(uint32_t lineIndex) const;
+
+        void _syncContent();
     };
 }

@@ -7,7 +7,7 @@ namespace helpers {
     class WsHelper {
     public:
         enum class Action {
-            Sync
+            DebugSync
         };
 
         explicit WsHelper(std::string&& url, const std::chrono::seconds& pingInterval = std::chrono::seconds{30});
