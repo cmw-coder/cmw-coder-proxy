@@ -1,3 +1,8 @@
+/**
+ * @file Modification.cc
+ * @brief Contains the implementation of the Modification class which is used to modify a file's content.
+ */
+
 #include <magic_enum.hpp>
 #include <ranges>
 #include <regex>
@@ -5,6 +10,7 @@
 #include <algorithm>
 
 #include <helpers/HttpHelper.h>
+#include <types/IndentType.h>
 #include <types/Modification.h>
 #include <utils/crypto.h>
 #include <utils/fs.h>
@@ -15,46 +21,102 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
-#define TAB  "    "
+namespace {
+    /**
+     * @brief A constant string representing a tab.
+     */
+    constexpr auto tabString = "    ";
+}
 
+/**
+ * @brief Constructs a new Modification object.
+ * @param path The path to the file to be recorded.
+ */
 Modification::Modification(string path): path(move(path)), _wsHelper("ws://127.0.0.1:3000") {
     reload();
 }
 
+/**
+ * @brief Adds a character to the content at the current position.
+ * @param character The character to be added.
+ */
 void Modification::add(const char character) {
+    logger::info(format("Add character at ({}, {})", _lastPosition.line, _lastPosition.character));
+    // TODO: Get indent type from config
+    constexpr auto indentType = IndentType::Simple;
     const auto charactorOffset = _lineOffsets.at(_lastPosition.line) + _lastPosition.character;
-    for (auto& offset: _lineOffsets | views::drop(_lastPosition.line + 1)) {
-        offset += 1;
-    }
-    _content.insert(charactorOffset, 1, character);
     if (character == '\n') {
         // Insert new line
+        const auto currentLineIndent = _getLineIndent(_lastPosition.line);
+
         _lineOffsets.insert(
             _lineOffsets.begin() + static_cast<int>(_lastPosition.line) + 1,
             charactorOffset + 1
         );
         _lastPosition.addLine(1);
-        _lastPosition.character = 0;
-        _lastPosition.maxCharacter = 0;
+
+        switch (indentType) {
+            case IndentType::None: {
+                _lastPosition.character = 0;
+                _lastPosition.maxCharacter = 0;
+                _content.insert(charactorOffset, 1, character);
+                for (auto& offset: _lineOffsets | views::drop(_lastPosition.line + 1)) {
+                    offset += 1;
+                }
+                break;
+            }
+            case IndentType::Simple: {
+                // Insert new line and indent
+                const auto insertContent = string(1, character).append(string(currentLineIndent, ' '));
+                _lastPosition.character = currentLineIndent;
+                _lastPosition.maxCharacter = currentLineIndent;
+                _content.insert(charactorOffset, insertContent);
+                for (auto& offset: _lineOffsets | views::drop(_lastPosition.line + 1)) {
+                    offset += insertContent.length();
+                }
+                logger::debug(_content);
+                // Remove extra indent of next line
+                // _lastPosition.line was increased by 1 in the previous codes
+                if (const auto nextLineIndent = _getLineIndent(_lastPosition.line);
+                    nextLineIndent > currentLineIndent) {
+                    _content.erase(_lineOffsets.at(_lastPosition.line) + currentLineIndent, nextLineIndent - currentLineIndent);
+                    for (auto& offset: _lineOffsets | views::drop(_lastPosition.line + 1)) {
+                        offset -= nextLineIndent - currentLineIndent;
+                    }
+                }
+                break;
+            }
+            case IndentType::Smart: {
+                // TODO: Implement smart indent
+                break;
+            }
+        }
     } else {
         _lastPosition.addCharactor(1);
+        _content.insert(charactorOffset, 1, character);
+        for (auto& offset: _lineOffsets | views::drop(_lastPosition.line + 1)) {
+            offset += 1;
+        }
     }
     _syncContent();
 }
 
+/**
+ * @brief Adds a string of characters to the content at the current position.
+ * @param characters The string of characters to be added.
+ */
 void Modification::add(string characters) {
-    logger::info(format("add string line {} char {}", _lastPosition.line, _lastPosition.character));
+    logger::info(format("Add string at ({}, {})", _lastPosition.line, _lastPosition.character));
     const auto charactorOffset = _lineOffsets.at(_lastPosition.line) + _lastPosition.character;
-    for (auto& offset : _lineOffsets | views::drop(_lastPosition.line + 1)) {
+    for (auto& offset: _lineOffsets | views::drop(_lastPosition.line + 1)) {
         offset += characters.length();
     }
     _content.insert(charactorOffset, characters);
-    if (const auto lineCount = count(characters.begin(), characters.end(), '\n');
+    if (const auto lineCount = ranges::count(characters, '\n');
         lineCount > 0) {
-        int index = 0;
-        int preindex = 0;
-        for (int count = 0; count < lineCount; count++) {
-            index = characters.find('\n', preindex);
+        uint64_t preindex = 0;
+        for (auto count = 0; count < lineCount; count++) {
+            const auto index = characters.find('\n', preindex);
             _lineOffsets.insert(
                 _lineOffsets.begin() + static_cast<int>(_lastPosition.line) + 1,
                 index - preindex + 1
@@ -67,33 +129,43 @@ void Modification::add(string characters) {
     _syncContent();
 }
 
-void Modification::navigate(const CaretPosition newPosition) {
+/**
+ * @brief Navigates to a new position in the content.
+ * @param newPosition The new position to navigate to.
+ */
+void Modification::navigate(const CaretPosition& newPosition) {
     _lastPosition = newPosition;
 }
 
+/**
+ * @brief Navigates in the content based on a specified key.
+ * @param key The key that determines how to navigate.
+ */
 void Modification::navigate(const Key key) {
     switch (key) {
         case Key::Tab: {
-            add(TAB);
+            add(tabString);
             break;
         }
-        case Key::Home: {
-            break;
-        }
-        case Key::End: {
-            break;
-        }
-        case Key::PageDown: {
-            break;
-        }
-        case Key::PageUp: {
-            break;
-        }
+        // TODO: Implement these keys
+        // case Key::Home: {
+        //     break;
+        // }
+        // case Key::End: {
+        //     break;
+        // }
+        // case Key::PageDown: {
+        //     break;
+        // }
+        // case Key::PageUp: {
+        //     break;
+        // }
         case Key::Left: {
             if (_lastPosition.character > 0) {
                 _lastPosition.addCharactor(-1);
             } else if (_lastPosition.line > 0) {
                 _lastPosition.character = _getLineLength(_lastPosition.line - 1);
+                _lastPosition.maxCharacter = _lastPosition.character;
                 _lastPosition.addLine(-1);
             }
 
@@ -140,6 +212,9 @@ void Modification::navigate(const Key key) {
     }
 }
 
+/**
+ * @brief Reloads the content from the file.
+ */
 void Modification::reload() {
     logger::debug(format("Reloading with path: '{}'", path));
     _content = fs::readFile(path);
@@ -153,6 +228,9 @@ void Modification::reload() {
     _lineOffsets.pop_back();
 }
 
+/**
+ * @brief Removes a character from the content at the current position.
+ */
 void Modification::remove() {
     if (_lastPosition.character == 0 && _lastPosition.line == 0) {
         return;
@@ -173,38 +251,60 @@ void Modification::remove() {
     _syncContent();
 }
 
+/**
+ * @brief Gets the indentation of a line.
+ * @param lineIndex The index of the line for which the indentation is to be obtained.
+ * @return The indentation of the line.
+ */
+uint32_t Modification::_getLineIndent(const uint32_t lineIndex) const {
+    const auto [start, end] = _getLineRange(lineIndex);
+    for (auto index = start; index < end; index++) {
+        if (_content.at(index) != ' ') {
+            return index - start;
+        }
+    }
+    return end - start;
+}
+
+/**
+ * @brief Gets the length of a line.
+ *
+ * This function returns the length of a line, which is the number of characters in the line.
+ *
+ * @param lineIndex The index of the line for which the length is to be obtained.
+ * @return The length of the line.
+ */
+uint32_t Modification::_getLineLength(const uint32_t lineIndex) const {
+    const auto [start, end] = _getLineRange(lineIndex);
+    return end - start;
+}
+
+/**
+ * @brief Get the range of a line in the content.
+ *
+ * This function returns a pair of unsigned integers representing the start and end positions
+ * of a line in the content. The line is specified by its index.
+ *
+ * @param lineIndex The index of the line for which the range is to be obtained.
+ * @return A pair of unsigned integers where the first element is the start position and the second element is the end position of the line in the content.
+ */
+pair<uint32_t, uint32_t> Modification::_getLineRange(const uint32_t lineIndex) const {
+    return {
+        _lineOffsets.at(lineIndex),
+        lineIndex == _lineOffsets.size() - 1
+            ? _content.length()
+            : _lineOffsets.at(lineIndex + 1) - 1
+    };
+}
+
 void Modification::_syncContent() {
     thread([this, content = _content, path=path] {
         _wsHelper.sendAction(
-            WsAction::DebugSync,
+            WsHelper::Action::DebugSync,
             {
                 {"content", encode(content, crypto::Encoding::Base64)},
                 {"path", encode(path, crypto::Encoding::Base64)}
             }
         );
-        // try {
-        //     if (const auto [status, responseBody] = HttpHelper(
-        //             "http://localhost:3001",
-        //             chrono::seconds(10)
-        //         ).post("/modify", move(requestBody));
-        //         status != 200) {
-        //         logger::log(format("(/modify) HTTP Code: {}, body: {}", status, responseBody.dump()));
-        //     }
-        // } catch (HttpHelper::HttpError& e) {
-        //     logger::error(format("(/modify) Http error: {}", e.what()));
-        // }
-        // catch (exception& e) {
-        //     logger::log(format("(/modify) Exception: {}", e.what()));
-        // }
-        // catch (...) {
-        //     logger::log("(/modify) Unknown exception.");
-        // }
     }).detach();
-}
-
-uint32_t Modification::_getLineLength(const uint32_t lineIndex) const {
-    if (lineIndex == _lineOffsets.size() - 1) {
-        return _content.length() - _lineOffsets.back();
-    }
-    return _lineOffsets.at(lineIndex + 1) - _lineOffsets.at(lineIndex) - 1;
 }
