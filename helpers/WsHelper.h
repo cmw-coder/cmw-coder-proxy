@@ -3,6 +3,8 @@
 #include <ixwebsocket/IXWebSocket.h>
 #include <nlohmann/json.hpp>
 
+#include <types/WsAction.h>
+
 namespace helpers {
     class WsHelper {
     public:
@@ -12,7 +14,7 @@ namespace helpers {
 
         explicit WsHelper(std::string&& url, const std::chrono::seconds& pingInterval = std::chrono::seconds{30});
 
-        void sendAction(Action action, nlohmann::json&& data);
+        void sendAction(types::WsAction action, nlohmann::json&& data);
 
         void sendRaw(const std::string& message);
 
