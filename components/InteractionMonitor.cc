@@ -8,7 +8,6 @@
 #include <components/InteractionMonitor.h>
 #include <components/WindowManager.h>
 #include <types/SiVersion.h>
-#include <types/Range.h>
 #include <utils/crypto.h>
 #include <utils/inputbox.h>
 #include <utils/logger.h>
@@ -26,7 +25,10 @@ using namespace types;
 using namespace utils;
 
 namespace {
-    const unordered_map<SiVersion::Major, unordered_map<SiVersion::Minor, tuple<uint64_t, uint64_t>>> addressMap = {
+    template<class T>
+    using VersionMap = unordered_map<SiVersion::Major, unordered_map<SiVersion::Minor, T>>;
+
+    const VersionMap<tuple<uint64_t, uint64_t>> addressMap = {
         {
             SiVersion::Major::V35, {
                 {SiVersion::Minor::V0076, {0x1CBEFC, 0x1CBF00}},
@@ -49,10 +51,11 @@ namespace {
             }
         },
     };
-    const unordered_map<SiVersion::Major, unordered_map<SiVersion::Minor, tuple<uint64_t, uint64_t, uint64_t, uint64_t>>> selectAddressMap = {
+    // startLineOffset, startCharOffset, endLineOffset, endCharOffset
+    const VersionMap<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> selectAddressMap = {
         {
             SiVersion::Major::V35, {
-                    {SiVersion::Minor::V0086, {0x1BE0CC, 0x1C574C, 0x1E3B9C, 0x1E3BA4}}
+                {SiVersion::Minor::V0086, {0x1BE0CC, 0x1C574C, 0x1E3B9C, 0x1E3BA4}}
             }
         },
     };
@@ -113,8 +116,12 @@ InteractionMonitor::InteractionMonitor()
         const auto [lineOffset, charOffset] = addressMap.at(majorVersion).at(minorVersion);
         _cursorLineAddress = baseAddress + lineOffset;
         _cursorCharAddress = baseAddress + charOffset;
-        const auto [startLineOffset, startCharOffset, endLineOffset, endCharOffset] =
-            selectAddressMap.at(majorVersion).at(minorVersion);
+        const auto [
+            startLineOffset,
+            startCharOffset,
+            endLineOffset,
+            endCharOffset
+        ] = selectAddressMap.at(majorVersion).at(minorVersion);
         _cursorStartLineAddress = baseAddress + startLineOffset;
         _cursorStartCharAddress = baseAddress + startCharOffset;
         _cursorEndLineAddress = baseAddress + endLineOffset;
@@ -137,7 +144,7 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
     if (_keyHelper.isPrintable(keycode)) {
         (void) WindowManager::GetInstance()->sendDoubleInsert();
         _handleInstantInteraction(Interaction::NormalInput, _keyHelper.toPrintable(keycode));
-        isSelect.store(false);
+        _isSelecting.store(false);
         return;
     }
 
@@ -150,20 +157,21 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                     case Key::BackSpace: {
                         (void) WindowManager::GetInstance()->sendDoubleInsert();
                         _handleInstantInteraction(Interaction::DeleteInput);
-                        isSelect.store(false);
+                        _isSelecting.store(false);
                         break;
                     }
                     case Key::Tab: {
                         _handleInstantInteraction(Interaction::AcceptCompletion);
-                        // 在select状态下会继续扩展
+                        // Keep expanding when _isSelecting == true
                         break;
                     }
                     case Key::Enter: {
                         _handleInstantInteraction(Interaction::EnterInput);
-                        isSelect.store(false);
+                        _isSelecting.store(false);
                         break;
                     }
                     case Key::Escape: {
+                        _isSelecting.store(false);
                         if (Configurator::GetInstance()->version().first == SiVersion::Major::V40) {
                             thread([this] {
                                 this_thread::sleep_for(chrono::milliseconds(150));
@@ -183,7 +191,7 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                     case Key::Right:
                     case Key::Down: {
                         _navigateBuffer.store(key);
-                        isSelect.store(false);
+                        _isSelecting.store(false);
                         _handleInstantInteraction(Interaction::ClearSelect);
                         break;
                     }
@@ -215,8 +223,7 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                 }
             }
         }
-    } catch (...) {
-    }
+    } catch (...) {}
 }
 
 void InteractionMonitor::_handleInstantInteraction(const Interaction interaction, const std::any& data) const noexcept {
@@ -248,42 +255,6 @@ void InteractionMonitor::_monitorAutoCompletion() const {
             this_thread::sleep_for(chrono::milliseconds(25));
         }
     }).detach();
-}
-
-Range InteractionMonitor::_monitorCursorSelect() {
-    Range select{};
-    CaretPosition Position;
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_cursorStartLineAddress),
-        &Position.line,
-        sizeof(Position.line),
-        nullptr
-    );
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_cursorStartCharAddress),
-        &Position.character,
-        sizeof(Position.character),
-        nullptr
-    );
-    select.start = Position;
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_cursorEndLineAddress),
-        &Position.line,
-        sizeof(Position.line),
-        nullptr
-    );
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_cursorEndCharAddress),
-        &Position.character,
-        sizeof(Position.character),
-        nullptr
-    );
-    select.end = Position;
-    return select;
 }
 
 void InteractionMonitor::_monitorCursorPosition() {
@@ -319,6 +290,39 @@ void InteractionMonitor::_monitorCursorPosition() {
             }
         }
     }).detach();
+}
+
+Range InteractionMonitor::_monitorCursorSelect() const {
+    Range select;
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_cursorStartLineAddress),
+        &select.start.line,
+        sizeof(select.start.line),
+        nullptr
+    );
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_cursorStartCharAddress),
+        &select.start.character,
+        sizeof(select.start.character),
+        nullptr
+    );
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_cursorEndLineAddress),
+        &select.end.line,
+        sizeof(select.end.line),
+        nullptr
+    );
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_cursorEndCharAddress),
+        &select.end.character,
+        sizeof(select.end.character),
+        nullptr
+    );
+    return select;
 }
 
 void InteractionMonitor::_monitorDebugLog() const {
@@ -410,7 +414,8 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
             }
             case WM_MOUSEACTIVATE: {
                 logger::debug("WM_MOUSEACTIVATE");
-                isSelect.store(false);
+                _isSelecting.store(false);
+                // TODO: Move this to _processWindowMouse
                 _handleInstantInteraction(Interaction::Navigate);
                 break;
             }
@@ -443,13 +448,13 @@ void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
         case WM_MOUSEMOVE: {
             if (isLMDown.load()) {
                 logger::debug("WM_MOUSESELECT");
-                isSelect.store(true);
+                _isSelecting.store(true);
             }
             break;
         }
         case WM_LBUTTONUP: {
             logger::debug("WM_LBUTTONUP");
-            if (isSelect.load()) {
+            if (_isSelecting.load()) {
                 auto selectRange = _monitorCursorSelect();
                 _handleInstantInteraction(Interaction::Select, selectRange);
             } else {
@@ -459,7 +464,7 @@ void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
             break;
         }
         case WM_LBUTTONDBLCLK: {
-            isSelect.store(true);
+            _isSelecting.store(true);
             logger::debug("WM_LBUTTONDBLCLK");
             break;
         }

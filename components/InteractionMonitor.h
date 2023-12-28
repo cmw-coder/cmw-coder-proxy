@@ -34,13 +34,13 @@ namespace components {
     private:
         const std::string _subKey;
         helpers::KeyHelper _keyHelper;
-        std::atomic<bool> _isRunning{true}, isLMDown{false}, isChange{true}, isSelect{false};
+        std::atomic<bool> _isRunning{true}, isLMDown{false}, _isSelecting{false};
         std::atomic<types::CaretPosition> _currentCursorPosition, _downCursorPosition;
         std::atomic<std::optional<types::Key>> _navigateBuffer;
         std::shared_ptr<void> _mouseHookHandle, _processHandle, _windowHookHandle;
         std::unordered_map<types::Interaction, std::vector<InstantCallBack>> _instantHandlers;
-        uint32_t _cursorLineAddress, _cursorCharAddress;
-        uint32_t _cursorStartLineAddress, _cursorStartCharAddress, _cursorEndLineAddress, _cursorEndCharAddress;
+        uint32_t _cursorLineAddress, _cursorCharAddress, _cursorStartLineAddress, _cursorStartCharAddress,
+                _cursorEndLineAddress, _cursorEndCharAddress;
 
         void _handleKeycode(types::Keycode keycode) noexcept;
 
@@ -49,6 +49,8 @@ namespace components {
         void _monitorAutoCompletion() const;
 
         void _monitorCursorPosition();
+
+        types::Range _monitorCursorSelect() const;
 
         void _monitorDebugLog() const;
 
@@ -59,8 +61,6 @@ namespace components {
         void _processWindowMouse(unsigned int wParam);
 
         void _retrieveProjectId(const std::string& project) const;
-
-        types::Range _monitorCursorSelect();
 
         static long __stdcall _windowProcedureHook(int nCode, unsigned int wParam, long lParam);
     };

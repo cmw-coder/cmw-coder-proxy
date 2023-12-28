@@ -95,7 +95,7 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
             InteractionMonitor::GetInstance()->addInstantHandler(
                 Interaction::ClearSelect,
                 ModificationManager::GetInstance(),
-                &ModificationManager::instantSelect
+                &ModificationManager::instantClearSelect
             );
             InteractionMonitor::GetInstance()->addInstantHandler(
                 Interaction::AcceptCompletion,
