@@ -143,7 +143,7 @@ InteractionMonitor::~InteractionMonitor() {
 void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
     if (_keyHelper.isPrintable(keycode)) {
         (void) WindowManager::GetInstance()->sendDoubleInsert();
-        _handleInstantInteraction(Interaction::NormalInput, _keyHelper.toPrintable(keycode));
+        _handleInteraction(Interaction::NormalInput, _keyHelper.toPrintable(keycode));
         _isSelecting.store(false);
         return;
     }
@@ -156,17 +156,17 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                 switch (key) {
                     case Key::BackSpace: {
                         (void) WindowManager::GetInstance()->sendDoubleInsert();
-                        _handleInstantInteraction(Interaction::DeleteInput);
+                        _handleInteraction(Interaction::DeleteInput);
                         _isSelecting.store(false);
                         break;
                     }
                     case Key::Tab: {
-                        _handleInstantInteraction(Interaction::AcceptCompletion);
+                        _handleInteraction(Interaction::AcceptCompletion);
                         // Keep expanding when _isSelecting == true
                         break;
                     }
                     case Key::Enter: {
-                        _handleInstantInteraction(Interaction::EnterInput);
+                        _handleInteraction(Interaction::EnterInput);
                         _isSelecting.store(false);
                         break;
                     }
@@ -175,10 +175,10 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                         if (Configurator::GetInstance()->version().first == SiVersion::Major::V40) {
                             thread([this] {
                                 this_thread::sleep_for(chrono::milliseconds(150));
-                                _handleInstantInteraction(Interaction::CancelCompletion, make_tuple(false, true));
+                                _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
                             }).detach();
                         } else {
-                            _handleInstantInteraction(Interaction::CancelCompletion, make_tuple(false, true));
+                            _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
                         }
                         break;
                     }
@@ -192,7 +192,7 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                     case Key::Down: {
                         _navigateBuffer.store(key);
                         _isSelecting.store(false);
-                        _handleInstantInteraction(Interaction::ClearSelect);
+                        _handleInteraction(Interaction::SelectionClear);
                         break;
                     }
                     default: {
@@ -205,15 +205,15 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                     switch (key) {
                         case Key::S: {
                             ModificationManager::GetInstance()->reloadTab();
-                            _handleInstantInteraction(Interaction::Save);
+                            _handleInteraction(Interaction::Save);
                             break;
                         }
                         case Key::V: {
-                            _handleInstantInteraction(Interaction::Paste);
+                            _handleInteraction(Interaction::Paste);
                             break;
                         }
                         case Key::Z: {
-                            _handleInstantInteraction(Interaction::Undo);
+                            _handleInteraction(Interaction::Undo);
                             break;
                         }
                         default: {
@@ -226,7 +226,7 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
     } catch (...) {}
 }
 
-void InteractionMonitor::_handleInstantInteraction(const Interaction interaction, const std::any& data) const noexcept {
+void InteractionMonitor::_handleInteraction(const Interaction interaction, const std::any& data) const noexcept {
     try {
         for (const auto& handler: _instantHandlers.at(interaction)) {
             handler(data);
@@ -262,7 +262,7 @@ void InteractionMonitor::_monitorCursorPosition() {
         while (_isRunning.load()) {
             if (const auto navigationBufferOpt = _navigateBuffer.load();
                 navigationBufferOpt.has_value()) {
-                _handleInstantInteraction(Interaction::Navigate, navigationBufferOpt.value());
+                _handleInteraction(Interaction::Navigate, navigationBufferOpt.value());
                 _navigateBuffer.store(nullopt);
                 continue;
             }
@@ -286,7 +286,7 @@ void InteractionMonitor::_monitorCursorPosition() {
             if (const auto oldCursorPosition = _currentCursorPosition.load();
                 oldCursorPosition != newCursorPosition) {
                 this->_currentCursorPosition.store(newCursorPosition);
-                _handleInstantInteraction(Interaction::CaretUpdate, make_tuple(newCursorPosition, oldCursorPosition));
+                _handleInteraction(Interaction::CaretUpdate, make_tuple(newCursorPosition, oldCursorPosition));
             }
         }
     }).detach();
@@ -408,7 +408,7 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
         switch (windowProcData->message) {
             case WM_KILLFOCUS: {
                 if (WindowManager::GetInstance()->checkNeedCancelWhenLostFocus(windowProcData->wParam)) {
-                    _handleInstantInteraction(Interaction::CancelCompletion, make_tuple(false, true));
+                    _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
                 }
                 break;
             }
@@ -416,12 +416,12 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                 logger::debug("WM_MOUSEACTIVATE");
                 _isSelecting.store(false);
                 // TODO: Move this to _processWindowMouse
-                _handleInstantInteraction(Interaction::Navigate);
+                _handleInteraction(Interaction::Navigate);
                 break;
             }
             case WM_SETFOCUS: {
                 if (WindowManager::GetInstance()->checkNeedCancelWhenGainFocus(currentWindow)) {
-                    _handleInstantInteraction(Interaction::CancelCompletion, make_tuple(false, true));
+                    _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
                 }
                 break;
             }
@@ -456,9 +456,9 @@ void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
             logger::debug("WM_LBUTTONUP");
             if (_isSelecting.load()) {
                 auto selectRange = _monitorCursorSelect();
-                _handleInstantInteraction(Interaction::Select, selectRange);
+                _handleInteraction(Interaction::SelectionSet, selectRange);
             } else {
-                _handleInstantInteraction(Interaction::ClearSelect);
+                _handleInteraction(Interaction::SelectionClear);
             }
             isLMDown.store(false);
             break;

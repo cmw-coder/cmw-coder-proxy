@@ -44,7 +44,7 @@ namespace components {
 
         void _handleKeycode(types::Keycode keycode) noexcept;
 
-        void _handleInstantInteraction(types::Interaction interaction, const std::any& data = {}) const noexcept;
+        void _handleInteraction(types::Interaction interaction, const std::any& data = {}) const noexcept;
 
         void _monitorAutoCompletion() const;
 

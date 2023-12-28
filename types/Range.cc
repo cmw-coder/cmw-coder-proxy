@@ -1,23 +1,26 @@
-//
-// Created by ckf9674 on 2023/12/15.
-//
 #include <format>
 
 #include <types/Range.h>
 #include <utils/logger.h>
 
+using namespace std;
 using namespace types;
 using namespace utils;
 
-Range::Range(CaretPosition start, CaretPosition end): start(start), end(end) {
+Range::Range(const CaretPosition& start, const CaretPosition& end): start(start), end(end) {
     if (start > end) {
         this->start = end;
         this->end = start;
     }
 }
 
-Range::Range(uint32_t startLine, uint32_t startCharacter, uint32_t endLine, uint32_t endCharacter) {
-    if (startLine < endLine || (startLine == endLine && startCharacter <= endCharacter) ) {
+Range::Range(
+    const uint32_t startLine,
+    const uint32_t startCharacter,
+    const uint32_t endLine,
+    const uint32_t endCharacter
+) {
+    if (startLine < endLine || (startLine == endLine && startCharacter <= endCharacter)) {
         this->start = CaretPosition(startCharacter, startLine);
         this->end = CaretPosition(endCharacter, endLine);
     } else {
@@ -46,34 +49,16 @@ bool Range::isBefore(const Range& other) const {
     return end > other.start;
 }
 
-Range Range::with(const std::any& start, const std::any& end) const {
-    CaretPosition tmpStart = this->start;
-    CaretPosition tmpEnd = this->end;
-    try {
-        if (start.has_value()) {
-            tmpStart = std::any_cast<CaretPosition>(start);
-        }
-        if (end.has_value()) {
-            tmpEnd = std::any_cast<CaretPosition>(start);
-        }
-    } catch (const std::bad_any_cast& e) {
-        logger::error(std::format("Invalid CaretPosition: {}", e.what()));
-    } catch (std::out_of_range&) {
-    }
-    return {tmpStart, tmpEnd};
-}
-
 Range Range::Union(const Range& other) const {
     return {
-        std::min(start, other.start),
-        std::max(end, other.end)
+        min(start, other.start),
+        max(end, other.end)
     };
 }
 
 Range Range::intersection(const Range& other) const {
     return {
-        std::max(start, other.start),
-        std::min(end, other.end)
+        max(start, other.start),
+        min(end, other.end)
     };
 }
-

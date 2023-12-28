@@ -42,27 +42,27 @@ namespace types {
 
 #include <format>
 #include <string>
-namespace std {
-    template <>
-    struct std::formatter<types::CaretPosition> : std::formatter<std::string> {
-        bool detailed{false};
 
-        constexpr auto parse(std::format_parse_context& context) {
-            auto it = context.begin(), end = context.end();
-            if (it != end && (*it == 'm')) detailed = (*it++) == 'm';
-            if (it != end && *it != '}') throw format_error("Invalid format");
-            return it;
-        }
+template<>
+struct std::formatter<types::CaretPosition> : std::formatter<std::string> {
+    bool detailed{false};
 
-        template <class FormatContext>
-        auto format(const types::CaretPosition& CaretPosition, FormatContext& context) {
-            std::string base_str = "line: " + to_string(CaretPosition.line) + " character: " + to_string(CaretPosition.character);
-            if (detailed) {
-                std::string op_str = base_str + " maxCharacter: " + to_string(CaretPosition.maxCharacter);
-                return formatter<std::string>::format(op_str, context);
-            } else {
-                return formatter<std::string>::format(base_str, context);
-            }
+    constexpr auto parse(std::format_parse_context& context) {
+        auto it = context.begin();
+        const auto end = context.end();
+        if (it != end && (*it == 'm')) detailed = (*it++) == 'm';
+        if (it != end && *it != '}') throw format_error("Invalid format");
+        return it;
+    }
+
+    template<class FormatContext>
+    auto format(const types::CaretPosition& CaretPosition, FormatContext& context) {
+        std::string base_str = "line: " + to_string(CaretPosition.line) + " character: " + to_string(
+                                   CaretPosition.character);
+        if (detailed) {
+            std::string op_str = base_str + " maxCharacter: " + to_string(CaretPosition.maxCharacter);
+            return formatter<std::string>::format(op_str, context);
         }
-    };
-}
+        return formatter<std::string>::format(base_str, context);
+    }
+};

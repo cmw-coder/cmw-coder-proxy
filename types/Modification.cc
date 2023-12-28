@@ -105,7 +105,7 @@ void Modification::add(const char character) {
  * @brief Adds a string of characters to the content at the current position.
  * @param characters The string of characters to be added.
  */
-void Modification::add(string characters) {
+void Modification::add(const std::string& characters) {
     logger::info(format("Add string at ({}, {})", _lastPosition.line, _lastPosition.character));
     const auto charactorOffset = _lineOffsets.at(_lastPosition.line) + _lastPosition.character;
     for (auto& offset: _lineOffsets | views::drop(_lastPosition.line + 1)) {
@@ -148,7 +148,7 @@ void Modification::navigate(const Key key) {
                 const auto selectContent = _getSelectTabContent(_lastSelect);
                 replace(_lastSelect, selectContent);
             } else {
-                add(TAB);
+                add(tabString);
             }
             break;
         }
@@ -364,7 +364,7 @@ pair<uint32_t, uint32_t> Modification::_getLineRange(const uint32_t lineIndex) c
 void Modification::_syncContent() {
     thread([this, content = _content, path=path] {
         _wsHelper.sendAction(
-            WsHelper::Action::DebugSync,
+            WsAction::DebugSync,
             {
                 {"content", encode(content, crypto::Encoding::Base64)},
                 {"path", encode(path, crypto::Encoding::Base64)}

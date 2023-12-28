@@ -11,8 +11,8 @@ namespace types {
         NormalInput,
         Paste,
         Save,
+        SelectionSet,
+        SelectionClear,
         Undo,
-        Select,
-        ClearSelect,
     };
 }
