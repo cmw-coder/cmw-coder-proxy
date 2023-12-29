@@ -56,7 +56,7 @@ void Modification::add(const char character) {
         _lastPosition.addLine(1);
 
         switch (indentType) {
-            case IndentType::None: {
+            /*case IndentType::None: {
                 _lastPosition.character = 0;
                 _lastPosition.maxCharacter = 0;
                 _content.insert(charactorOffset, 1, character);
@@ -64,7 +64,7 @@ void Modification::add(const char character) {
                     offset += 1;
                 }
                 break;
-            }
+            }*/
             case IndentType::Simple: {
                 // Insert new line and indent
                 const auto insertContent = string(1, character).append(string(currentLineIndent, ' '));
@@ -79,15 +79,20 @@ void Modification::add(const char character) {
                 // _lastPosition.line was increased by 1 in the previous codes
                 if (const auto nextLineIndent = _getLineIndent(_lastPosition.line);
                     nextLineIndent > currentLineIndent) {
-                    _content.erase(_lineOffsets.at(_lastPosition.line) + currentLineIndent, nextLineIndent - currentLineIndent);
+                    _content.erase(_lineOffsets.at(_lastPosition.line) + currentLineIndent,
+                                   nextLineIndent - currentLineIndent);
                     for (auto& offset: _lineOffsets | views::drop(_lastPosition.line + 1)) {
                         offset -= nextLineIndent - currentLineIndent;
                     }
                 }
                 break;
             }
-            case IndentType::Smart: {
+            /*case IndentType::Smart: {
                 // TODO: Implement smart indent
+                break;
+            }*/
+            default: {
+                // ReSharper disable once CppDFAUnreachableCode
                 break;
             }
         }
@@ -105,7 +110,7 @@ void Modification::add(const char character) {
  * @brief Adds a string of characters to the content at the current position.
  * @param characters The string of characters to be added.
  */
-void Modification::add(string characters) {
+void Modification::add(const string& characters) {
     logger::info(format("Add string at ({}, {})", _lastPosition.line, _lastPosition.character));
     const auto charactorOffset = _lineOffsets.at(_lastPosition.line) + _lastPosition.character;
     for (auto& offset: _lineOffsets | views::drop(_lastPosition.line + 1)) {
@@ -144,7 +149,12 @@ void Modification::navigate(const CaretPosition& newPosition) {
 void Modification::navigate(const Key key) {
     switch (key) {
         case Key::Tab: {
-            add(tabString);
+            if (isSelect()) {
+                const auto selectContent = _addIndentOnSelection(_lastSelect);
+                replace(_lastSelect, selectContent);
+            } else {
+                add(tabString);
+            }
             break;
         }
         // TODO: Implement these keys
@@ -251,13 +261,81 @@ void Modification::remove() {
     _syncContent();
 }
 
+void Modification::select(const Range& range) {
+    _lastSelect = range;
+}
+
+void Modification::clearSelect() {
+    _lastSelect = Range(0, 0, 0, 0);
+}
+
+bool Modification::isSelect() const {
+    return !_lastSelect.isEmpty();
+}
+
+void Modification::replace(const string& characters) {
+    const auto selectRange = _lastSelect;
+    clearSelect();
+    remove(selectRange);
+    add(characters);
+    _syncContent();
+}
+
+void Modification::replace(const Range& selectRange, const string& characters) {
+    remove(selectRange);
+    add(characters);
+    _syncContent();
+}
+
+void Modification::remove(const Range& range) {
+    const auto [startOffset, endOffset] = _getRangeOffsets(range);
+    const auto subContent = _getRangeContent(range);
+    const auto subLength = endOffset - startOffset;
+    _content.erase(startOffset, subLength);
+    const auto enterCount = ranges::count(subContent, '\n');
+    for (auto it = (_lineOffsets.begin() + static_cast<int>(range.start.line) + 1);
+         it != _lineOffsets.end();) {
+        if (distance(_lineOffsets.begin(), it) <= enterCount) {
+            it = _lineOffsets.erase(it);
+        } else {
+            *it -= subContent.length();
+            ++it;
+        }
+    }
+    _lastPosition = range.start;
+    _lastPosition.maxCharacter = _lastPosition.character;
+    _syncContent();
+}
+
+void Modification::selectRemove() {
+    remove(_lastSelect);
+    clearSelect();
+    _syncContent();
+}
+
+string Modification::_addIndentOnSelection(const Range& range) const {
+    string selectcontent;
+    const auto rangeContent = _getRangeContent(range);
+    const auto rangeContentLines = ranges::count(rangeContent, '\n');
+    uint32_t preindex = 0;
+    for (int count = 0; count <= rangeContentLines; count++) {
+        const auto index = rangeContent.find('\n', preindex);
+        selectcontent += tabString + rangeContent.substr(preindex, index - preindex);
+        preindex = index + 1;
+        if (count < rangeContentLines) {
+            selectcontent += "\n";
+        }
+    }
+    return selectcontent;
+}
+
 /**
  * @brief Gets the indentation of a line.
  * @param lineIndex The index of the line for which the indentation is to be obtained.
  * @return The indentation of the line.
  */
 uint32_t Modification::_getLineIndent(const uint32_t lineIndex) const {
-    const auto [start, end] = _getLineRange(lineIndex);
+    const auto [start, end] = _getLineOffsets(lineIndex);
     for (auto index = start; index < end; index++) {
         if (_content.at(index) != ' ') {
             return index - start;
@@ -275,7 +353,7 @@ uint32_t Modification::_getLineIndent(const uint32_t lineIndex) const {
  * @return The length of the line.
  */
 uint32_t Modification::_getLineLength(const uint32_t lineIndex) const {
-    const auto [start, end] = _getLineRange(lineIndex);
+    const auto [start, end] = _getLineOffsets(lineIndex);
     return end - start;
 }
 
@@ -288,7 +366,7 @@ uint32_t Modification::_getLineLength(const uint32_t lineIndex) const {
  * @param lineIndex The index of the line for which the range is to be obtained.
  * @return A pair of unsigned integers where the first element is the start position and the second element is the end position of the line in the content.
  */
-pair<uint32_t, uint32_t> Modification::_getLineRange(const uint32_t lineIndex) const {
+pair<uint32_t, uint32_t> Modification::_getLineOffsets(const uint32_t lineIndex) const {
     return {
         _lineOffsets.at(lineIndex),
         lineIndex == _lineOffsets.size() - 1
@@ -297,10 +375,28 @@ pair<uint32_t, uint32_t> Modification::_getLineRange(const uint32_t lineIndex) c
     };
 }
 
+string Modification::_getRangeContent(const Range& range) const {
+    const auto [startOffset, endOffset] = _getRangeOffsets(range);
+    auto content = _content.substr(startOffset, endOffset - startOffset);
+    return content;
+}
+
+pair<uint32_t, uint32_t> Modification::_getRangeOffsets(const Range& range) const {
+    uint32_t startCharactorOffset = _lineOffsets.at(range.start.line) + range.start.character;
+    uint32_t endCharactorOffset;
+    if (range.end.character == 4096) {
+        endCharactorOffset = _lineOffsets.at(range.end.line) + _getLineLength(range.end.line) + 1;
+    } else {
+        endCharactorOffset = _lineOffsets.at(range.end.line) + range.end.character;
+    }
+
+    return make_pair(startCharactorOffset, endCharactorOffset);
+}
+
 void Modification::_syncContent() {
     thread([this, content = _content, path=path] {
         _wsHelper.sendAction(
-            WsHelper::Action::DebugSync,
+            WsAction::DebugSync,
             {
                 {"content", encode(content, crypto::Encoding::Base64)},
                 {"path", encode(path, crypto::Encoding::Base64)}

@@ -22,16 +22,19 @@ void ModificationManager::instantCaret(const std::any& data) {
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid instantCaret data: {}", e.what()));
     }
-    catch (out_of_range&) {
-    }
+    catch (out_of_range&) {}
 }
 
 void ModificationManager::instantDelete(const any&) {
     try {
         unique_lock lock(_currentModificationMutex);
-        _modificationMap.at(_currentTabName).remove();
-    } catch (out_of_range&) {
-    }
+        if (auto& currentTab = _modificationMap.at(_currentTabName);
+            currentTab.isSelect()) {
+            currentTab.selectRemove();
+        } else {
+            currentTab.remove();
+        }
+    } catch (out_of_range&) {}
 }
 
 void ModificationManager::instantEnter(const std::any&) {
@@ -39,9 +42,6 @@ void ModificationManager::instantEnter(const std::any&) {
 }
 
 void ModificationManager::instantNavigate(const std::any& data) {
-    if (!data.has_value()) {
-        return;
-    }
     try {
         const auto key = any_cast<Key>(data);
         unique_lock lock(_currentModificationMutex);
@@ -49,20 +49,44 @@ void ModificationManager::instantNavigate(const std::any& data) {
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid instantNavigate data: {}", e.what()));
     }
-    catch (out_of_range&) {
-    }
+    catch (out_of_range&) {}
 }
 
 void ModificationManager::instantNormal(const any& data) {
     try {
         const auto keycode = any_cast<char>(data);
         unique_lock lock(_currentModificationMutex);
-        _modificationMap.at(_currentTabName).add(keycode);
+        if (auto& currentTab = _modificationMap.at(_currentTabName);
+            currentTab.isSelect()) {
+            currentTab.replace(string(1, keycode));
+        } else {
+            currentTab.add(keycode);
+        }
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid instantNormal data: {}", e.what()));
     }
-    catch (out_of_range&) {
+    catch (out_of_range&) {}
+}
+
+void ModificationManager::instantSelect(const std::any& data) {
+    try {
+        const auto range = any_cast<Range>(data);
+        unique_lock lock(_currentModificationMutex);
+        _modificationMap.at(_currentTabName).select(range);
+    } catch (const bad_any_cast& e) {
+        logger::log(format("Invalid instantSelect data: {}", e.what()));
     }
+    catch (out_of_range&) {}
+}
+
+void ModificationManager::instantClearSelect(const std::any&) {
+    try {
+        unique_lock lock(_currentModificationMutex);
+        _modificationMap.at(_currentTabName).clearSelect();
+    } catch (const bad_any_cast& e) {
+        logger::log(format("Invalid instantClearSelect data: {}", e.what()));
+    }
+    catch (out_of_range&) {}
 }
 
 void ModificationManager::reloadTab() {

@@ -11,6 +11,7 @@
 #include <types/common.h>
 #include <types/CaretPosition.h>
 #include <types/Interaction.h>
+#include <types/Range.h>
 
 namespace components {
     class InteractionMonitor : public SingletonDclp<InteractionMonitor> {
@@ -33,26 +34,31 @@ namespace components {
     private:
         const std::string _subKey;
         helpers::KeyHelper _keyHelper;
-        std::atomic<bool> _isRunning{true};
-        std::atomic<types::CaretPosition> _currentCursorPosition;
+        std::atomic<bool> _isRunning{true}, isLMDown{false}, _isSelecting{false};
+        std::atomic<types::CaretPosition> _currentCursorPosition, _downCursorPosition;
         std::atomic<std::optional<types::Key>> _navigateBuffer;
         std::shared_ptr<void> _mouseHookHandle, _processHandle, _windowHookHandle;
         std::unordered_map<types::Interaction, std::vector<InstantCallBack>> _instantHandlers;
-        uint32_t _cursorLineAddress, _cursorCharAddress;
+        uint32_t _cursorLineAddress, _cursorCharAddress, _cursorStartLineAddress, _cursorStartCharAddress,
+                _cursorEndLineAddress, _cursorEndCharAddress;
 
         void _handleKeycode(types::Keycode keycode) noexcept;
 
-        void _handleInstantInteraction(types::Interaction interaction, const std::any& data = {}) const noexcept;
+        void _handleInteraction(types::Interaction interaction, const std::any& data = {}) const noexcept;
 
         void _monitorAutoCompletion() const;
 
         void _monitorCursorPosition();
+
+        types::Range _monitorCursorSelect() const;
 
         void _monitorDebugLog() const;
 
         void _monitorEditorInfo() const;
 
         void _processWindowMessage(long lParam);
+
+        void _processWindowMouse(unsigned int wParam);
 
         void _retrieveProjectId(const std::string& project) const;
 
