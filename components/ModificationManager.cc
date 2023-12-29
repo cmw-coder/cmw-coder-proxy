@@ -14,7 +14,7 @@ void ModificationManager::addTab(const string& tabName, const string& path) {
     }
 }
 
-void ModificationManager::instantCaret(const std::any& data) {
+void ModificationManager::instantCaret(const any& data) {
     try {
         const auto [newCursorPosition, oldCursorPosition] = any_cast<tuple<CaretPosition, CaretPosition>>(data);
         unique_lock lock(_currentModificationMutex);
@@ -37,11 +37,11 @@ void ModificationManager::instantDelete(const any&) {
     } catch (out_of_range&) {}
 }
 
-void ModificationManager::instantEnter(const std::any&) {
+void ModificationManager::instantEnter(const any&) {
     instantNormal('\n');
 }
 
-void ModificationManager::instantNavigate(const std::any& data) {
+void ModificationManager::instantNavigate(const any& data) {
     try {
         const auto key = any_cast<Key>(data);
         unique_lock lock(_currentModificationMutex);
@@ -104,11 +104,11 @@ void ModificationManager::reloadTab() {
     }
 }
 
-void ModificationManager::removeTab(const std::string& tabName) {
+void ModificationManager::removeTab(const string& tabName) {
     _modificationMap.erase(tabName);
 }
 
-bool ModificationManager::switchTab(const std::string& tabName) {
+bool ModificationManager::switchTab(const string& tabName) {
     if (_modificationMap.contains(tabName)) {
         _currentTabName = tabName;
         return true;

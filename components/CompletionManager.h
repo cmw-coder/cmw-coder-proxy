@@ -28,7 +28,9 @@ namespace components {
 
         CompletionManager() = default;
 
-        void delayedDelete(types::CaretPosition newPosition, types::CaretPosition oldPosition, const std::any&);
+        void interactionCaretUpdate(const std::any& data);
+
+        void delayedDelete(const std::any&);
 
         void delayedEnter(types::CaretPosition, types::CaretPosition, const std::any& = {});
 
@@ -61,10 +63,11 @@ namespace components {
         Components _components;
         EditorInfo _editorInfo;
         std::atomic<bool> _isAutoCompletion{true}, _isContinuousEnter{}, _isJustAccepted{};
+        std::atomic<types::CaretPosition> _lastPosition;
         std::atomic<types::Time> _currentRetrieveTime;
         types::CompletionCache _completionCache;
 
-        void _cancelCompletion(bool isCrossLine = false, bool isNeedReset = true);
+        void _cancelCompletion(bool isNeedReset = true);
 
         void _reactToCompletion(types::Completion&& completion, bool isAccept);
 

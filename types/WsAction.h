@@ -2,6 +2,10 @@
 
 namespace types {
     enum class WsAction {
-        DebugSync
+        CompletionAccept,
+        CompletionCache,
+        CompletionCancel,
+        CompletionGenerate,
+        DebugSync,
     };
 }

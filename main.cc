@@ -1,13 +1,12 @@
 #include <format>
 
-#include <ixwebsocket/IXNetSystem.h>
-
 #include <components/CompletionManager.h>
 #include <components/Configurator.h>
 #include <components/InteractionMonitor.h>
 #include <components/ModificationManager.h>
 #include <components/ModuleProxy.h>
 #include <components/WindowManager.h>
+#include <components/WebsocketManager.h>
 #include <utils/logger.h>
 #include <utils/system.h>
 
@@ -22,10 +21,9 @@ namespace {
     void initialize() {
         logger::log("Comware Coder Proxy is initializing...");
 
-        ix::initNetSystem();
-
         ModuleProxy::Construct();
         Configurator::Construct();
+        WebsocketManager::Construct("ws://127.0.0.1:3000");
         ModificationManager::Construct();
         CompletionManager::Construct();
         InteractionMonitor::Construct();
@@ -44,10 +42,9 @@ namespace {
         InteractionMonitor::Destruct();
         CompletionManager::Destruct();
         ModificationManager::Destruct();
+        WebsocketManager::Destruct();
         Configurator::Destruct();
         ModuleProxy::Destruct();
-
-        ix::uninitNetSystem();
     }
 }
 
@@ -62,27 +59,32 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
 
             initialize();
 
-            InteractionMonitor::GetInstance()->addInstantHandler(
+            InteractionMonitor::GetInstance()->registerInteraction(
+                Interaction::CaretUpdate,
+                CompletionManager::GetInstance(),
+                &CompletionManager::interactionCaretUpdate
+            );
+            InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::CaretUpdate,
                 ModificationManager::GetInstance(),
                 &ModificationManager::instantCaret
             );
-            InteractionMonitor::GetInstance()->addInstantHandler(
+            InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::DeleteInput,
                 ModificationManager::GetInstance(),
                 &ModificationManager::instantDelete
             );
-            InteractionMonitor::GetInstance()->addInstantHandler(
+            InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::EnterInput,
                 ModificationManager::GetInstance(),
                 &ModificationManager::instantEnter
             );
-            InteractionMonitor::GetInstance()->addInstantHandler(
+            InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::Navigate,
                 ModificationManager::GetInstance(),
                 &ModificationManager::instantNavigate
             );
-            InteractionMonitor::GetInstance()->addInstantHandler(
+            InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::NormalInput,
                 ModificationManager::GetInstance(),
                 &ModificationManager::instantNormal

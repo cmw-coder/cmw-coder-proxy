@@ -16,19 +16,19 @@
 namespace components {
     class InteractionMonitor : public SingletonDclp<InteractionMonitor> {
     public:
-        using InstantCallBack = std::function<void(const std::any&)>;
+        using CallBack = std::function<void(const std::any&)>;
 
         InteractionMonitor();
 
         ~InteractionMonitor() override;
 
         template<class T>
-        void addInstantHandler(
+        void registerInteraction(
             const types::Interaction userAction,
             T* const other,
             void (T::* const memberFunction)(const std::any&)
         ) {
-            _instantHandlers[userAction].push_back(std::bind_front(memberFunction, other));
+            _handlerMap[userAction].push_back(std::bind_front(memberFunction, other));
         }
 
     private:
@@ -38,7 +38,7 @@ namespace components {
         std::atomic<types::CaretPosition> _currentCursorPosition, _downCursorPosition;
         std::atomic<std::optional<types::Key>> _navigateBuffer;
         std::shared_ptr<void> _mouseHookHandle, _processHandle, _windowHookHandle;
-        std::unordered_map<types::Interaction, std::vector<InstantCallBack>> _instantHandlers;
+        std::unordered_map<types::Interaction, std::vector<CallBack>> _handlerMap;
         uint32_t _cursorLineAddress, _cursorCharAddress, _cursorStartLineAddress, _cursorStartCharAddress,
                 _cursorEndLineAddress, _cursorEndCharAddress;
 

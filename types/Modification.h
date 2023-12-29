@@ -8,8 +8,6 @@
 #include <string>
 #include <vector>
 
-#include <helpers/WsHelper.h>
-
 #include <types/CaretPosition.h>
 #include <types/Key.h>
 #include <types/Range.h>
@@ -56,7 +54,6 @@ namespace types {
     private:
         CaretPosition _lastPosition;
         Range _lastSelect;
-        helpers::WsHelper _wsHelper;
         std::string _content;
         std::vector<uint32_t> _lineOffsets;
 
@@ -72,6 +69,6 @@ namespace types {
 
         [[nodiscard]] std::pair<uint32_t, uint32_t> _getRangeOffsets(const Range& range) const;
 
-        void _syncContent();
+        void _syncContent() const;
     };
 }

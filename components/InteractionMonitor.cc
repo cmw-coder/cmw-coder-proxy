@@ -228,7 +228,7 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
 
 void InteractionMonitor::_handleInteraction(const Interaction interaction, const std::any& data) const noexcept {
     try {
-        for (const auto& handler: _instantHandlers.at(interaction)) {
+        for (const auto& handler: _handlerMap.at(interaction)) {
             handler(data);
         }
     } catch (out_of_range&) {

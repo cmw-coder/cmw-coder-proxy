@@ -9,6 +9,7 @@
 #include <utility>
 #include <algorithm>
 
+#include <components/WebsocketManager.h>
 #include <helpers/HttpHelper.h>
 #include <types/IndentType.h>
 #include <types/Modification.h>
@@ -16,6 +17,7 @@
 #include <utils/fs.h>
 #include <utils/logger.h>
 
+using namespace components;
 using namespace helpers;
 using namespace std;
 using namespace types;
@@ -32,7 +34,7 @@ namespace {
  * @brief Constructs a new Modification object.
  * @param path The path to the file to be recorded.
  */
-Modification::Modification(string path): path(move(path)), _wsHelper("ws://127.0.0.1:3000") {
+Modification::Modification(string path): path(move(path)) {
     reload();
 }
 
@@ -376,7 +378,7 @@ pair<uint32_t, uint32_t> Modification::_getLineOffsets(const uint32_t lineIndex)
 
 string Modification::_getRangeContent(const Range& range) const {
     const auto [startOffset, endOffset] = _getRangeOffsets(range);
-    auto content = _content.substr(startOffset, endOffset - startOffset);
+    const auto content = _content.substr(startOffset, endOffset - startOffset);
     return content;
 }
 
@@ -392,14 +394,12 @@ pair<uint32_t, uint32_t> Modification::_getRangeOffsets(const Range& range) cons
     return make_pair(startCharactorOffset, endCharactorOffset);
 }
 
-void Modification::_syncContent() {
-    thread([this, content = _content, path=path] {
-        _wsHelper.sendAction(
-            WsAction::DebugSync,
-            {
-                {"content", encode(content, crypto::Encoding::Base64)},
-                {"path", encode(path, crypto::Encoding::Base64)}
-            }
-        );
-    }).detach();
+void Modification::_syncContent() const {
+    WebsocketManager::GetInstance()->sendAction(
+        WsAction::DebugSync,
+        {
+            {"content", encode(_content, crypto::Encoding::Base64)},
+            {"path", encode(path, crypto::Encoding::Base64)}
+        }
+    );
 }
