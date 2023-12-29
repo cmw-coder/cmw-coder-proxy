@@ -74,7 +74,6 @@ void Modification::add(const char character) {
                 for (auto& offset: _lineOffsets | views::drop(_lastPosition.line + 1)) {
                     offset += insertContent.length();
                 }
-                logger::debug(_content);
                 // Remove extra indent of next line
                 // _lastPosition.line was increased by 1 in the previous codes
                 if (const auto nextLineIndent = _getLineIndent(_lastPosition.line);
