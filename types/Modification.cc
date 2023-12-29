@@ -79,7 +79,8 @@ void Modification::add(const char character) {
                 // _lastPosition.line was increased by 1 in the previous codes
                 if (const auto nextLineIndent = _getLineIndent(_lastPosition.line);
                     nextLineIndent > currentLineIndent) {
-                    _content.erase(_lineOffsets.at(_lastPosition.line) + currentLineIndent, nextLineIndent - currentLineIndent);
+                    _content.erase(_lineOffsets.at(_lastPosition.line) + currentLineIndent,
+                                   nextLineIndent - currentLineIndent);
                     for (auto& offset: _lineOffsets | views::drop(_lastPosition.line + 1)) {
                         offset -= nextLineIndent - currentLineIndent;
                     }
@@ -149,7 +150,7 @@ void Modification::navigate(const Key key) {
     switch (key) {
         case Key::Tab: {
             if (isSelect()) {
-                const auto selectContent = _getSelectTabContent(_lastSelect);
+                const auto selectContent = _addIndentOnSelection(_lastSelect);
                 replace(_lastSelect, selectContent);
             } else {
                 add(tabString);
@@ -272,12 +273,6 @@ bool Modification::isSelect() const {
     return !_lastSelect.isEmpty();
 }
 
-string Modification::getText(const Range& range) const {
-    const auto [startOffset, endOffset] = _rangeToCharactorOffset(range);
-    auto content = _content.substr(startOffset, endOffset - startOffset);
-    return content;
-}
-
 void Modification::replace(const string& characters) {
     const auto selectRange = _lastSelect;
     clearSelect();
@@ -293,8 +288,8 @@ void Modification::replace(const Range& selectRange, const string& characters) {
 }
 
 void Modification::remove(const Range& range) {
-    const auto [startOffset, endOffset] = _rangeToCharactorOffset(range);
-    const auto subContent = getText(range);
+    const auto [startOffset, endOffset] = _getRangeOffsets(range);
+    const auto subContent = _getRangeContent(range);
     const auto subLength = endOffset - startOffset;
     _content.erase(startOffset, subLength);
     const auto enterCount = ranges::count(subContent, '\n');
@@ -303,7 +298,7 @@ void Modification::remove(const Range& range) {
         if (distance(_lineOffsets.begin(), it) <= enterCount) {
             it = _lineOffsets.erase(it);
         } else {
-            *it -=subContent.length();
+            *it -= subContent.length();
             ++it;
         }
     }
@@ -318,13 +313,29 @@ void Modification::selectRemove() {
     _syncContent();
 }
 
+string Modification::_addIndentOnSelection(const Range& range) const {
+    string selectcontent;
+    const auto rangeContent = _getRangeContent(range);
+    const auto rangeContentLines = ranges::count(rangeContent, '\n');
+    uint32_t preindex = 0;
+    for (int count = 0; count <= rangeContentLines; count++) {
+        const auto index = rangeContent.find('\n', preindex);
+        selectcontent += tabString + rangeContent.substr(preindex, index - preindex);
+        preindex = index + 1;
+        if (count < rangeContentLines) {
+            selectcontent += "\n";
+        }
+    }
+    return selectcontent;
+}
+
 /**
  * @brief Gets the indentation of a line.
  * @param lineIndex The index of the line for which the indentation is to be obtained.
  * @return The indentation of the line.
  */
 uint32_t Modification::_getLineIndent(const uint32_t lineIndex) const {
-    const auto [start, end] = _getLineRange(lineIndex);
+    const auto [start, end] = _getLineOffsets(lineIndex);
     for (auto index = start; index < end; index++) {
         if (_content.at(index) != ' ') {
             return index - start;
@@ -342,7 +353,7 @@ uint32_t Modification::_getLineIndent(const uint32_t lineIndex) const {
  * @return The length of the line.
  */
 uint32_t Modification::_getLineLength(const uint32_t lineIndex) const {
-    const auto [start, end] = _getLineRange(lineIndex);
+    const auto [start, end] = _getLineOffsets(lineIndex);
     return end - start;
 }
 
@@ -355,13 +366,31 @@ uint32_t Modification::_getLineLength(const uint32_t lineIndex) const {
  * @param lineIndex The index of the line for which the range is to be obtained.
  * @return A pair of unsigned integers where the first element is the start position and the second element is the end position of the line in the content.
  */
-pair<uint32_t, uint32_t> Modification::_getLineRange(const uint32_t lineIndex) const {
+pair<uint32_t, uint32_t> Modification::_getLineOffsets(const uint32_t lineIndex) const {
     return {
         _lineOffsets.at(lineIndex),
         lineIndex == _lineOffsets.size() - 1
             ? _content.length()
             : _lineOffsets.at(lineIndex + 1) - 1
     };
+}
+
+string Modification::_getRangeContent(const Range& range) const {
+    const auto [startOffset, endOffset] = _getRangeOffsets(range);
+    auto content = _content.substr(startOffset, endOffset - startOffset);
+    return content;
+}
+
+pair<uint32_t, uint32_t> Modification::_getRangeOffsets(const Range& range) const {
+    uint32_t startCharactorOffset = _lineOffsets.at(range.start.line) + range.start.character;
+    uint32_t endCharactorOffset;
+    if (range.end.character == 4096) {
+        endCharactorOffset = _lineOffsets.at(range.end.line) + _getLineLength(range.end.line) + 1;
+    } else {
+        endCharactorOffset = _lineOffsets.at(range.end.line) + range.end.character;
+    }
+
+    return make_pair(startCharactorOffset, endCharactorOffset);
 }
 
 void Modification::_syncContent() {
@@ -374,35 +403,4 @@ void Modification::_syncContent() {
             }
         );
     }).detach();
-}
-
-pair<uint32_t, uint32_t> Modification::_rangeToCharactorOffset(const Range& range) const {
-    uint32_t startCharactorOffset = _lineOffsets.at(range.start.line) + range.start.character;
-    uint32_t endCharactorOffset;
-    if (range.end.character == 4096) {
-        endCharactorOffset =  _lineOffsets.at(range.end.line) + _getLineLength(range.end.line) + 1;
-    } else {
-        endCharactorOffset = _lineOffsets.at(range.end.line) + range.end.character;
-    }
-
-    return make_pair(startCharactorOffset, endCharactorOffset);
-}
-
-string Modification::_getSelectTabContent(const Range& range) const {
-    string selectcontent;
-    const auto Content = getText(range);
-    if (const auto lineCount = ranges::count(Content, '\n');
-        lineCount >= 0) {
-        uint32_t preindex = 0;
-        for (int count = 0; count <= lineCount; count++) {
-            const auto index = Content.find('\n', preindex);
-            auto subContent = Content.substr(preindex, index-preindex);
-            selectcontent += tabString + subContent;
-            preindex = index + 1;
-            if (count < lineCount) {
-                selectcontent += "\n";
-            }
-        }
-    }
-    return selectcontent;
 }

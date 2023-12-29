@@ -52,13 +52,6 @@ namespace types {
 
         void replace(const Range& selectRange, const std::string& characters);
 
-        [[nodiscard]] std::string getText(const Range& range) const;
-
-        // bool modifySingle(Type type, CaretPosition modifyPosition, char character = {});
-
-        // bool merge(const Modification&other);
-
-        // [[nodiscard]] nlohmann::json parse() const;
 
     private:
         CaretPosition _lastPosition;
@@ -67,15 +60,17 @@ namespace types {
         std::string _content;
         std::vector<uint32_t> _lineOffsets;
 
+        [[nodiscard]] std::string _addIndentOnSelection(const Range& range) const;
+
         [[nodiscard]] uint32_t _getLineIndent(uint32_t lineIndex) const;
 
         [[nodiscard]] uint32_t _getLineLength(uint32_t lineIndex) const;
 
-        [[nodiscard]] std::pair<uint32_t, uint32_t> _rangeToCharactorOffset(const Range& range) const;
+        [[nodiscard]] std::pair<uint32_t, uint32_t> _getLineOffsets(uint32_t lineIndex) const;
 
-        [[nodiscard]] std::string _getSelectTabContent(const Range& range) const;
+        [[nodiscard]] std::string _getRangeContent(const Range& range) const;
 
-        [[nodiscard]] std::pair<uint32_t, uint32_t> _getLineRange(uint32_t lineIndex) const;
+        [[nodiscard]] std::pair<uint32_t, uint32_t> _getRangeOffsets(const Range& range) const;
 
         void _syncContent();
     };
