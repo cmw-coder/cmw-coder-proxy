@@ -1,10 +1,10 @@
-#include <types/ModuleProxy.h>
+#include <components/ModuleProxy.h>
 #include <utils/system.h>
 
 #include <windows.h>
 
+using namespace components;
 using namespace std;
-using namespace types;
 using namespace utils;
 
 ModuleProxy::ModuleProxy() : _hModule(LoadLibrary(system::getSystemPath(PROXY_MODULE_NAME).c_str()), FreeLibrary) {

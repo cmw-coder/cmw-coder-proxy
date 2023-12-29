@@ -8,7 +8,7 @@ using namespace std;
 using namespace utils;
 
 
-uint64_t memory::scanPattern(const string&pattern) {
+uint64_t memory::scanPattern(const string& pattern) {
     uint64_t varAddress = 0;
     const shared_ptr<void> sharedProcessHandle(GetCurrentProcess(), CloseHandle);
     if (sharedProcessHandle) {
@@ -54,7 +54,7 @@ optional<uint32_t> memory::readMemory32(uint64_t address, const bool relative) {
     return nullopt;
 }
 
-bool memory::writeMemory(const uint64_t address, const string&value) {
+bool memory::writeMemory(const uint64_t address, const string& value) {
     const shared_ptr<void> sharedProcessHandle(GetCurrentProcess(), CloseHandle);
     if (sharedProcessHandle) {
         return WriteProcessMemory(

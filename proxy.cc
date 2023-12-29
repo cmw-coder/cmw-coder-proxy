@@ -1,12 +1,12 @@
 #include <format>
 
-#include <types/ModuleProxy.h>
+#include <components/ModuleProxy.h>
 #include <utils/logger.h>
 
 #include <windows.h>
 
+using namespace components;
 using namespace std;
-using namespace types;
 using namespace utils;
 
 #ifdef __cplusplus

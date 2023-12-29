@@ -2,9 +2,10 @@
 
 #include <magic_enum.hpp>
 
-#include <types/Configurator.h>
+#include <components/Configurator.h>
 #include <utils/system.h>
 
+using namespace components;
 using namespace magic_enum;
 using namespace std;
 using namespace types;
@@ -27,7 +28,7 @@ Configurator::Configurator() {
     }
 }
 
-pair<SiVersion::Major, SiVersion::Minor> Configurator::version() const {
+EditorVersion Configurator::version() const {
     return _siVersion;
 }
 

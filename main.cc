@@ -1,15 +1,19 @@
 #include <format>
 
-#include <types/Configurator.h>
-#include <types/CursorMonitor.h>
-#include <types/ModuleProxy.h>
-#include <types/RegistryMonitor.h>
-#include <types/WindowInterceptor.h>
+#include <ixwebsocket/IXNetSystem.h>
+
+#include <components/CompletionManager.h>
+#include <components/Configurator.h>
+#include <components/InteractionMonitor.h>
+#include <components/ModificationManager.h>
+#include <components/ModuleProxy.h>
+#include <components/WindowManager.h>
 #include <utils/logger.h>
 #include <utils/system.h>
 
 #include <windows.h>
 
+using namespace components;
 using namespace std;
 using namespace types;
 using namespace utils;
@@ -18,21 +22,32 @@ namespace {
     void initialize() {
         logger::log("Comware Coder Proxy is initializing...");
 
+        ix::initNetSystem();
+
         ModuleProxy::Construct();
         Configurator::Construct();
-        CursorMonitor::Construct();
-        RegistryMonitor::Construct();
-        WindowInterceptor::Construct();
+        ModificationManager::Construct();
+        CompletionManager::Construct();
+        InteractionMonitor::Construct();
+        WindowManager::Construct();
+
+        ModificationManager::GetInstance()->addTab(
+            "main.c",
+            "C:/Users/particleg/Documents/Source Insight/Projects/FunctionTest/main.c"
+        );
     }
 
     void finalize() {
         logger::log("Comware Coder Proxy is finalizing...");
 
-        WindowInterceptor::Destruct();
-        RegistryMonitor::Destruct();
-        CursorMonitor::Destruct();
+        WindowManager::Destruct();
+        InteractionMonitor::Destruct();
+        CompletionManager::Destruct();
+        ModificationManager::Destruct();
         Configurator::Destruct();
         ModuleProxy::Destruct();
+
+        ix::uninitNetSystem();
     }
 }
 
@@ -47,37 +62,46 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
 
             initialize();
 
-            CursorMonitor::GetInstance()->addHandler(
-                UserAction::DeleteBackward,
-                RegistryMonitor::GetInstance(),
-                &RegistryMonitor::cancelByDeleteBackward
+            InteractionMonitor::GetInstance()->addInstantHandler(
+                Interaction::CaretUpdate,
+                ModificationManager::GetInstance(),
+                &ModificationManager::instantCaret
             );
-            CursorMonitor::GetInstance()->addHandler(
-                UserAction::Navigate,
-                RegistryMonitor::GetInstance(),
-                &RegistryMonitor::cancelByCursorNavigate
+            InteractionMonitor::GetInstance()->addInstantHandler(
+                Interaction::DeleteInput,
+                ModificationManager::GetInstance(),
+                &ModificationManager::instantDelete
             );
-
-            WindowInterceptor::GetInstance()->addHandler(
-                UserAction::Accept,
-                RegistryMonitor::GetInstance(),
-                &RegistryMonitor::acceptByTab
+            InteractionMonitor::GetInstance()->addInstantHandler(
+                Interaction::EnterInput,
+                ModificationManager::GetInstance(),
+                &ModificationManager::instantEnter
             );
-            WindowInterceptor::GetInstance()->addHandler(
-                UserAction::ModifyLine,
-                RegistryMonitor::GetInstance(),
-                &RegistryMonitor::cancelByModifyLine
+            InteractionMonitor::GetInstance()->addInstantHandler(
+                Interaction::Navigate,
+                ModificationManager::GetInstance(),
+                &ModificationManager::instantNavigate
             );
-            WindowInterceptor::GetInstance()->addHandler(
-                UserAction::Navigate,
-                RegistryMonitor::GetInstance(),
-                &RegistryMonitor::cancelByKeycodeNavigate
+            InteractionMonitor::GetInstance()->addInstantHandler(
+                Interaction::NormalInput,
+                ModificationManager::GetInstance(),
+                &ModificationManager::instantNormal
             );
-            WindowInterceptor::GetInstance()->addHandler(
-                UserAction::Normal,
-                RegistryMonitor::GetInstance(),
-                &RegistryMonitor::processNormalKey
+            InteractionMonitor::GetInstance()->addInstantHandler(
+                Interaction::SelectionSet,
+                ModificationManager::GetInstance(),
+                &ModificationManager::instantSelect
             );
+            InteractionMonitor::GetInstance()->addInstantHandler(
+                Interaction::SelectionClear,
+                ModificationManager::GetInstance(),
+                &ModificationManager::instantClearSelect
+            );
+            // InteractionMonitor::GetInstance()->addInstantHandler(
+            //     Interaction::AcceptCompletion,
+            //     CompletionManager::GetInstance(),
+            //     &CompletionManager::instantAccept
+            // );
 
             const auto mainThreadId = system::getMainThreadId();
             logger::log(std::format(
