@@ -87,5 +87,14 @@
     <option name="/Default/CodeStyle/CodeFormatting/CppFormatting/PLACE_CATCH_ON_NEW_LINE/@EntryValue" value="false" type="bool" />
     <option name="/Default/CodeStyle/CodeFormatting/CppFormatting/SPACE_AFTER_REF_IN_DATA_MEMBERS/@EntryValue" value="false" type="bool" />
     <option name="/Default/CodeStyle/CodeFormatting/CppFormatting/EMPTY_BLOCK_STYLE/@EntryValue" value="TOGETHER" type="string" />
+    <option name="/Default/CodeInspection/GeneratedCode/GeneratedCodeRegions/=Windows_0020Form_0020Designer_0020generated_0020code/@EntryIndexedValue" value="Windows Form Designer generated code" type="string" />
+    <option name="/Default/CodeInspection/GeneratedCode/GeneratedCodeRegions/=Windows_0020Form_0020Designer_0020generated_0020code/@EntryIndexRemoved" />
+    <option name="/Default/CodeInspection/GeneratedCode/GeneratedCodeRegions/=Component_0020Designer_0020generated_0020code/@EntryIndexedValue" value="Component Designer generated code" type="string" />
+    <option name="/Default/CodeInspection/GeneratedCode/GeneratedCodeRegions/=Component_0020Designer_0020generated_0020code/@EntryIndexRemoved" />
+    <option name="/Default/CodeInspection/GeneratedCode/GeneratedCodeRegions/=Designer_0020generated_0020code/@EntryIndexedValue" value="Designer generated code" type="string" />
+    <option name="/Default/CodeInspection/GeneratedCode/GeneratedCodeRegions/=Designer_0020generated_0020code/@EntryIndexRemoved" />
+    <option name="/Default/CodeInspection/GeneratedCode/GeneratedCodeRegions/=Web_0020Form_0020Designer_0020generated_0020code/@EntryIndexedValue" value="Web Form Designer generated code" type="string" />
+    <option name="/Default/CodeInspection/GeneratedCode/GeneratedCodeRegions/=Web_0020Form_0020Designer_0020generated_0020code/@EntryIndexRemoved" />
+    <option name="/Default/Housekeeping/GlobalSettingsUpgraded/IsUpgraded/@EntryValue" value="true" type="bool" />
   </component>
 </project>

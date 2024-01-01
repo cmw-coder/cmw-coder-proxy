@@ -206,9 +206,34 @@ void CompletionManager::instantUndo(const any&) {
     }
 }
 
+void CompletionManager::onCompletionGenerate(const nlohmann::json& data) {
+    if (const auto result = data["result"].get<string>();
+        result == "success") {
+        if (const auto& completions = data["completions"];
+            completions.is_array() && !completions.empty()) {
+            const auto completionsDecodes = decode(completions[0].get<string>(), crypto::Encoding::Base64);
+            auto oldCompletion = _completionCache.reset(
+                completionsDecodes[0] == '1',
+                completionsDecodes.substr(1)
+            );
+            thread(&CompletionManager::_reactToCompletion, this, move(oldCompletion), false).detach();
+        } else {
+            logger::log("(WsAction::CompletionGenerate) No completion");
+        }
+    } else {
+        logger::log(format(
+            "(WsAction::CompletionGenerate) Result: {}\n"
+            "\tMessage: {}",
+            result,
+            data["message"].get<string>()
+        ));
+    }
+}
+
 void CompletionManager::retrieveWithCurrentPrefix(const string& currentPrefix) {
     shared_lock lock(_componentsMutex);
-    if (const auto lastNewLineIndex = _components.prefix.find_last_of('\n'); lastNewLineIndex != string::npos) {
+    if (const auto lastNewLineIndex = _components.prefix.find_last_of('\n');
+        lastNewLineIndex != string::npos) {
         _retrieveCompletion(_components.prefix.substr(0, lastNewLineIndex + 1) + currentPrefix);
     } else {
         _retrieveCompletion(currentPrefix);
@@ -289,65 +314,23 @@ void CompletionManager::_reactToCompletion(Completion&& completion, const bool i
 
 void CompletionManager::_retrieveCompletion(const string& prefix) {
     _currentRetrieveTime.store(chrono::high_resolution_clock::now());
-    thread([this, prefix, originalRetrieveTime = _currentRetrieveTime.load()] {
-        optional<string> completionGenerated;
-        nlohmann::json requestBody; {
-            shared_lock componentsLock(_componentsMutex);
-            shared_lock editorInfoLock(_editorInfoMutex);
-            requestBody = {
-                {"cursorString", _components.cursorString},
-                {"path", encode(_components.path, crypto::Encoding::Base64)},
-                {"prefix", encode(prefix, crypto::Encoding::Base64)},
-                {"projectId", _editorInfo.projectId},
-                {"suffix", encode(_components.suffix, crypto::Encoding::Base64)},
-                {"symbolString", encode(_components.symbolString, crypto::Encoding::Base64)},
-                {"tabString", encode(_components.tabString, crypto::Encoding::Base64)},
-                {"version", _editorInfo.version},
-            };
-        }
-        try {
-            if (const auto [status, responseBody] = HttpHelper(
-                    "http://localhost:3000", chrono::seconds(10)
-                ).post("/completion/generate", move(requestBody));
-                status == 200) {
-                const auto result = responseBody["result"].get<string>();
-                if (const auto& contents = responseBody["contents"];
-                    result == "success" && contents.is_array() && !contents.empty()) {
-                    completionGenerated.emplace(decode(contents[0].get<string>(), crypto::Encoding::Base64));
-                    logger::log(format("(/completion/generate) Completion: {}", completionGenerated.value_or("null")));
-                } else {
-                    logger::log(format("(/completion/generate) Invalid completion: {}", responseBody.dump()));
+    WebsocketManager::GetInstance()->sendAction(
+        WsAction::CompletionGenerate,
+        {
+            {
+                "caret", {
+                    {"character", _lastPosition.load().character},
+                    {"line", _lastPosition.load().line},
                 }
-            } else {
-                logger::log(format("(/completion/generate) HTTP Code: {}, body: {}", status, responseBody.dump()));
-            }
-        } catch (HttpHelper::HttpError& e) {
-            logger::error(format("(/completion/accept) Http error: {}", e.what()));
+            },
+            {"path", encode(_components.path, crypto::Encoding::Base64)},
+            {"prefix", encode(prefix, crypto::Encoding::Base64)},
+            {"projectId", _editorInfo.projectId},
+            {"suffix", encode(_components.suffix, crypto::Encoding::Base64)},
+            {"symbolString", encode(_components.symbolString, crypto::Encoding::Base64)},
+            {"tabString", encode(_components.tabString, crypto::Encoding::Base64)},
         }
-        catch (exception& e) {
-            logger::log(format("(/completion/generate) Exception: {}", e.what()));
-        }
-        catch (...) {
-            logger::log("(/completion/generate) Unknown exception.");
-        }
-
-        if (
-            completionGenerated.has_value() &&
-            originalRetrieveTime == _currentRetrieveTime.load()
-        ) {
-            auto oldCompletion = _completionCache.reset(
-                completionGenerated.value()[0] == '1',
-                completionGenerated.value().substr(1)
-            );
-            if (!oldCompletion.content().empty()) {
-                _cancelCompletion(false);
-                logger::log(format("Cancel old cached completion: {}", oldCompletion.stringify()));
-            }
-            insertCompletion(completionGenerated.value());
-            logger::log("Inserted completion");
-            thread(&CompletionManager::_reactToCompletion, this, move(oldCompletion), false).detach();
-        }
-    }).detach();
+    );
 }
 
 void CompletionManager::_retrieveEditorInfo() const {

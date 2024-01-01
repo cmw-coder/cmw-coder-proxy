@@ -24,11 +24,11 @@ namespace components {
 
         template<class T>
         void registerInteraction(
-            const types::Interaction userAction,
+            const types::Interaction interaction,
             T* const other,
             void (T::* const memberFunction)(const std::any&)
         ) {
-            _handlerMap[userAction].push_back(std::bind_front(memberFunction, other));
+            _handlerMap[interaction].push_back(std::bind_front(memberFunction, other));
         }
 
     private:

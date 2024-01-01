@@ -48,6 +48,8 @@ namespace components {
 
         void instantUndo(const std::any& = {});
 
+        void onCompletionGenerate(const nlohmann::json& data);
+
         void retrieveWithCurrentPrefix(const std::string& currentPrefix);
 
         void retrieveWithFullInfo(Components&& components);

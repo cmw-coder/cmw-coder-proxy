@@ -20,6 +20,7 @@ WebsocketManager::WebsocketManager(string&& url, const chrono::seconds& pingInte
             logger::debug(msg->str);
         }
     });
+    _client.setOnMessageCallback(bind_front(_messageCallback, this));
     _client.start();
 }
 
@@ -43,4 +44,68 @@ void WebsocketManager::sendAction(const WsAction action, nlohmann::json&& data) 
 
 void WebsocketManager::sendRaw(const string& message) {
     _client.send(message);
+}
+
+void WebsocketManager::_messageCallback(const WebSocketMessagePtr& messagePtr) {
+    switch (messagePtr->type) {
+        case WebSocketMessageType::Message: {
+            _handleEventMessage(messagePtr->str);
+            break;
+        }
+        case WebSocketMessageType::Open: {
+            logger::info("Websocket connection established");
+            break;
+        }
+        case WebSocketMessageType::Close: {
+            logger::info(format(
+                "Websocket connection closed.\n"
+                "\tReason: {}. Code: {}. ",
+                messagePtr->closeInfo.reason,
+                messagePtr->closeInfo.code
+            ));
+            break;
+        }
+        case WebSocketMessageType::Error: {
+            logger::info(format(
+                "Websocket connection error.\n"
+                "\tReason: {}. HTTP Status: {}."
+                "\tRetries: {}. Wait time(ms): {}.",
+                messagePtr->errorInfo.reason,
+                messagePtr->errorInfo.http_status,
+                messagePtr->errorInfo.retries,
+                messagePtr->errorInfo.wait_time
+            ));
+            break;
+        }
+        case WebSocketMessageType::Ping:
+        case WebSocketMessageType::Pong:
+        case WebSocketMessageType::Fragment: {
+            break;
+        }
+    }
+}
+
+void WebsocketManager::_handleEventMessage(const string& messageString) {
+    try {
+        if (auto message = nlohmann::json::parse(messageString);
+            message.contains("action")) {
+            if (const auto actionOpt = enum_cast<WsAction>(message["action"].get<string>());
+                actionOpt.has_value()) {
+                for (const auto& handlers: _handlerMap[actionOpt.value()]) {
+                    handlers(message["data"]);
+                }
+            } else {
+                logger::info(format("Invalid websocket message action: {}.", message["action"].get<string>()));
+            }
+        } else {
+            logger::info(format("Invalid websocket message structure: {}.", messageString));
+        }
+    } catch (nlohmann::detail::parse_error& e) {
+        logger::error(format(
+            "Websocket message is not a valid JSON.\n"
+            "\tError: {}. Message: {}.",
+            e.what(),
+            messageString
+        ));
+    }
 }
