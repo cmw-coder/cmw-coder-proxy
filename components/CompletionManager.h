@@ -28,23 +28,15 @@ namespace components {
 
         CompletionManager() = default;
 
-        void interactionCaretUpdate(const std::any& data);
+        std::optional<std::string> acceptCompletion();
 
-        void delayedDelete(const std::any&);
+        void cancelCompletion();
 
-        void delayedEnter(types::CaretPosition, types::CaretPosition, const std::any& = {});
+        void deleteInput(const types::CaretPosition& position);
 
-        void delayedNavigate(types::CaretPosition, types::CaretPosition, const std::any& = {});
+        void normalInput(char character);
 
-        void instantAccept(const std::any& = {});
-
-        void instantCancel(const std::any& data);
-
-        void instantNavigate(const std::any& = {});
-
-        void instantNormal(const std::any& data);
-
-        void instantSave(const std::any& = {});
+        // TODO: Remove old methods
 
         void instantUndo(const std::any& = {});
 
@@ -65,7 +57,6 @@ namespace components {
         Components _components;
         EditorInfo _editorInfo;
         std::atomic<bool> _isAutoCompletion{true}, _isContinuousEnter{}, _isJustAccepted{};
-        std::atomic<types::CaretPosition> _lastPosition;
         std::atomic<types::Time> _currentRetrieveTime;
         types::CompletionCache _completionCache;
 

@@ -16,23 +16,23 @@ namespace components {
 
         void addTab(const std::string& tabName, const std::string& path);
 
-        void instantCaret(const std::any& data);
+        void interactionAcceptCompletion(const std::any&);
 
-        void instantDelete(const std::any&);
+        void interactionCaretUpdate(const std::any& data);
 
-        void instantEnter(const std::any&);
+        void interactionDeleteInput(const std::any&);
 
-        void instantNavigate(const std::any& data);
+        void interactionEnterInput(const std::any&);
 
-        void instantNormal(const std::any& data);
+        void interactionNavigate(const std::any& data);
 
-        void instantSelect(const std::any& data);
+        void interactionNormalInput(const std::any& data);
 
-        void instantClearSelect(const std::any&);
+        void interactionSave(const std::any&);
 
-        std::string getCurrentTabContent();
+        void interactionSelectionClear(const std::any&);
 
-        void reloadTab();
+        void interactionSelectionSet(const std::any& data);
 
         void removeTab(const std::string& tabName);
 

@@ -24,6 +24,8 @@ namespace types {
 
         explicit Modification(std::string path);
 
+        void acceptCompletion();
+
         void add(char character);
 
         void add(const std::string& characters);
@@ -36,28 +38,19 @@ namespace types {
 
         void remove();
 
-        void remove(const Range& range);
+        void selectionClear();
 
-        void selectRemove();
-
-        void select(const Range& range);
-
-        void clearSelect();
-
-        bool isSelect() const;
-
-        void replace(const std::string& characters);
-
-        void replace(const Range& selectRange, const std::string& characters);
-
+        void selectionSet(const Range& range);
 
     private:
-        CaretPosition _lastPosition;
-        Range _lastSelect;
+        CaretPosition _lastPosition{};
+        Range _lastSelect{};
         std::string _content;
         std::vector<uint32_t> _lineOffsets;
 
-        [[nodiscard]] std::string _addIndentOnSelection(const Range& range) const;
+        [[nodiscard]] std::string _addRangeIndent(const Range& range) const;
+
+        void _debugSync() const;
 
         [[nodiscard]] uint32_t _getLineIndent(uint32_t lineIndex) const;
 
@@ -69,6 +62,6 @@ namespace types {
 
         [[nodiscard]] std::pair<uint32_t, uint32_t> _getRangeOffsets(const Range& range) const;
 
-        void _syncContent() const;
+        void _setRangeContent(const Range& range, const std::string& characters = {});
     };
 }

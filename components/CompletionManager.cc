@@ -50,21 +50,28 @@ namespace {
     }
 }
 
-void CompletionManager::interactionCaretUpdate(const std::any& data) {
-    try {
-        const auto [newCursorPosition, oldCursorPosition] = any_cast<tuple<CaretPosition, CaretPosition>>(data);
-        _lastPosition.store(newCursorPosition);
-    } catch (const bad_any_cast& e) {
-        logger::log(format("Invalid instantCaret data: {}", e.what()));
+optional<string> CompletionManager::acceptCompletion() {
+    _isContinuousEnter.store(false);
+    _isJustAccepted.store(true);
+    if (auto oldCompletion = _completionCache.reset();
+        !oldCompletion.content().empty()) {
+        WindowManager::GetInstance()->sendAcceptCompletion();
+        logger::log(format("Accepted completion: {}", oldCompletion.stringify()));
+        thread(&CompletionManager::_reactToCompletion, this, move(oldCompletion), true).detach();
+        return oldCompletion.content();
     }
-    catch (out_of_range&) {}
+    return nullopt;
 }
 
-void CompletionManager::delayedDelete(const any&) {
+void CompletionManager::cancelCompletion() {
     _isContinuousEnter.store(false);
-    const auto currentPosition = _lastPosition.load();
+    _cancelCompletion();
+}
+
+void CompletionManager::deleteInput(const CaretPosition& position) {
+    _isContinuousEnter.store(false);
     try {
-        if (currentPosition.character != 0) {
+        if (position.character != 0) {
             if (const auto previousCacheOpt = _completionCache.previous();
                 previousCacheOpt.has_value()) {
                 // Has valid cache
@@ -86,69 +93,16 @@ void CompletionManager::delayedDelete(const any&) {
     }
 }
 
-void CompletionManager::delayedEnter(CaretPosition, CaretPosition, const any&) {
-    if (_completionCache.valid()) {
-        // TODO: support 1st level cache
-        _cancelCompletion();
-        logger::log("Input new line. Send CompletionCancel");
-    }
-
-    if (_isContinuousEnter) {
-        shared_lock lock(_componentsMutex);
-        _retrieveCompletion(_components.prefix);
-        logger::log("Detect Continuous enter, retrieve completion directly");
-    } else {
-        _isContinuousEnter.store(true);
-        _retrieveEditorInfo();
-        logger::log("Detect first enter, retrieve editor info first");
-    }
-}
-
-void CompletionManager::delayedNavigate(CaretPosition, CaretPosition, const any&) {
-    instantNavigate();
-}
-
-void CompletionManager::instantAccept(const any&) {
-    _isContinuousEnter.store(false);
-    _isJustAccepted.store(true);
-    if (auto oldCompletion = _completionCache.reset(); !oldCompletion.content().empty()) {
-        WindowManager::GetInstance()->sendAcceptCompletion();
-        logger::log(format("Accepted completion: {}", oldCompletion.stringify()));
-        thread(&CompletionManager::_reactToCompletion, this, move(oldCompletion), true).detach();
-    } else {
-        // _retrieveEditorInfo();
-        ModificationManager::GetInstance()->instantNavigate(Key::Tab);
-    }
-}
-
-void CompletionManager::instantCancel(const any& data) {
-    try {
-        _cancelCompletion(any_cast<bool>(data));
-    } catch (const bad_any_cast& e) {
-        logger::log(format("Invalid interactionCancel data: {}", e.what()));
-    }
-}
-
-void CompletionManager::instantNavigate(const std::any&) {
-    _isContinuousEnter.store(false);
-    if (_completionCache.valid()) {
-        _cancelCompletion();
-        logger::log("Canceled by navigate.");
-    }
-}
-
-void CompletionManager::instantNormal(const any& data) {
+void CompletionManager::normalInput(const char character) {
     _isContinuousEnter.store(false);
     _isJustAccepted.store(false);
     try {
-        const auto keycode = any_cast<Keycode>(data);
         if (const auto nextCacheOpt = _completionCache.next();
             nextCacheOpt.has_value()) {
             // Has valid cache
             const auto [currentChar, completionOpt] = nextCacheOpt.value();
             try {
-                // TODO: Check if this would cause issues
-                if (keycode == currentChar) {
+                if (character == currentChar) {
                     // Cache hit
                     if (completionOpt.has_value()) {
                         // In cache
@@ -158,12 +112,15 @@ void CompletionManager::instantNormal(const any& data) {
                         logger::log("Insert next cached completion");
                     } else {
                         // Out of cache
-                        instantAccept();
+                        acceptCompletion();
                     }
                 } else {
                     // Cache miss
                     _cancelCompletion();
                     logger::log(format("Canceled due to cache miss"));
+                    if (character == '\n') {
+                        _isContinuousEnter.store(true);
+                    }
                     _retrieveEditorInfo();
                 }
             } catch (runtime_error& e) {
@@ -171,21 +128,23 @@ void CompletionManager::instantNormal(const any& data) {
             }
         } else {
             // No valid cache
-            _retrieveEditorInfo();
+            if (character == '\n') {
+                // TODO: Implement logic for continuous enter
+                // if (_isContinuousEnter) {
+                //     shared_lock lock(_componentsMutex);
+                //     _retrieveCompletion(_components.prefix);
+                //     logger::log("Detect Continuous enter, retrieve completion directly");
+                // } else {
+                //     _isContinuousEnter.store(true);
+                //     _retrieveEditorInfo();
+                //     logger::log("Detect first enter, retrieve editor info first");
+                // }
+            } else {
+                _retrieveEditorInfo();
+            }
         }
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid interactionNormal data: {}", e.what()));
-    }
-}
-
-void CompletionManager::instantSave(const any&) {
-    if (_completionCache.valid()) {
-        _cancelCompletion();
-        logger::log("Canceled by save.");
-        WindowManager::GetInstance()->sendSave();
-    } else {
-        // Interrupted current retrieve
-        _currentRetrieveTime.store(chrono::high_resolution_clock::now());
     }
 }
 

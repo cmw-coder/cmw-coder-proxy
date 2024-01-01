@@ -204,7 +204,6 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                 if (modifiers.size() == 1 && modifiers.contains(Modifier::Ctrl)) {
                     switch (key) {
                         case Key::S: {
-                            ModificationManager::GetInstance()->reloadTab();
                             _handleInteraction(Interaction::Save);
                             break;
                         }

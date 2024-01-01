@@ -16,6 +16,12 @@ CaretPosition& CaretPosition::addLine(const int64_t line) {
     return *this;
 }
 
+void CaretPosition::reset() {
+    this->character = 0;
+    this->line = 0;
+    this->maxCharacter = 0;
+}
+
 bool CaretPosition::operator<(const CaretPosition& other) const {
     return this->line < other.line || (this->line == other.line && this->character < other.character);
 }

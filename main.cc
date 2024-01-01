@@ -60,49 +60,49 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
             initialize();
 
             InteractionMonitor::GetInstance()->registerInteraction(
-                Interaction::CaretUpdate,
-                CompletionManager::GetInstance(),
-                &CompletionManager::interactionCaretUpdate
+                Interaction::AcceptCompletion,
+                ModificationManager::GetInstance(),
+                &ModificationManager::interactionAcceptCompletion
             );
             InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::CaretUpdate,
                 ModificationManager::GetInstance(),
-                &ModificationManager::instantCaret
+                &ModificationManager::interactionCaretUpdate
             );
             InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::DeleteInput,
                 ModificationManager::GetInstance(),
-                &ModificationManager::instantDelete
+                &ModificationManager::interactionDeleteInput
             );
             InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::EnterInput,
                 ModificationManager::GetInstance(),
-                &ModificationManager::instantEnter
+                &ModificationManager::interactionEnterInput
             );
             InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::Navigate,
                 ModificationManager::GetInstance(),
-                &ModificationManager::instantNavigate
+                &ModificationManager::interactionNavigate
             );
             InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::NormalInput,
                 ModificationManager::GetInstance(),
-                &ModificationManager::instantNormal
+                &ModificationManager::interactionNormalInput
+            );
+            InteractionMonitor::GetInstance()->registerInteraction(
+                Interaction::Save,
+                ModificationManager::GetInstance(),
+                &ModificationManager::interactionSave
             );
             InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::SelectionSet,
                 ModificationManager::GetInstance(),
-                &ModificationManager::instantSelect
+                &ModificationManager::interactionSelectionSet
             );
             InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::SelectionClear,
                 ModificationManager::GetInstance(),
-                &ModificationManager::instantClearSelect
-            );
-            InteractionMonitor::GetInstance()->registerInteraction(
-                Interaction::AcceptCompletion,
-                CompletionManager::GetInstance(),
-                &CompletionManager::instantAccept
+                &ModificationManager::interactionSelectionClear
             );
 
             const auto mainThreadId = system::getMainThreadId();
