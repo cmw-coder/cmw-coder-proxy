@@ -105,6 +105,12 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 &ModificationManager::interactionSelectionClear
             );
 
+            WebsocketManager::GetInstance()->registerAction(
+                WsAction::CompletionGenerate,
+                CompletionManager::GetInstance(),
+                &CompletionManager::wsActionCompletionGenerate
+            );
+
             const auto mainThreadId = system::getMainThreadId();
             logger::log(std::format(
                 "siVersion: {}, PID: {}, currentTID: {}, mainTID: {}, mainModuleName: {}",

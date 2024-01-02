@@ -69,7 +69,6 @@ void Modification::add(const char character) {
         _setRangeContent(_lastSelect);
         selectionClear();
     }
-    logger::info(format("Add character at ({}, {})", _lastPosition.line, _lastPosition.character));
     // TODO: Get indent type from config
     constexpr auto indentType = IndentType::Simple;
     const auto charactorOffset = _lineOffsets.at(_lastPosition.line) + _lastPosition.character;
@@ -139,7 +138,6 @@ void Modification::add(const char character) {
  * @param characters The string of characters to be added.
  */
 void Modification::add(const string& characters) {
-    logger::info(format("Add string at ({}, {})", _lastPosition.line, _lastPosition.character));
     const auto charactorOffset = _lineOffsets.at(_lastPosition.line) + _lastPosition.character;
     for (auto& offset: _lineOffsets | views::drop(_lastPosition.line + 1)) {
         offset += characters.length();

@@ -22,32 +22,7 @@ using namespace types;
 using namespace utils;
 
 namespace {
-    constexpr auto cancelTypeKey = "CMWCODER_cancelType";
     constexpr auto completionGeneratedKey = "CMWCODER_completionGenerated";
-
-    constexpr auto insertCompletion = [](const string& completionString) {
-        system::setEnvironmentVariable(completionGeneratedKey, completionString);
-        WindowManager::GetInstance()->sendInsertCompletion();
-    };
-
-    void sendCompletionCache(const char character) {
-        if (character < 0) {
-            WebsocketManager::GetInstance()->sendAction(
-                WsAction::CompletionCache,
-                {
-                    {"isDelete", true},
-                }
-            );
-        } else {
-            WebsocketManager::GetInstance()->sendAction(
-                WsAction::CompletionCache,
-                {
-                    {"character", string(1, character)},
-                    {"isDelete", false},
-                }
-            );
-        }
-    }
 
     void sendCompletionAccept() {
         WebsocketManager::GetInstance()->sendAction(WsAction::CompletionAccept);
@@ -81,7 +56,7 @@ void CompletionManager::deleteInput(const CaretPosition& position) {
                 // Has valid cache
                 if (const auto [_, completionOpt] = previousCacheOpt.value();
                     completionOpt.has_value()) {
-                    sendCompletionCache(-1);
+                    WebsocketManager::GetInstance()->sendAction(WsAction::CompletionCache, true);
                     logger::log("Delete backward. Send CompletionCache due to cache hit");
                 } else {
                     _cancelCompletion();
@@ -94,20 +69,6 @@ void CompletionManager::deleteInput(const CaretPosition& position) {
         }
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid delayedDelete data: {}", e.what()));
-    }
-}
-
-void CompletionManager::hideCompletion() const {
-    if (_completionCache.valid()) {
-        WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveHide);
-        logger::log("Window . Send ImmersiveHide");
-    }
-}
-
-auto CompletionManager::showCompletion() -> void {
-    if (_completionCache.valid()) {
-        WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveShow);
-        logger::log("Show completion. Send ImmersiveShow");
     }
 }
 
@@ -124,10 +85,8 @@ void CompletionManager::normalInput(const char character) {
                     // Cache hit
                     if (completionOpt.has_value()) {
                         // In cache
-                        _cancelCompletion(false);
-                        logger::log("Cancel completion due to next cached");
-                        insertCompletion(completionOpt.value().stringify());
-                        logger::log("Insert next cached completion");
+                        WebsocketManager::GetInstance()->sendAction(WsAction::CompletionCache, false);
+                        logger::log("Normal input. Send CompletionCache due to cache hit");
                     } else {
                         // Out of cache
                         acceptCompletion();
@@ -135,7 +94,7 @@ void CompletionManager::normalInput(const char character) {
                 } else {
                     // Cache miss
                     _cancelCompletion();
-                    logger::log(format("Canceled due to cache miss"));
+                    logger::log("Normal input. Send CompletionCancel due to cache miss");
                     if (character == '\n') {
                         _isContinuousEnter.store(true);
                     }
@@ -179,7 +138,7 @@ void CompletionManager::instantUndo(const any&) {
     }
 }
 
-void CompletionManager::onCompletionGenerate(const nlohmann::json& data) {
+void CompletionManager::wsActionCompletionGenerate(const nlohmann::json& data) {
     if (const auto result = data["result"].get<string>();
         result == "success") {
         if (const auto& completions = data["completions"];

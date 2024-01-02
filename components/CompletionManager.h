@@ -34,15 +34,11 @@ namespace components {
 
         void deleteInput(const types::CaretPosition& position);
 
-        void hideCompletion() const;
-
-        void showCompletion();
-
         void normalInput(char character);
 
         void instantUndo(const std::any& = {});
 
-        void onCompletionGenerate(const nlohmann::json& data);
+        void wsActionCompletionGenerate(const nlohmann::json& data);
 
         // TODO: Remove old methods
 

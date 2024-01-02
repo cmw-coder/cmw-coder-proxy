@@ -17,6 +17,8 @@
 
 #include <windows.h>
 
+#include "WebsocketManager.h"
+
 using namespace components;
 using namespace magic_enum;
 using namespace std;
@@ -161,7 +163,7 @@ InteractionMonitor::~InteractionMonitor() {
 
 tuple<int, int> InteractionMonitor::getCaretPixels(const int line) const {
     const auto functionYPosFromLine = StdCallFunction<int(int, int)>(_functionYPosFromLineAddress);
-    int hwnd{} ,xPixel;
+    int hwnd{}, xPixel;
     ReadProcessMemory(
         _processHandle.get(),
         reinterpret_cast<LPCVOID>(_hwndAddress),
@@ -179,8 +181,7 @@ tuple<int, int> InteractionMonitor::getCaretPixels(const int line) const {
             nullptr
         );
     }
-    const auto yPixel = functionYPosFromLine(hwnd, line);
-    {
+    const auto yPixel = functionYPosFromLine(hwnd, line); {
         uint32_t xPosPointer;
         ReadProcessMemory(
             _processHandle.get(),
@@ -205,7 +206,6 @@ tuple<int, int> InteractionMonitor::getCaretPixels(const int line) const {
 
 void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
     if (_keyHelper.isPrintable(keycode)) {
-        (void) WindowManager::GetInstance()->sendDoubleInsert();
         _handleInteraction(Interaction::NormalInput, _keyHelper.toPrintable(keycode));
         _isSelecting.store(false);
         return;
@@ -218,7 +218,6 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                 modifiers.empty()) {
                 switch (key) {
                     case Key::BackSpace: {
-                        (void) WindowManager::GetInstance()->sendDoubleInsert();
                         _handleInteraction(Interaction::DeleteInput);
                         _isSelecting.store(false);
                         break;
@@ -470,7 +469,7 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
         switch (windowProcData->message) {
             case WM_KILLFOCUS: {
                 if (WindowManager::GetInstance()->checkNeedHideWhenLostFocus(windowProcData->wParam)) {
-                    _handleInteraction(Interaction::CancelCompletion);
+                    WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveHide);
                 }
                 break;
             }
@@ -483,7 +482,7 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
             // }
             case WM_SETFOCUS: {
                 if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(currentWindow)) {
-                    _handleInteraction(Interaction::CancelCompletion);
+                    WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveShow);
                 }
                 break;
             }
