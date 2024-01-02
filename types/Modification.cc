@@ -40,9 +40,8 @@ Modification::Modification(string path): path(move(path)) {
 }
 
 void Modification::acceptCompletion() {
-    if (const auto completionOpt = CompletionManager::GetInstance()->acceptCompletion(
-        _getLineContent(_lastPosition.line)
-    ); completionOpt.has_value()) {
+    if (const auto completionOpt = CompletionManager::GetInstance()->acceptCompletion(_lastPosition.line);
+        completionOpt.has_value()) {
         add(completionOpt.value());
     } else {
         if (!_lastSelect.isEmpty()) {
@@ -131,7 +130,7 @@ void Modification::add(const char character) {
         }
     }
     if (CompletionManager::GetInstance()->normalInput(character)) {
-        CompletionManager::GetInstance()->acceptCompletion(_getLineContent(_lastPosition.line));
+        CompletionManager::GetInstance()->acceptCompletion(_lastPosition.line);
     }
     _debugSync();
 }

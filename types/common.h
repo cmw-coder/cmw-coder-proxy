@@ -2,13 +2,13 @@
 
 #include <chrono>
 
-#include <types/SiVersion.h>
-
 namespace types {
     constexpr auto UM_KEYCODE = 0x07E9;
 
     template<typename TReturn, typename... TArgs>
-    class StdCallFunction {};
+    class StdCallFunction {
+        explicit StdCallFunction(TReturn, TArgs...) {}
+    };
 
     template<typename TReturn, typename... TArgs>
     class StdCallFunction<TReturn(TArgs...)> final {
@@ -23,7 +23,6 @@ namespace types {
         uint32_t _address;
     };
 
-    using EditorVersion = std::pair<SiVersion::Major, SiVersion::Minor>;
     using Keycode = unsigned int;
     using Time = std::chrono::time_point<std::chrono::high_resolution_clock>;
 }

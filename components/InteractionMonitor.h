@@ -11,6 +11,7 @@
 #include <types/common.h>
 #include <types/CaretPosition.h>
 #include <types/Interaction.h>
+#include <types/MemoryAddress.h>
 #include <types/Range.h>
 
 namespace components {
@@ -24,6 +25,8 @@ namespace components {
 
         [[nodiscard]] std::tuple<int, int> getCaretPixels(int line) const;
 
+        [[nodiscard]] std::string getLineContent(int line) const;
+
         template<class T>
         void registerInteraction(
             const types::Interaction interaction,
@@ -35,14 +38,14 @@ namespace components {
 
     private:
         const std::string _subKey;
+        const uint32_t _baseAddress;
         helpers::KeyHelper _keyHelper;
         std::atomic<bool> _isRunning{true}, isLMDown{false}, _isSelecting{false};
         std::atomic<types::CaretPosition> _currentCaretPosition, _downCursorPosition;
         std::atomic<std::optional<types::Key>> _navigateBuffer;
         std::shared_ptr<void> _mouseHookHandle, _processHandle, _windowHookHandle;
         std::unordered_map<types::Interaction, std::vector<CallBack>> _handlerMap;
-        uint32_t _cursorLineAddress, _cursorCharAddress, _cursorStartLineAddress, _cursorStartCharAddress,
-                _cursorEndLineAddress, _cursorEndCharAddress, _functionYPosFromLineAddress, _hwndAddress, _xPosPointerAddress, _xPosOffset1Address;
+        types::MemoryAddress _memoryAddress{};
 
         void _handleKeycode(types::Keycode keycode) noexcept;
 

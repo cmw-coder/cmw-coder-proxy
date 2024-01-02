@@ -25,14 +25,16 @@ namespace {
     constexpr auto completionGeneratedKey = "CMWCODER_completionGenerated";
 }
 
-optional<string> CompletionManager::acceptCompletion(string&& lineContent) {
+optional<string> CompletionManager::acceptCompletion(const int line) {
     _isContinuousEnter.store(false);
     _isJustAccepted.store(true);
     if (const auto [oldCompletion, cacheOffset] = _completionCache.reset();
         !oldCompletion.content().empty()) {
         system::setEnvironmentVariable(
             completionGeneratedKey,
-            (oldCompletion.isSnippet() ? "1" : "0") + lineContent + oldCompletion.content().substr(cacheOffset)
+            (oldCompletion.isSnippet() ? "1" : "0") +
+            InteractionMonitor::GetInstance()->getLineContent(line) +
+            oldCompletion.content().substr(cacheOffset)
         );
         WindowManager::GetInstance()->sendAcceptCompletion();
         logger::log(format("Accepted completion: {}", oldCompletion.stringify()));

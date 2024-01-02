@@ -6,18 +6,18 @@
 #include <components/CompletionManager.h>
 #include <components/Configurator.h>
 #include <components/InteractionMonitor.h>
+#include <components/WebsocketManager.h>
 #include <components/WindowManager.h>
 #include <types/common.h>
 #include <types/SiVersion.h>
 #include <utils/crypto.h>
 #include <utils/inputbox.h>
 #include <utils/logger.h>
+#include <utils/memory.h>
 #include <utils/system.h>
 #include <utils/window.h>
 
 #include <windows.h>
-
-#include "WebsocketManager.h"
 
 using namespace components;
 using namespace magic_enum;
@@ -26,10 +26,7 @@ using namespace types;
 using namespace utils;
 
 namespace {
-    template<class T>
-    using VersionMap = unordered_map<SiVersion::Major, unordered_map<SiVersion::Minor, T>>;
-
-    const VersionMap<tuple<uint32_t, uint32_t>> caretPositionAddressMap = {
+    const SiVersion::Map<tuple<uint32_t, uint32_t>> caretPositionAddressMap = {
         {
             SiVersion::Major::V35, {
                 {SiVersion::Minor::V0076, {0x1CBEFC, 0x1CBF00}},
@@ -49,22 +46,6 @@ namespace {
                 {SiVersion::Minor::V0124, {0x284DF0, 0x284DF4}},
                 {SiVersion::Minor::V0130, {0x289F9C, 0x289FA0}},
                 {SiVersion::Minor::V0132, {0x28B2FC, 0x28B300}}
-            }
-        },
-    };
-    // startLineOffset, startCharOffset, endLineOffset, endCharOffset
-    const VersionMap<tuple<uint32_t, uint32_t, uint32_t, uint32_t>> selectionRangeAddressMap = {
-        {
-            SiVersion::Major::V35, {
-                {SiVersion::Minor::V0086, {0x1BE0CC, 0x1C574C, 0x1E3B9C, 0x1E3BA4}}
-            }
-        },
-    };
-    // xPosPointer, xPosOffset1, hwnd, functionYPosFromLine
-    const VersionMap<tuple<uint32_t, uint32_t, uint32_t, uint32_t>> caretPixelsAddressMap = {
-        {
-            SiVersion::Major::V35, {
-                {SiVersion::Minor::V0086, {0x1C4C10, 0x24, 0x1CCD44, 0x10074F}}
             }
         },
     };
@@ -93,6 +74,7 @@ InteractionMonitor::InteractionMonitor()
     : _subKey(Configurator::GetInstance()->version().first == SiVersion::Major::V35
                   ? R"(SOFTWARE\Source Dynamics\Source Insight\3.0)"
                   : R"(SOFTWARE\Source Dynamics\Source Insight\4.0)"),
+      _baseAddress(reinterpret_cast<uint32_t>(GetModuleHandle(nullptr))),
       _keyHelper(Configurator::GetInstance()->version().first),
       _mouseHookHandle(
           SetWindowsHookEx(
@@ -114,41 +96,18 @@ InteractionMonitor::InteractionMonitor()
           UnhookWindowsHookEx
       ) {
     if (!_processHandle) {
-        throw runtime_error("Failed to get Source Insight's process handle");
+        logger::error("Failed to get Source Insight's process handle");
+        abort();
     }
     if (!_windowHookHandle) {
-        throw runtime_error("Failed to set window hook.");
+        logger::error("Failed to set window hook.");
+        abort();
     }
-    const auto baseAddress = reinterpret_cast<uint32_t>(GetModuleHandle(nullptr));
-    const auto [majorVersion, minorVersion] = Configurator::GetInstance()->version();
     try {
-        const auto [lineOffset, charOffset] = caretPositionAddressMap.at(majorVersion).at(minorVersion);
-        _cursorLineAddress = baseAddress + lineOffset;
-        _cursorCharAddress = baseAddress + charOffset;
-
-        const auto [
-            startLineOffset,
-            startCharOffset,
-            endLineOffset,
-            endCharOffset
-        ] = selectionRangeAddressMap.at(majorVersion).at(minorVersion);
-        _cursorStartLineAddress = baseAddress + startLineOffset;
-        _cursorStartCharAddress = baseAddress + startCharOffset;
-        _cursorEndLineAddress = baseAddress + endLineOffset;
-        _cursorEndCharAddress = baseAddress + endCharOffset;
-
-        const auto [
-            xPosPointerAddress,
-            xPosOffset1Address,
-            hwndAddress,
-            functionYPosFromLineAddress
-        ] = caretPixelsAddressMap.at(majorVersion).at(minorVersion);
-        _hwndAddress = baseAddress + hwndAddress;
-        _functionYPosFromLineAddress = baseAddress + functionYPosFromLineAddress;
-        _xPosPointerAddress = baseAddress + xPosPointerAddress;
-        _xPosOffset1Address = xPosOffset1Address;
-    } catch (out_of_range& e) {
-        throw runtime_error(format("Unsupported Source Insight Version: ", e.what()));
+        _memoryAddress = memory::getAddresses(Configurator::GetInstance()->version());
+    } catch (runtime_error& e) {
+        logger::error(e.what());
+        abort();
     }
 
     _monitorAutoCompletion();
@@ -162,11 +121,14 @@ InteractionMonitor::~InteractionMonitor() {
 }
 
 tuple<int, int> InteractionMonitor::getCaretPixels(const int line) const {
-    const auto functionYPosFromLine = StdCallFunction<int(int, int)>(_functionYPosFromLineAddress);
+    const auto hwndAddress = _baseAddress + _memoryAddress.caret.dimension.y.windowHandle;
+    const auto functionYPosFromLine = StdCallFunction<int(int, int)>(
+        _baseAddress + _memoryAddress.caret.dimension.y.funcYPosFromLine
+    );
     int hwnd{}, xPixel;
     ReadProcessMemory(
         _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_hwndAddress),
+        reinterpret_cast<LPCVOID>(hwndAddress),
         &hwnd,
         sizeof(hwnd),
         nullptr
@@ -175,7 +137,7 @@ tuple<int, int> InteractionMonitor::getCaretPixels(const int line) const {
         this_thread::sleep_for(chrono::milliseconds(5));
         ReadProcessMemory(
             _processHandle.get(),
-            reinterpret_cast<LPCVOID>(_hwndAddress),
+            reinterpret_cast<LPCVOID>(hwndAddress),
             &hwnd,
             sizeof(hwnd),
             nullptr
@@ -185,14 +147,14 @@ tuple<int, int> InteractionMonitor::getCaretPixels(const int line) const {
         uint32_t xPosPointer;
         ReadProcessMemory(
             _processHandle.get(),
-            reinterpret_cast<LPCVOID>(_xPosPointerAddress),
+            reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.dimension.x.pointer),
             &xPosPointer,
             sizeof(xPosPointer),
             nullptr
         );
         ReadProcessMemory(
             _processHandle.get(),
-            reinterpret_cast<LPCVOID>(xPosPointer + _xPosOffset1Address),
+            reinterpret_cast<LPCVOID>(xPosPointer + _memoryAddress.caret.dimension.x.offset1),
             &xPixel,
             sizeof(xPixel),
             nullptr
@@ -200,8 +162,31 @@ tuple<int, int> InteractionMonitor::getCaretPixels(const int line) const {
     }
 
     const auto [clientX, clientY] = WindowManager::GetInstance()->getCurrentPosition();
-    logger::debug(format("Client: ({}, {}), Caret: ({}, {})", clientX, clientY, xPixel, yPixel));
     return {clientX + xPixel, clientY + yPixel};
+}
+
+std::string InteractionMonitor::getLineContent(const int line) const {
+    struct {
+        uint8_t lengthLow, lengthHigh;
+        char content[4092];
+    } payload{};
+    const auto functionGetBufLine = StdCallFunction<int(int, int, void*)>(
+        _baseAddress + _memoryAddress.file.funcGetBufLine
+    );
+    uint32_t fileHandle;
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.fileHandle),
+        &fileHandle,
+        sizeof(fileHandle),
+        nullptr
+    );
+
+    if (fileHandle) {
+        functionGetBufLine(static_cast<int>(fileHandle), line, &payload);
+        return {payload.content, payload.lengthLow + static_cast<uint32_t>(payload.lengthHigh << 8)};
+    }
+    return {};
 }
 
 void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
@@ -331,14 +316,14 @@ void InteractionMonitor::_monitorCaretPosition() {
             CaretPosition newCursorPosition{};
             ReadProcessMemory(
                 _processHandle.get(),
-                reinterpret_cast<LPCVOID>(_cursorLineAddress),
+                reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.current.line),
                 &newCursorPosition.line,
                 sizeof(newCursorPosition.line),
                 nullptr
             );
             ReadProcessMemory(
                 _processHandle.get(),
-                reinterpret_cast<LPCVOID>(_cursorCharAddress),
+                reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.current.character),
                 &newCursorPosition.character,
                 sizeof(newCursorPosition.character),
                 nullptr
@@ -357,28 +342,28 @@ Range InteractionMonitor::_monitorCursorSelect() const {
     Range select{};
     ReadProcessMemory(
         _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_cursorStartLineAddress),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.begin.line),
         &select.start.line,
         sizeof(select.start.line),
         nullptr
     );
     ReadProcessMemory(
         _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_cursorStartCharAddress),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.begin.character),
         &select.start.character,
         sizeof(select.start.character),
         nullptr
     );
     ReadProcessMemory(
         _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_cursorEndLineAddress),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.end.line),
         &select.end.line,
         sizeof(select.end.line),
         nullptr
     );
     ReadProcessMemory(
         _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_cursorEndCharAddress),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.end.character),
         &select.end.character,
         sizeof(select.end.character),
         nullptr

@@ -1,12 +1,51 @@
+#include <format>
 #include <memory>
+#include <stdexcept>
 
 #include <utils/memory.h>
 
 #include <windows.h>
 
 using namespace std;
+using namespace types;
 using namespace utils;
 
+namespace {
+    const SiVersion::Map<MemoryAddress> addressMap = {
+        {
+            SiVersion::Major::V35, {
+                {
+                    SiVersion::Minor::V0086, {
+                        {
+                            {
+                                {0x1C4C10, 0x24},
+                                {0x1CCD44, 0x10074F},
+                            },
+                            {
+                                {0x1BE0CC, 0x1C574C},
+                                {0x1CD3DC, 0x1CD3E0},
+                                {0x1E3B9C, 0x1E3BA4},
+                            },
+                        },
+                        {0x1C35A4, 0x08F533},
+                    }
+                },
+            }
+        },
+    };
+}
+
+MemoryAddress memory::getAddresses(const SiVersion::Full version) {
+    try {
+        return addressMap.at(version.first).at(version.second);
+    } catch (out_of_range&) {
+        throw runtime_error(format(
+            "Unsupported Source Insight Version: {}{}",
+            magic_enum::enum_name(version.first),
+            magic_enum::enum_name(version.second)
+        ));
+    }
+}
 
 uint64_t memory::scanPattern(const string& pattern) {
     uint64_t varAddress = 0;

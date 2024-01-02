@@ -28,7 +28,7 @@ namespace components {
 
         CompletionManager() = default;
 
-        std::optional<std::string> acceptCompletion(std::string&& lineContent);
+        std::optional<std::string> acceptCompletion(int line);
 
         void cancelCompletion();
 
