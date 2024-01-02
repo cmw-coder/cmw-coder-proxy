@@ -14,6 +14,15 @@ void ModificationManager::addTab(const string& tabName, const string& path) {
     }
 }
 
+CaretPosition ModificationManager::getCurrentPosition() const {
+    try {
+        shared_lock lock(_currentModificationMutex);
+        return _modificationMap.at(_currentTabName).getPosition();
+    } catch (out_of_range&) {
+        return CaretPosition{};
+    }
+}
+
 void ModificationManager::interactionAcceptCompletion(const std::any&) {
     try {
         unique_lock lock(_currentModificationMutex);
@@ -67,14 +76,12 @@ void ModificationManager::interactionNormalInput(const any& data) {
 
 void ModificationManager::interactionSave(const std::any&) {
     try {
-        unique_lock lock(_currentModificationMutex);
-        const auto currentTab = _modificationMap.at(_currentTabName);
-        const auto currentTime = chrono::file_clock::now();
-        while (filesystem::last_write_time(currentTab.path) < currentTime) {
-            this_thread::sleep_for(chrono::milliseconds(10));
-        } {
+        thread([this] {
+            this_thread::sleep_for(chrono::milliseconds(50));
+            unique_lock lock(_currentModificationMutex);
+            const auto currentTab = _modificationMap.at(_currentTabName);
             _modificationMap.at(_currentTabName).reload();
-        }
+        }).detach();
     } catch (out_of_range&) {}
 }
 

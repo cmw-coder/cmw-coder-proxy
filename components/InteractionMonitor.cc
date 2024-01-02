@@ -7,6 +7,7 @@
 #include <components/Configurator.h>
 #include <components/InteractionMonitor.h>
 #include <components/WindowManager.h>
+#include <types/common.h>
 #include <types/SiVersion.h>
 #include <utils/crypto.h>
 #include <utils/inputbox.h>
@@ -15,8 +16,6 @@
 #include <utils/window.h>
 
 #include <windows.h>
-
-#include "ModificationManager.h"
 
 using namespace components;
 using namespace magic_enum;
@@ -28,7 +27,7 @@ namespace {
     template<class T>
     using VersionMap = unordered_map<SiVersion::Major, unordered_map<SiVersion::Minor, T>>;
 
-    const VersionMap<tuple<uint64_t, uint64_t>> addressMap = {
+    const VersionMap<tuple<uint32_t, uint32_t>> caretPositionAddressMap = {
         {
             SiVersion::Major::V35, {
                 {SiVersion::Minor::V0076, {0x1CBEFC, 0x1CBF00}},
@@ -52,10 +51,18 @@ namespace {
         },
     };
     // startLineOffset, startCharOffset, endLineOffset, endCharOffset
-    const VersionMap<tuple<uint64_t, uint64_t, uint64_t, uint64_t>> selectAddressMap = {
+    const VersionMap<tuple<uint32_t, uint32_t, uint32_t, uint32_t>> selectionRangeAddressMap = {
         {
             SiVersion::Major::V35, {
                 {SiVersion::Minor::V0086, {0x1BE0CC, 0x1C574C, 0x1E3B9C, 0x1E3BA4}}
+            }
+        },
+    };
+    // xPosPointer, xPosOffset1, hwnd, functionYPosFromLine
+    const VersionMap<tuple<uint32_t, uint32_t, uint32_t, uint32_t>> caretPixelsAddressMap = {
+        {
+            SiVersion::Major::V35, {
+                {SiVersion::Minor::V0086, {0x1C4C10, 0x24, 0x1CCD44, 0x10074F}}
             }
         },
     };
@@ -113,31 +120,87 @@ InteractionMonitor::InteractionMonitor()
     const auto baseAddress = reinterpret_cast<uint32_t>(GetModuleHandle(nullptr));
     const auto [majorVersion, minorVersion] = Configurator::GetInstance()->version();
     try {
-        const auto [lineOffset, charOffset] = addressMap.at(majorVersion).at(minorVersion);
+        const auto [lineOffset, charOffset] = caretPositionAddressMap.at(majorVersion).at(minorVersion);
         _cursorLineAddress = baseAddress + lineOffset;
         _cursorCharAddress = baseAddress + charOffset;
+
         const auto [
             startLineOffset,
             startCharOffset,
             endLineOffset,
             endCharOffset
-        ] = selectAddressMap.at(majorVersion).at(minorVersion);
+        ] = selectionRangeAddressMap.at(majorVersion).at(minorVersion);
         _cursorStartLineAddress = baseAddress + startLineOffset;
         _cursorStartCharAddress = baseAddress + startCharOffset;
         _cursorEndLineAddress = baseAddress + endLineOffset;
         _cursorEndCharAddress = baseAddress + endCharOffset;
+
+        const auto [
+            xPosPointerAddress,
+            xPosOffset1Address,
+            hwndAddress,
+            functionYPosFromLineAddress
+        ] = caretPixelsAddressMap.at(majorVersion).at(minorVersion);
+        _hwndAddress = baseAddress + hwndAddress;
+        _functionYPosFromLineAddress = baseAddress + functionYPosFromLineAddress;
+        _xPosPointerAddress = baseAddress + xPosPointerAddress;
+        _xPosOffset1Address = xPosOffset1Address;
     } catch (out_of_range& e) {
         throw runtime_error(format("Unsupported Source Insight Version: ", e.what()));
     }
 
     _monitorAutoCompletion();
-    _monitorCursorPosition();
+    _monitorCaretPosition();
     _monitorDebugLog();
     _monitorEditorInfo();
 }
 
 InteractionMonitor::~InteractionMonitor() {
     _isRunning.store(false);
+}
+
+tuple<int, int> InteractionMonitor::getCaretPixels(const int line) const {
+    const auto functionYPosFromLine = StdCallFunction<int(int, int)>(_functionYPosFromLineAddress);
+    int hwnd{} ,xPixel;
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_hwndAddress),
+        &hwnd,
+        sizeof(hwnd),
+        nullptr
+    );
+    while (!hwnd) {
+        this_thread::sleep_for(chrono::milliseconds(5));
+        ReadProcessMemory(
+            _processHandle.get(),
+            reinterpret_cast<LPCVOID>(_hwndAddress),
+            &hwnd,
+            sizeof(hwnd),
+            nullptr
+        );
+    }
+    const auto yPixel = functionYPosFromLine(hwnd, line);
+    {
+        uint32_t xPosPointer;
+        ReadProcessMemory(
+            _processHandle.get(),
+            reinterpret_cast<LPCVOID>(_xPosPointerAddress),
+            &xPosPointer,
+            sizeof(xPosPointer),
+            nullptr
+        );
+        ReadProcessMemory(
+            _processHandle.get(),
+            reinterpret_cast<LPCVOID>(xPosPointer + _xPosOffset1Address),
+            &xPixel,
+            sizeof(xPixel),
+            nullptr
+        );
+    }
+
+    const auto [clientX, clientY] = WindowManager::GetInstance()->getCurrentPosition();
+    logger::debug(format("Client: ({}, {}), Caret: ({}, {})", clientX, clientY, xPixel, yPixel));
+    return {clientX + xPixel, clientY + yPixel};
 }
 
 void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
@@ -256,7 +319,7 @@ void InteractionMonitor::_monitorAutoCompletion() const {
     }).detach();
 }
 
-void InteractionMonitor::_monitorCursorPosition() {
+void InteractionMonitor::_monitorCaretPosition() {
     thread([this] {
         while (_isRunning.load()) {
             if (const auto navigationBufferOpt = _navigateBuffer.load();
@@ -282,9 +345,9 @@ void InteractionMonitor::_monitorCursorPosition() {
                 nullptr
             );
             newCursorPosition.maxCharacter = newCursorPosition.character;
-            if (const auto oldCursorPosition = _currentCursorPosition.load();
+            if (const auto oldCursorPosition = _currentCaretPosition.load();
                 oldCursorPosition != newCursorPosition) {
-                this->_currentCursorPosition.store(newCursorPosition);
+                this->_currentCaretPosition.store(newCursorPosition);
                 _handleInteraction(Interaction::CaretUpdate, make_tuple(newCursorPosition, oldCursorPosition));
             }
         }
@@ -292,7 +355,7 @@ void InteractionMonitor::_monitorCursorPosition() {
 }
 
 Range InteractionMonitor::_monitorCursorSelect() const {
-    Range select;
+    Range select{};
     ReadProcessMemory(
         _processHandle.get(),
         reinterpret_cast<LPCVOID>(_cursorStartLineAddress),
@@ -406,21 +469,21 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
         window::getWindowClassName(currentWindow) == "si_Sw") {
         switch (windowProcData->message) {
             case WM_KILLFOCUS: {
-                if (WindowManager::GetInstance()->checkNeedCancelWhenLostFocus(windowProcData->wParam)) {
-                    _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
+                if (WindowManager::GetInstance()->checkNeedHideWhenLostFocus(windowProcData->wParam)) {
+                    _handleInteraction(Interaction::CancelCompletion);
                 }
                 break;
             }
-            case WM_MOUSEACTIVATE: {
-                logger::debug("WM_MOUSEACTIVATE");
-                _isSelecting.store(false);
-                // TODO: Move this to _processWindowMouse
-                _handleInteraction(Interaction::Navigate);
-                break;
-            }
+            // case WM_MOUSEACTIVATE: {
+            //     logger::debug("WM_MOUSEACTIVATE");
+            //     _isSelecting.store(false);
+            //     // TODO: Move this to _processWindowMouse
+            //     _handleInteraction(Interaction::Navigate);
+            //     break;
+            // }
             case WM_SETFOCUS: {
-                if (WindowManager::GetInstance()->checkNeedCancelWhenGainFocus(currentWindow)) {
-                    _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
+                if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(currentWindow)) {
+                    _handleInteraction(Interaction::CancelCompletion);
                 }
                 break;
             }
@@ -438,7 +501,6 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
 void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
     switch (wParam) {
         case WM_LBUTTONDOWN: {
-            logger::debug("WM_LBUTTONDOWN");
             if (!isLMDown.load()) {
                 isLMDown.store(true);
             }
@@ -452,7 +514,6 @@ void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
             break;
         }
         case WM_LBUTTONUP: {
-            logger::debug("WM_LBUTTONUP");
             if (_isSelecting.load()) {
                 auto selectRange = _monitorCursorSelect();
                 _handleInteraction(Interaction::SelectionSet, selectRange);

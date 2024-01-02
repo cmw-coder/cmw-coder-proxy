@@ -22,6 +22,8 @@ namespace components {
 
         ~InteractionMonitor() override;
 
+        [[nodiscard]] std::tuple<int, int> getCaretPixels(int line) const;
+
         template<class T>
         void registerInteraction(
             const types::Interaction interaction,
@@ -35,12 +37,12 @@ namespace components {
         const std::string _subKey;
         helpers::KeyHelper _keyHelper;
         std::atomic<bool> _isRunning{true}, isLMDown{false}, _isSelecting{false};
-        std::atomic<types::CaretPosition> _currentCursorPosition, _downCursorPosition;
+        std::atomic<types::CaretPosition> _currentCaretPosition, _downCursorPosition;
         std::atomic<std::optional<types::Key>> _navigateBuffer;
         std::shared_ptr<void> _mouseHookHandle, _processHandle, _windowHookHandle;
         std::unordered_map<types::Interaction, std::vector<CallBack>> _handlerMap;
         uint32_t _cursorLineAddress, _cursorCharAddress, _cursorStartLineAddress, _cursorStartCharAddress,
-                _cursorEndLineAddress, _cursorEndCharAddress;
+                _cursorEndLineAddress, _cursorEndCharAddress, _functionYPosFromLineAddress, _hwndAddress, _xPosPointerAddress, _xPosOffset1Address;
 
         void _handleKeycode(types::Keycode keycode) noexcept;
 
@@ -48,7 +50,7 @@ namespace components {
 
         void _monitorAutoCompletion() const;
 
-        void _monitorCursorPosition();
+        void _monitorCaretPosition();
 
         types::Range _monitorCursorSelect() const;
 

@@ -34,13 +34,17 @@ namespace components {
 
         void deleteInput(const types::CaretPosition& position);
 
-        void normalInput(char character);
+        void hideCompletion() const;
 
-        // TODO: Remove old methods
+        void showCompletion();
+
+        void normalInput(char character);
 
         void instantUndo(const std::any& = {});
 
         void onCompletionGenerate(const nlohmann::json& data);
+
+        // TODO: Remove old methods
 
         void retrieveWithCurrentPrefix(const std::string& currentPrefix);
 
@@ -56,13 +60,13 @@ namespace components {
         mutable std::shared_mutex _componentsMutex, _editorInfoMutex;
         Components _components;
         EditorInfo _editorInfo;
-        std::atomic<bool> _isAutoCompletion{true}, _isContinuousEnter{}, _isJustAccepted{};
+
+        // TODO: Check if _isJustAccepted is still needed
+        std::atomic<bool> _isAutoCompletion{true}, _isContinuousEnter{false}, _isJustAccepted{false};
         std::atomic<types::Time> _currentRetrieveTime;
         types::CompletionCache _completionCache;
 
         void _cancelCompletion(bool isNeedReset = true);
-
-        void _reactToCompletion(types::Completion&& completion, bool isAccept);
 
         void _retrieveCompletion(const std::string& prefix);
 

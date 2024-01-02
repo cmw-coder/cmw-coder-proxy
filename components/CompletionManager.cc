@@ -6,14 +6,14 @@
 
 #include <components/CompletionManager.h>
 #include <components/Configurator.h>
+#include <components/InteractionMonitor.h>
+#include <components/ModificationManager.h>
 #include <components/WebsocketManager.h>
 #include <components/WindowManager.h>
 #include <types/CaretPosition.h>
 #include <utils/crypto.h>
 #include <utils/logger.h>
 #include <utils/system.h>
-
-#include "ModificationManager.h"
 
 using namespace components;
 using namespace helpers;
@@ -30,7 +30,7 @@ namespace {
         WindowManager::GetInstance()->sendInsertCompletion();
     };
 
-    void cacheCompletion(const char character) {
+    void sendCompletionCache(const char character) {
         if (character < 0) {
             WebsocketManager::GetInstance()->sendAction(
                 WsAction::CompletionCache,
@@ -48,16 +48,20 @@ namespace {
             );
         }
     }
+
+    void sendCompletionAccept() {
+        WebsocketManager::GetInstance()->sendAction(WsAction::CompletionAccept);
+    }
 }
 
 optional<string> CompletionManager::acceptCompletion() {
     _isContinuousEnter.store(false);
     _isJustAccepted.store(true);
-    if (auto oldCompletion = _completionCache.reset();
+    if (const auto oldCompletion = _completionCache.reset();
         !oldCompletion.content().empty()) {
         WindowManager::GetInstance()->sendAcceptCompletion();
         logger::log(format("Accepted completion: {}", oldCompletion.stringify()));
-        thread(&CompletionManager::_reactToCompletion, this, move(oldCompletion), true).detach();
+        sendCompletionAccept();
         return oldCompletion.content();
     }
     return nullopt;
@@ -77,7 +81,7 @@ void CompletionManager::deleteInput(const CaretPosition& position) {
                 // Has valid cache
                 if (const auto [_, completionOpt] = previousCacheOpt.value();
                     completionOpt.has_value()) {
-                    cacheCompletion(-1);
+                    sendCompletionCache(-1);
                     logger::log("Delete backward. Send CompletionCache due to cache hit");
                 } else {
                     _cancelCompletion();
@@ -90,6 +94,20 @@ void CompletionManager::deleteInput(const CaretPosition& position) {
         }
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid delayedDelete data: {}", e.what()));
+    }
+}
+
+void CompletionManager::hideCompletion() const {
+    if (_completionCache.valid()) {
+        WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveHide);
+        logger::log("Window . Send ImmersiveHide");
+    }
+}
+
+auto CompletionManager::showCompletion() -> void {
+    if (_completionCache.valid()) {
+        WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveShow);
+        logger::log("Show completion. Send ImmersiveShow");
     }
 }
 
@@ -130,37 +148,33 @@ void CompletionManager::normalInput(const char character) {
             // No valid cache
             if (character == '\n') {
                 // TODO: Implement logic for continuous enter
-                // if (_isContinuousEnter) {
-                //     shared_lock lock(_componentsMutex);
-                //     _retrieveCompletion(_components.prefix);
-                //     logger::log("Detect Continuous enter, retrieve completion directly");
-                // } else {
-                //     _isContinuousEnter.store(true);
-                //     _retrieveEditorInfo();
-                //     logger::log("Detect first enter, retrieve editor info first");
-                // }
+                if (_isContinuousEnter) {
+                    shared_lock lock(_componentsMutex);
+                    _retrieveCompletion(_components.prefix);
+                    logger::log("Detect Continuous enter, retrieve completion directly");
+                } else {
+                    _isContinuousEnter.store(true);
+                    _retrieveEditorInfo();
+                    logger::log("Detect first enter, retrieve editor info first");
+                }
             } else {
                 _retrieveEditorInfo();
             }
         }
     } catch (const bad_any_cast& e) {
-        logger::log(format("Invalid interactionNormal data: {}", e.what()));
+        logger::log(format("Invalid normalInput data: {}", e.what()));
     }
 }
 
 void CompletionManager::instantUndo(const any&) {
     _isContinuousEnter.store(false);
-    const auto windowManager = WindowManager::GetInstance();
     if (_isJustAccepted.load()) {
         _isJustAccepted.store(false);
-        windowManager->sendUndo();
-        windowManager->sendUndo();
     } else if (_completionCache.valid()) {
-        _completionCache.reset();
-        logger::log("Canceled by undo");
-        windowManager->sendUndo();
+        _cancelCompletion();
+        logger::log("Undo. Send CompletionCancel");
     } else {
-        // Interrupted current retrieve
+        // Interrupt current retrieve
         _currentRetrieveTime.store(chrono::high_resolution_clock::now());
     }
 }
@@ -175,7 +189,6 @@ void CompletionManager::onCompletionGenerate(const nlohmann::json& data) {
                 completionsDecodes[0] == '1',
                 completionsDecodes.substr(1)
             );
-            thread(&CompletionManager::_reactToCompletion, this, move(oldCompletion), false).detach();
         } else {
             logger::log("(WsAction::CompletionGenerate) No completion");
         }
@@ -242,44 +255,21 @@ void CompletionManager::_cancelCompletion(const bool isNeedReset) {
     }
 }
 
-void CompletionManager::_reactToCompletion(Completion&& completion, const bool isAccept) {
-    const auto path = isAccept ? "/completion/accept" : "/completion/insert";
-    nlohmann::json requestBody; {
-        shared_lock lock(_editorInfoMutex);
-        requestBody = {
-            {"completion", encode(completion.stringify(), crypto::Encoding::Base64)},
-            {"projectId", _editorInfo.projectId},
-            {"version", _editorInfo.version},
-        };
-    }
-    try {
-        if (const auto [status, responseBody] = HttpHelper(
-                "http://localhost:3000", chrono::seconds(10)
-            ).post(path, move(requestBody));
-            status == 200) {
-            logger::log(format("({}) Result: {}", path, responseBody["result"].get<string>()));
-        } else {
-            logger::log(
-                format("({}) HTTP Code: {}, body: {}", path, status, responseBody.dump())
-            );
-        }
-    } catch (HttpHelper::HttpError& e) {
-        logger::error(format("(/completion/accept) Http error: {}", e.what()));
-    }
-    catch (exception& e) {
-        logger::error(format("(/completion/accept) Exception: {}", e.what()));
-    }
-}
-
 void CompletionManager::_retrieveCompletion(const string& prefix) {
     _currentRetrieveTime.store(chrono::high_resolution_clock::now());
+    const auto currentPosition = ModificationManager::GetInstance()->getCurrentPosition();
+    const auto [xPixel, yPixel] = InteractionMonitor::GetInstance()->getCaretPixels(
+        static_cast<int>(currentPosition.line)
+    );
     WebsocketManager::GetInstance()->sendAction(
         WsAction::CompletionGenerate,
         {
             {
                 "caret", {
-                    {"character", _lastPosition.load().character},
-                    {"line", _lastPosition.load().line},
+                    {"character", currentPosition.character},
+                    {"line", currentPosition.line},
+                    {"xPixel", xPixel},
+                    {"yPixel", yPixel},
                 }
             },
             {"path", encode(_components.path, crypto::Encoding::Base64)},

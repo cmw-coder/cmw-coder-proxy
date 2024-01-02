@@ -162,6 +162,10 @@ void Modification::add(const string& characters) {
     _debugSync();
 }
 
+CaretPosition Modification::getPosition() const {
+    return _lastPosition;
+}
+
 /**
  * @brief Navigates to a new position in the content.
  * @param newPosition The new position to navigate to.
@@ -173,6 +177,7 @@ void Modification::navigate(const CaretPosition& newPosition) {
         _lastPosition = newPosition;
         CompletionManager::GetInstance()->cancelCompletion();
     }
+
 }
 
 /**

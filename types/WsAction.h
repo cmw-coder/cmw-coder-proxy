@@ -7,5 +7,7 @@ namespace types {
         CompletionCancel,
         CompletionGenerate,
         DebugSync,
+        ImmersiveHide,
+        ImmersiveShow
     };
 }

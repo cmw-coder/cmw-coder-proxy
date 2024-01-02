@@ -39,8 +39,6 @@ namespace components {
         ix::WebSocket _client;
         std::unordered_map<types::WsAction, std::vector<CallBack>> _handlerMap;
 
-        void _messageCallback(const ix::WebSocketMessagePtr& messagePtr);
-
         void _handleEventMessage(const std::string& messageString);
     };
 }

@@ -13,9 +13,11 @@ namespace components {
 
         ~WindowManager() override;
 
-        bool checkNeedCancelWhenLostFocus(int64_t windowHandle);
+        bool checkNeedHideWhenLostFocus(int64_t windowHandle);
 
-        bool checkNeedCancelWhenGainFocus(int64_t windowHandle);
+        bool checkNeedShowWhenGainFocus(int64_t windowHandle);
+
+        std::tuple<int, int> getCurrentPosition() const;
 
         void interactionPaste(const std::any& = {});
 

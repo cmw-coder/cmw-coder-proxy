@@ -30,6 +30,9 @@ namespace types {
 
         void add(const std::string& characters);
 
+        // TODO: Remove temporary methods
+        [[nodiscard]] CaretPosition getPosition() const;
+
         void navigate(const CaretPosition& newPosition);
 
         void navigate(Key key);

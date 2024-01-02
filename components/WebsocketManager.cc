@@ -20,7 +20,44 @@ WebsocketManager::WebsocketManager(string&& url, const chrono::seconds& pingInte
             logger::debug(msg->str);
         }
     });
-    _client.setOnMessageCallback(bind_front(_messageCallback, this));
+    _client.setOnMessageCallback([this](const WebSocketMessagePtr& messagePtr) {
+        switch (messagePtr->type) {
+            case WebSocketMessageType::Message: {
+                _handleEventMessage(messagePtr->str);
+                break;
+            }
+            case WebSocketMessageType::Open: {
+                logger::info("Websocket connection established");
+                break;
+            }
+            case WebSocketMessageType::Close: {
+                logger::info(format(
+                    "Websocket connection closed.\n"
+                    "\tReason: {}. Code: {}. ",
+                    messagePtr->closeInfo.reason,
+                    messagePtr->closeInfo.code
+                ));
+                break;
+            }
+            case WebSocketMessageType::Error: {
+                logger::info(format(
+                    "Websocket connection error.\n"
+                    "\tReason: {}. HTTP Status: {}."
+                    "\tRetries: {}. Wait time(ms): {}.",
+                    messagePtr->errorInfo.reason,
+                    messagePtr->errorInfo.http_status,
+                    messagePtr->errorInfo.retries,
+                    messagePtr->errorInfo.wait_time
+                ));
+                break;
+            }
+            case WebSocketMessageType::Ping:
+            case WebSocketMessageType::Pong:
+            case WebSocketMessageType::Fragment: {
+                break;
+            }
+        }
+    });
     _client.start();
 }
 
@@ -44,45 +81,6 @@ void WebsocketManager::sendAction(const WsAction action, nlohmann::json&& data) 
 
 void WebsocketManager::sendRaw(const string& message) {
     _client.send(message);
-}
-
-void WebsocketManager::_messageCallback(const WebSocketMessagePtr& messagePtr) {
-    switch (messagePtr->type) {
-        case WebSocketMessageType::Message: {
-            _handleEventMessage(messagePtr->str);
-            break;
-        }
-        case WebSocketMessageType::Open: {
-            logger::info("Websocket connection established");
-            break;
-        }
-        case WebSocketMessageType::Close: {
-            logger::info(format(
-                "Websocket connection closed.\n"
-                "\tReason: {}. Code: {}. ",
-                messagePtr->closeInfo.reason,
-                messagePtr->closeInfo.code
-            ));
-            break;
-        }
-        case WebSocketMessageType::Error: {
-            logger::info(format(
-                "Websocket connection error.\n"
-                "\tReason: {}. HTTP Status: {}."
-                "\tRetries: {}. Wait time(ms): {}.",
-                messagePtr->errorInfo.reason,
-                messagePtr->errorInfo.http_status,
-                messagePtr->errorInfo.retries,
-                messagePtr->errorInfo.wait_time
-            ));
-            break;
-        }
-        case WebSocketMessageType::Ping:
-        case WebSocketMessageType::Pong:
-        case WebSocketMessageType::Fragment: {
-            break;
-        }
-    }
 }
 
 void WebsocketManager::_handleEventMessage(const string& messageString) {
