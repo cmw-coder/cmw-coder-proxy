@@ -61,14 +61,6 @@ bool WindowManager::sendAcceptCompletion() {
     );
 }
 
-bool WindowManager::sendCancelCompletion() {
-    _cancelRetrieveInfo();
-    return window::postKeycode(
-        _codeWindowHandle,
-        _keyHelper.toKeycode(Key::F9, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
-    );
-}
-
 bool WindowManager::sendSave() {
     _cancelRetrieveInfo();
     return window::postKeycode(

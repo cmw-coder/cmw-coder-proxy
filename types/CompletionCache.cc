@@ -31,14 +31,15 @@ optional<pair<char, optional<Completion>>> CompletionCache::next() {
     return make_pair(currentChar, nullopt);
 }
 
-Completion CompletionCache::reset(const bool isSnippet, string content) {
-    _currentIndex = content.empty() ? -1 : 0;
+pair<Completion, int64_t> CompletionCache::reset(const bool isSnippet, string content) {
+    const auto currentIndex = _currentIndex.load();
+    _currentIndex.store(content.empty() ? -1 : 0);
 
     unique_lock lock(_shared_mutex);
     const auto oldCompletion = Completion{_isSnippet, _content};
     _isSnippet = isSnippet;
     _content = move(content);
-    return oldCompletion;
+    return {oldCompletion, currentIndex};
 }
 
 bool CompletionCache::valid() const {

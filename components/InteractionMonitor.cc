@@ -473,13 +473,6 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                 }
                 break;
             }
-            // case WM_MOUSEACTIVATE: {
-            //     logger::debug("WM_MOUSEACTIVATE");
-            //     _isSelecting.store(false);
-            //     // TODO: Move this to _processWindowMouse
-            //     _handleInteraction(Interaction::Navigate);
-            //     break;
-            // }
             case WM_SETFOCUS: {
                 if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(currentWindow)) {
                     WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveShow);

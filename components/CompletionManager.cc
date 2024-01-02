@@ -23,20 +23,20 @@ using namespace utils;
 
 namespace {
     constexpr auto completionGeneratedKey = "CMWCODER_completionGenerated";
-
-    void sendCompletionAccept() {
-        WebsocketManager::GetInstance()->sendAction(WsAction::CompletionAccept);
-    }
 }
 
-optional<string> CompletionManager::acceptCompletion() {
+optional<string> CompletionManager::acceptCompletion(string&& lineContent) {
     _isContinuousEnter.store(false);
     _isJustAccepted.store(true);
-    if (const auto oldCompletion = _completionCache.reset();
+    if (const auto [oldCompletion, cacheOffset] = _completionCache.reset();
         !oldCompletion.content().empty()) {
+        system::setEnvironmentVariable(
+            completionGeneratedKey,
+            (oldCompletion.isSnippet() ? "1" : "0") + lineContent + oldCompletion.content().substr(cacheOffset)
+        );
         WindowManager::GetInstance()->sendAcceptCompletion();
         logger::log(format("Accepted completion: {}", oldCompletion.stringify()));
-        sendCompletionAccept();
+        WebsocketManager::GetInstance()->sendAction(WsAction::CompletionAccept);
         return oldCompletion.content();
     }
     return nullopt;
@@ -72,7 +72,8 @@ void CompletionManager::deleteInput(const CaretPosition& position) {
     }
 }
 
-void CompletionManager::normalInput(const char character) {
+bool CompletionManager::normalInput(const char character) {
+    bool needAccept = false;
     _isContinuousEnter.store(false);
     _isJustAccepted.store(false);
     try {
@@ -89,7 +90,7 @@ void CompletionManager::normalInput(const char character) {
                         logger::log("Normal input. Send CompletionCache due to cache hit");
                     } else {
                         // Out of cache
-                        acceptCompletion();
+                        needAccept = true;
                     }
                 } else {
                     // Cache miss
@@ -123,6 +124,7 @@ void CompletionManager::normalInput(const char character) {
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid normalInput data: {}", e.what()));
     }
+    return needAccept;
 }
 
 void CompletionManager::instantUndo(const any&) {
@@ -144,7 +146,7 @@ void CompletionManager::wsActionCompletionGenerate(const nlohmann::json& data) {
         if (const auto& completions = data["completions"];
             completions.is_array() && !completions.empty()) {
             const auto completionsDecodes = decode(completions[0].get<string>(), crypto::Encoding::Base64);
-            auto oldCompletion = _completionCache.reset(
+            _completionCache.reset(
                 completionsDecodes[0] == '1',
                 completionsDecodes.substr(1)
             );

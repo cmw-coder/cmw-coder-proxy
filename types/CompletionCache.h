@@ -12,7 +12,7 @@ namespace types {
 
         std::optional<std::pair<char, std::optional<Completion>>> next();
 
-        Completion reset(bool isSnippet = false, std::string content = {});
+        std::pair<Completion, int64_t> reset(bool isSnippet = false, std::string content = {});
 
         bool valid() const;
 

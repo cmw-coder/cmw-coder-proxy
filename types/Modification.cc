@@ -40,8 +40,9 @@ Modification::Modification(string path): path(move(path)) {
 }
 
 void Modification::acceptCompletion() {
-    if (const auto completionOpt = CompletionManager::GetInstance()->acceptCompletion();
-        completionOpt.has_value()) {
+    if (const auto completionOpt = CompletionManager::GetInstance()->acceptCompletion(
+        _getLineContent(_lastPosition.line)
+    ); completionOpt.has_value()) {
         add(completionOpt.value());
     } else {
         if (!_lastSelect.isEmpty()) {
@@ -129,7 +130,9 @@ void Modification::add(const char character) {
             offset += 1;
         }
     }
-    CompletionManager::GetInstance()->normalInput(character);
+    if (CompletionManager::GetInstance()->normalInput(character)) {
+        CompletionManager::GetInstance()->acceptCompletion(_getLineContent(_lastPosition.line));
+    }
     _debugSync();
 }
 
@@ -175,7 +178,6 @@ void Modification::navigate(const CaretPosition& newPosition) {
         _lastPosition = newPosition;
         CompletionManager::GetInstance()->cancelCompletion();
     }
-
 }
 
 /**
@@ -336,6 +338,11 @@ void Modification::_debugSync() const {
             {"path", encode(path, crypto::Encoding::Base64)}
         }
     );
+}
+
+string Modification::_getLineContent(const uint32_t lineIndex) const {
+    const auto [start, end] = _getLineOffsets(lineIndex);
+    return _content.substr(start, end - start);
 }
 
 /**

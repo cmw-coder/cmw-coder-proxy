@@ -25,8 +25,6 @@ namespace components {
 
         bool sendAcceptCompletion();
 
-        bool sendCancelCompletion();
-
         bool sendSave();
 
         bool sendUndo();

@@ -28,13 +28,18 @@ namespace components {
 
         CompletionManager() = default;
 
-        std::optional<std::string> acceptCompletion();
+        std::optional<std::string> acceptCompletion(std::string&& lineContent);
 
         void cancelCompletion();
 
         void deleteInput(const types::CaretPosition& position);
 
-        void normalInput(char character);
+        /**
+         * @brief Handles normal input and returns if need to trigger accept.
+         * @param character The character to be input.
+         * @return A boolean indicating whether the input was handled successfully.
+         */
+        bool normalInput(char character);
 
         void instantUndo(const std::any& = {});
 
