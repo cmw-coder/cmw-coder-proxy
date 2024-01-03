@@ -1,13 +1,12 @@
 #include <format>
 
-#include <ixwebsocket/IXNetSystem.h>
-
 #include <components/CompletionManager.h>
 #include <components/Configurator.h>
 #include <components/InteractionMonitor.h>
 #include <components/ModificationManager.h>
 #include <components/ModuleProxy.h>
 #include <components/WindowManager.h>
+#include <components/WebsocketManager.h>
 #include <utils/logger.h>
 #include <utils/system.h>
 
@@ -22,10 +21,9 @@ namespace {
     void initialize() {
         logger::log("Comware Coder Proxy is initializing...");
 
-        ix::initNetSystem();
-
         ModuleProxy::Construct();
         Configurator::Construct();
+        WebsocketManager::Construct("ws://127.0.0.1:3000");
         ModificationManager::Construct();
         CompletionManager::Construct();
         InteractionMonitor::Construct();
@@ -44,10 +42,9 @@ namespace {
         InteractionMonitor::Destruct();
         CompletionManager::Destruct();
         ModificationManager::Destruct();
+        WebsocketManager::Destruct();
         Configurator::Destruct();
         ModuleProxy::Destruct();
-
-        ix::uninitNetSystem();
     }
 }
 
@@ -62,46 +59,57 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
 
             initialize();
 
-            InteractionMonitor::GetInstance()->addInstantHandler(
+            InteractionMonitor::GetInstance()->registerInteraction(
+                Interaction::AcceptCompletion,
+                ModificationManager::GetInstance(),
+                &ModificationManager::interactionAcceptCompletion
+            );
+            InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::CaretUpdate,
                 ModificationManager::GetInstance(),
-                &ModificationManager::instantCaret
+                &ModificationManager::interactionCaretUpdate
             );
-            InteractionMonitor::GetInstance()->addInstantHandler(
+            InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::DeleteInput,
                 ModificationManager::GetInstance(),
-                &ModificationManager::instantDelete
+                &ModificationManager::interactionDeleteInput
             );
-            InteractionMonitor::GetInstance()->addInstantHandler(
+            InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::EnterInput,
                 ModificationManager::GetInstance(),
-                &ModificationManager::instantEnter
+                &ModificationManager::interactionEnterInput
             );
-            InteractionMonitor::GetInstance()->addInstantHandler(
+            InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::Navigate,
                 ModificationManager::GetInstance(),
-                &ModificationManager::instantNavigate
+                &ModificationManager::interactionNavigate
             );
-            InteractionMonitor::GetInstance()->addInstantHandler(
+            InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::NormalInput,
                 ModificationManager::GetInstance(),
-                &ModificationManager::instantNormal
+                &ModificationManager::interactionNormalInput
             );
-            InteractionMonitor::GetInstance()->addInstantHandler(
+            InteractionMonitor::GetInstance()->registerInteraction(
+                Interaction::Save,
+                ModificationManager::GetInstance(),
+                &ModificationManager::interactionSave
+            );
+            InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::SelectionSet,
                 ModificationManager::GetInstance(),
-                &ModificationManager::instantSelect
+                &ModificationManager::interactionSelectionSet
             );
-            InteractionMonitor::GetInstance()->addInstantHandler(
+            InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::SelectionClear,
                 ModificationManager::GetInstance(),
-                &ModificationManager::instantClearSelect
+                &ModificationManager::interactionSelectionClear
             );
-            // InteractionMonitor::GetInstance()->addInstantHandler(
-            //     Interaction::AcceptCompletion,
-            //     CompletionManager::GetInstance(),
-            //     &CompletionManager::instantAccept
-            // );
+
+            WebsocketManager::GetInstance()->registerAction(
+                WsAction::CompletionGenerate,
+                CompletionManager::GetInstance(),
+                &CompletionManager::wsActionCompletionGenerate
+            );
 
             const auto mainThreadId = system::getMainThreadId();
             logger::log(std::format(

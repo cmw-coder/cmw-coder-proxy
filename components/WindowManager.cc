@@ -10,7 +10,6 @@ using namespace types;
 using namespace utils;
 
 WindowManager::WindowManager() : _keyHelper(Configurator::GetInstance()->version().first) {
-    _threadDebounceUpdateWindow();
     _threadDebounceRetrieveInfo();
 }
 
@@ -18,37 +17,31 @@ WindowManager::~WindowManager() {
     _isRunning.store(false);
 }
 
-bool WindowManager::checkNeedCancelWhenLostFocus(const int64_t windowHandle) {
+bool WindowManager::checkNeedHideWhenLostFocus(const int64_t windowHandle) {
     if (const auto windowClass = window::getWindowClassName(windowHandle);
         windowClass == "si_Poplist") {
         _popListWindowHandle.store(windowHandle);
-    }
-    else if (_codeWindowHandle >= 0) {
-        _debounceUpdateWindowTime.store(chrono::high_resolution_clock::now() + chrono::milliseconds(100));
-        _updateWindowHandle.store(-1);
+    } else if (_codeWindowHandle >= 0) {
+        logger::debug("Lost focus");
+        _codeWindowHandle.store(-1);
         return true;
-    }
-    else {
-        // Cancel gain focus update if switch back really quick
-        _updateWindowHandle.store({});
     }
     return false;
 }
 
-bool WindowManager::checkNeedCancelWhenGainFocus(const int64_t windowHandle) {
-    if (_codeWindowHandle < 0) {
-        _debounceUpdateWindowTime.store(chrono::high_resolution_clock::now() + chrono::milliseconds(1000));
-        _updateWindowHandle.store(windowHandle);
-    }
-    else {
-        // Cancel lost focus update if switch back really quick
-        _updateWindowHandle.store({});
-    }
+bool WindowManager::checkNeedShowWhenGainFocus(const int64_t windowHandle) {
     if (_popListWindowHandle > 0) {
         _popListWindowHandle.store(-1);
+    } else if (_codeWindowHandle < 0) {
+        logger::debug("Gained focus");
+        _codeWindowHandle.store(windowHandle);
         return true;
     }
     return false;
+}
+
+std::tuple<int, int> WindowManager::getCurrentPosition() const {
+    return window::getClientPosition(_codeWindowHandle);
 }
 
 void WindowManager::interactionPaste(const std::any&) {
@@ -65,27 +58,6 @@ bool WindowManager::sendAcceptCompletion() {
     return window::postKeycode(
         _codeWindowHandle,
         _keyHelper.toKeycode(Key::F10, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
-    );
-}
-
-bool WindowManager::sendCancelCompletion() {
-    _cancelRetrieveInfo();
-    return window::postKeycode(
-        _codeWindowHandle,
-        _keyHelper.toKeycode(Key::F9, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
-    );
-}
-
-bool WindowManager::sendDoubleInsert() const {
-    return window::sendKeycode(_codeWindowHandle, _keyHelper.toKeycode(Key::Insert)) &&
-           window::sendKeycode(_codeWindowHandle, _keyHelper.toKeycode(Key::Insert));
-}
-
-bool WindowManager::sendInsertCompletion() {
-    _cancelRetrieveInfo();
-    return window::postKeycode(
-        _codeWindowHandle,
-        _keyHelper.toKeycode(Key::F12, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
     );
 }
 
@@ -109,27 +81,6 @@ void WindowManager::_cancelRetrieveInfo() {
     _needRetrieveInfo.store(false);
 }
 
-void WindowManager::_threadDebounceUpdateWindow() {
-    thread([this] {
-        while (_isRunning.load()) {
-            if (const auto updateWindowHandle = _updateWindowHandle.load(); updateWindowHandle) {
-                if (const auto deltaTime = _debounceUpdateWindowTime.load() - chrono::high_resolution_clock::now();
-                    deltaTime <= chrono::nanoseconds(0)) {
-                    logger::debug(updateWindowHandle > 0 ? "Gained focus" : "Lost focus");
-                    _codeWindowHandle.store(updateWindowHandle);
-                    _updateWindowHandle.store({});
-                }
-                else {
-                    this_thread::sleep_for(deltaTime);
-                }
-            }
-            else {
-                this_thread::sleep_for(chrono::milliseconds(10));
-            }
-        }
-    }).detach();
-}
-
 void WindowManager::_threadDebounceRetrieveInfo() {
     thread([this] {
         while (_isRunning.load()) {
@@ -142,12 +93,10 @@ void WindowManager::_threadDebounceRetrieveInfo() {
                         _keyHelper.toKeycode(Key::F11, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
                     );
                     _needRetrieveInfo.store(false);
-                }
-                else {
+                } else {
                     this_thread::sleep_for(deltaTime);
                 }
-            }
-            else {
+            } else {
                 this_thread::sleep_for(chrono::milliseconds(10));
             }
         }

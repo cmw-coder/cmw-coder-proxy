@@ -23,6 +23,11 @@ namespace types::SiVersion {
         V0130 = 130,
         V0132 = 132,
     };
+
+    using Full = std::pair<Major, Minor>;
+
+    template<class T>
+    using Map = std::unordered_map<Major, std::unordered_map<Minor, T>>;
 }
 
 template<>

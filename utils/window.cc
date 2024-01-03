@@ -9,14 +9,27 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
-std::string window::getWindowClassName(const int64_t hwnd) {
-    std::string text;
+string window::getWindowClassName(const int64_t hwnd) {
+    string text;
     text.resize(256);
     return text.substr(0, GetClassName(reinterpret_cast<HWND>(hwnd), text.data(), 256));
 }
 
-std::string window::getWindowText(const int64_t hwnd) {
-    std::string text;
+tuple<int, int> window::getClientPosition(const int64_t hwnd) {
+    POINT ptClient = {};
+    ClientToScreen(reinterpret_cast<HWND>(hwnd), &ptClient);
+
+    return {ptClient.x, ptClient.y};
+}
+
+tuple<int, int> window::getWindowPosition(const int64_t hwnd) {
+    RECT rect;
+    GetWindowRect(reinterpret_cast<HWND>(hwnd), &rect);
+    return {rect.left, rect.top};
+}
+
+string window::getWindowText(const int64_t hwnd) {
+    string text;
     text.resize(256);
     return text.substr(0, GetWindowText(reinterpret_cast<HWND>(hwnd), text.data(), 256));
 }

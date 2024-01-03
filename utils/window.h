@@ -7,6 +7,10 @@
 namespace utils::window {
     std::string getWindowClassName(int64_t hwnd);
 
+    std::tuple<int, int> getClientPosition(int64_t hwnd);
+
+    std::tuple<int, int> getWindowPosition(int64_t hwnd);
+
     std::string getWindowText(int64_t hwnd);
 
     bool postKeycode(int64_t hwnd, types::Keycode keycode);

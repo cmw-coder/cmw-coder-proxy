@@ -8,7 +8,9 @@
 #include <regex>
 #include <utility>
 #include <algorithm>
+#include <components/CompletionManager.h>
 
+#include <components/WebsocketManager.h>
 #include <helpers/HttpHelper.h>
 #include <types/IndentType.h>
 #include <types/Modification.h>
@@ -16,6 +18,7 @@
 #include <utils/fs.h>
 #include <utils/logger.h>
 
+using namespace components;
 using namespace helpers;
 using namespace std;
 using namespace types;
@@ -32,8 +35,22 @@ namespace {
  * @brief Constructs a new Modification object.
  * @param path The path to the file to be recorded.
  */
-Modification::Modification(string path): path(move(path)), _wsHelper("ws://127.0.0.1:3000") {
+Modification::Modification(string path): path(move(path)) {
     reload();
+}
+
+void Modification::acceptCompletion() {
+    if (const auto completionOpt = CompletionManager::GetInstance()->acceptCompletion(_lastPosition.line);
+        completionOpt.has_value()) {
+        add(completionOpt.value());
+    } else {
+        if (!_lastSelect.isEmpty()) {
+            const auto selectContent = _addRangeIndent(_lastSelect);
+            _setRangeContent(_lastSelect, selectContent);
+        } else {
+            add(tabString);
+        }
+    }
 }
 
 /**
@@ -41,7 +58,17 @@ Modification::Modification(string path): path(move(path)), _wsHelper("ws://127.0
  * @param character The character to be added.
  */
 void Modification::add(const char character) {
-    logger::info(format("Add character at ({}, {})", _lastPosition.line, _lastPosition.character));
+    if (!_lastSelect.isEmpty()) {
+        logger::info(format(
+            "Remove selection from ({}, {}) to ({}, {})",
+            _lastSelect.start.line,
+            _lastSelect.start.character,
+            _lastSelect.end.line,
+            _lastSelect.end.character
+        ));
+        _setRangeContent(_lastSelect);
+        selectionClear();
+    }
     // TODO: Get indent type from config
     constexpr auto indentType = IndentType::Simple;
     const auto charactorOffset = _lineOffsets.at(_lastPosition.line) + _lastPosition.character;
@@ -74,7 +101,6 @@ void Modification::add(const char character) {
                 for (auto& offset: _lineOffsets | views::drop(_lastPosition.line + 1)) {
                     offset += insertContent.length();
                 }
-                logger::debug(_content);
                 // Remove extra indent of next line
                 // _lastPosition.line was increased by 1 in the previous codes
                 if (const auto nextLineIndent = _getLineIndent(_lastPosition.line);
@@ -103,7 +129,10 @@ void Modification::add(const char character) {
             offset += 1;
         }
     }
-    _syncContent();
+    if (CompletionManager::GetInstance()->normalInput(character)) {
+        CompletionManager::GetInstance()->acceptCompletion(_lastPosition.line);
+    }
+    _debugSync();
 }
 
 /**
@@ -111,7 +140,6 @@ void Modification::add(const char character) {
  * @param characters The string of characters to be added.
  */
 void Modification::add(const string& characters) {
-    logger::info(format("Add string at ({}, {})", _lastPosition.line, _lastPosition.character));
     const auto charactorOffset = _lineOffsets.at(_lastPosition.line) + _lastPosition.character;
     for (auto& offset: _lineOffsets | views::drop(_lastPosition.line + 1)) {
         offset += characters.length();
@@ -131,7 +159,11 @@ void Modification::add(const string& characters) {
         _lastPosition.addLine(lineCount);
     }
     _lastPosition.addCharactor(characters.length());
-    _syncContent();
+    _debugSync();
+}
+
+CaretPosition Modification::getPosition() const {
+    return _lastPosition;
 }
 
 /**
@@ -139,7 +171,12 @@ void Modification::add(const string& characters) {
  * @param newPosition The new position to navigate to.
  */
 void Modification::navigate(const CaretPosition& newPosition) {
-    _lastPosition = newPosition;
+    if (_lastPosition != newPosition &&
+        newPosition.line < _lineOffsets.size() &&
+        newPosition.character <= _getLineLength(newPosition.line)) {
+        _lastPosition = newPosition;
+        CompletionManager::GetInstance()->cancelCompletion();
+    }
 }
 
 /**
@@ -147,16 +184,8 @@ void Modification::navigate(const CaretPosition& newPosition) {
  * @param key The key that determines how to navigate.
  */
 void Modification::navigate(const Key key) {
+    CompletionManager::GetInstance()->cancelCompletion();
     switch (key) {
-        case Key::Tab: {
-            if (isSelect()) {
-                const auto selectContent = _addIndentOnSelection(_lastSelect);
-                replace(_lastSelect, selectContent);
-            } else {
-                add(tabString);
-            }
-            break;
-        }
         // TODO: Implement these keys
         // case Key::Home: {
         //     break;
@@ -229,91 +258,62 @@ void Modification::reload() {
     logger::debug(format("Reloading with path: '{}'", path));
     _content = fs::readFile(path);
     _lineOffsets.clear();
-    _syncContent();
-    // Split content by '\n' or '\r\n' then store them in _content
     _lineOffsets.push_back(0);
     for (const auto& line: _content | views::split('\n')) {
         _lineOffsets.push_back(_lineOffsets.back() + line.size() + 1);
     }
     _lineOffsets.pop_back();
+    CompletionManager::GetInstance()->cancelCompletion();
+    _debugSync();
 }
 
 /**
  * @brief Removes a character from the content at the current position.
  */
 void Modification::remove() {
-    if (_lastPosition.character == 0 && _lastPosition.line == 0) {
-        return;
-    }
-    const auto charactorOffset = _lineOffsets.at(_lastPosition.line) + _lastPosition.character;
-    _content.erase(charactorOffset - 1, 1);
-    for (auto& offset: _lineOffsets | views::drop(_lastPosition.line + 1)) {
-        offset -= 1;
-    }
-    if (_lastPosition.character == 0) {
-        // Delete new line
-        _lineOffsets.erase(_lineOffsets.begin() + static_cast<int>(_lastPosition.line));
-        _lastPosition.addLine(-1);
-        _lastPosition.character = _getLineLength(_lastPosition.line);
+    CompletionManager::GetInstance()->deleteInput(_lastPosition);
+    if (!_lastSelect.isEmpty()) {
+        logger::info(format(
+            "Remove selection from ({}, {}) to ({}, {})",
+            _lastSelect.start.line,
+            _lastSelect.start.character,
+            _lastSelect.end.line,
+            _lastSelect.end.character
+        ));
+        _setRangeContent(_lastSelect);
+        selectionClear();
     } else {
-        _lastPosition.addCharactor(-1);
+        if (_lastPosition.character == 0 && _lastPosition.line == 0) {
+            return;
+        }
+        const auto charactorOffset = _lineOffsets.at(_lastPosition.line) + _lastPosition.character;
+        _content.erase(charactorOffset - 1, 1);
+        for (auto& offset: _lineOffsets | views::drop(_lastPosition.line + 1)) {
+            offset -= 1;
+        }
+        if (_lastPosition.character == 0) {
+            // Delete new line
+            _lineOffsets.erase(_lineOffsets.begin() + static_cast<int>(_lastPosition.line));
+            _lastPosition.addLine(-1);
+            _lastPosition.character = _getLineLength(_lastPosition.line);
+        } else {
+            _lastPosition.addCharactor(-1);
+        }
     }
-    _syncContent();
+    _debugSync();
 }
 
-void Modification::select(const Range& range) {
+void Modification::selectionClear() {
+    // TODO: Check if need call CompletionManager
+    _lastSelect.reset();
+}
+
+void Modification::selectionSet(const Range& range) {
+    // TODO: Check if need call CompletionManager
     _lastSelect = range;
 }
 
-void Modification::clearSelect() {
-    _lastSelect = Range(0, 0, 0, 0);
-}
-
-bool Modification::isSelect() const {
-    return !_lastSelect.isEmpty();
-}
-
-void Modification::replace(const string& characters) {
-    const auto selectRange = _lastSelect;
-    clearSelect();
-    remove(selectRange);
-    add(characters);
-    _syncContent();
-}
-
-void Modification::replace(const Range& selectRange, const string& characters) {
-    remove(selectRange);
-    add(characters);
-    _syncContent();
-}
-
-void Modification::remove(const Range& range) {
-    const auto [startOffset, endOffset] = _getRangeOffsets(range);
-    const auto subContent = _getRangeContent(range);
-    const auto subLength = endOffset - startOffset;
-    _content.erase(startOffset, subLength);
-    const auto enterCount = ranges::count(subContent, '\n');
-    for (auto it = (_lineOffsets.begin() + static_cast<int>(range.start.line) + 1);
-         it != _lineOffsets.end();) {
-        if (distance(_lineOffsets.begin(), it) <= enterCount) {
-            it = _lineOffsets.erase(it);
-        } else {
-            *it -= subContent.length();
-            ++it;
-        }
-    }
-    _lastPosition = range.start;
-    _lastPosition.maxCharacter = _lastPosition.character;
-    _syncContent();
-}
-
-void Modification::selectRemove() {
-    remove(_lastSelect);
-    clearSelect();
-    _syncContent();
-}
-
-string Modification::_addIndentOnSelection(const Range& range) const {
+string Modification::_addRangeIndent(const Range& range) const {
     string selectcontent;
     const auto rangeContent = _getRangeContent(range);
     const auto rangeContentLines = ranges::count(rangeContent, '\n');
@@ -327,6 +327,21 @@ string Modification::_addIndentOnSelection(const Range& range) const {
         }
     }
     return selectcontent;
+}
+
+void Modification::_debugSync() const {
+    WebsocketManager::GetInstance()->sendAction(
+        WsAction::DebugSync,
+        {
+            {"content", encode(_content, crypto::Encoding::Base64)},
+            {"path", encode(path, crypto::Encoding::Base64)}
+        }
+    );
+}
+
+string Modification::_getLineContent(const uint32_t lineIndex) const {
+    const auto [start, end] = _getLineOffsets(lineIndex);
+    return _content.substr(start, end - start);
 }
 
 /**
@@ -377,7 +392,7 @@ pair<uint32_t, uint32_t> Modification::_getLineOffsets(const uint32_t lineIndex)
 
 string Modification::_getRangeContent(const Range& range) const {
     const auto [startOffset, endOffset] = _getRangeOffsets(range);
-    auto content = _content.substr(startOffset, endOffset - startOffset);
+    const auto content = _content.substr(startOffset, endOffset - startOffset);
     return content;
 }
 
@@ -393,14 +408,24 @@ pair<uint32_t, uint32_t> Modification::_getRangeOffsets(const Range& range) cons
     return make_pair(startCharactorOffset, endCharactorOffset);
 }
 
-void Modification::_syncContent() {
-    thread([this, content = _content, path=path] {
-        _wsHelper.sendAction(
-            WsAction::DebugSync,
-            {
-                {"content", encode(content, crypto::Encoding::Base64)},
-                {"path", encode(path, crypto::Encoding::Base64)}
-            }
-        );
-    }).detach();
+void Modification::_setRangeContent(const Range& range, const string& characters) {
+    const auto [startOffset, endOffset] = _getRangeOffsets(range);
+    const auto subContent = _getRangeContent(range);
+    const auto subLength = endOffset - startOffset;
+    _content.erase(startOffset, subLength);
+    const auto enterCount = ranges::count(subContent, '\n');
+    for (auto it = (_lineOffsets.begin() + static_cast<int>(range.start.line) + 1);
+         it != _lineOffsets.end();) {
+        if (distance(_lineOffsets.begin(), it) <= enterCount) {
+            it = _lineOffsets.erase(it);
+        } else {
+            *it -= subContent.length();
+            ++it;
+        }
+    }
+    _lastPosition = range.start;
+    _lastPosition.maxCharacter = _lastPosition.character;
+    if (!characters.empty()) {
+        add(characters);
+    }
 }

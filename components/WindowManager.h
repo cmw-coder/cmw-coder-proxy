@@ -13,21 +13,17 @@ namespace components {
 
         ~WindowManager() override;
 
-        bool checkNeedCancelWhenLostFocus(int64_t windowHandle);
+        bool checkNeedHideWhenLostFocus(int64_t windowHandle);
 
-        bool checkNeedCancelWhenGainFocus(int64_t windowHandle);
+        bool checkNeedShowWhenGainFocus(int64_t windowHandle);
+
+        std::tuple<int, int> getCurrentPosition() const;
 
         void interactionPaste(const std::any& = {});
 
         void requestRetrieveInfo();
 
         bool sendAcceptCompletion();
-
-        bool sendCancelCompletion();
-
-        bool sendDoubleInsert() const;
-
-        bool sendInsertCompletion();
 
         bool sendSave();
 
@@ -36,12 +32,10 @@ namespace components {
     private:
         helpers::KeyHelper _keyHelper;
         std::atomic<bool> _isRunning{true}, _needRetrieveInfo{false};
-        std::atomic<int64_t> _codeWindowHandle{-1}, _updateWindowHandle{}, _popListWindowHandle{-1};
-        std::atomic<types::Time> _debounceUpdateWindowTime, _debounceRetrieveInfoTime;
+        std::atomic<int64_t> _codeWindowHandle{-1}, _popListWindowHandle{-1};
+        std::atomic<types::Time> _debounceRetrieveInfoTime;
 
         void _cancelRetrieveInfo();
-
-        void _threadDebounceUpdateWindow();
 
         void _threadDebounceRetrieveInfo();
     };

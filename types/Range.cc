@@ -7,25 +7,10 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
-Range::Range(const CaretPosition& start, const CaretPosition& end): start(start), end(end) {
+Range::Range(const CaretPosition& start, const CaretPosition& end): end(end), start(start) {
     if (start > end) {
         this->start = end;
         this->end = start;
-    }
-}
-
-Range::Range(
-    const uint32_t startLine,
-    const uint32_t startCharacter,
-    const uint32_t endLine,
-    const uint32_t endCharacter
-) {
-    if (startLine < endLine || (startLine == endLine && startCharacter <= endCharacter)) {
-        this->start = CaretPosition(startCharacter, startLine);
-        this->end = CaretPosition(endCharacter, endLine);
-    } else {
-        this->end = CaretPosition(startCharacter, startLine);
-        this->start = CaretPosition(endCharacter, endLine);
     }
 }
 
@@ -49,16 +34,7 @@ bool Range::isBefore(const Range& other) const {
     return end > other.start;
 }
 
-Range Range::Union(const Range& other) const {
-    return {
-        min(start, other.start),
-        max(end, other.end)
-    };
-}
-
-Range Range::intersection(const Range& other) const {
-    return {
-        max(start, other.start),
-        min(end, other.end)
-    };
+void Range::reset() {
+    end.reset();
+    start.reset();
 }

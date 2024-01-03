@@ -14,7 +14,7 @@ namespace types {
         
         Completion completion();
 
-        Completion reset(bool isSnippet = false, std::string content = {});
+        std::pair<Completion, int64_t> reset(bool isSnippet = false, std::string content = {});
 
         bool valid() const;
 
