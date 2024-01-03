@@ -466,6 +466,36 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                 break;
             }
             case UM_KEYCODE: {
+                const auto ptr = StdCallFunction<char*(uint8_t*, uint16_t*)>(_baseAddress + 0xC93D8);
+                uint32_t fileHandle;
+                uint32_t handleTmp1;
+                uint32_t handleTmp2;
+                ReadProcessMemory(
+                    _processHandle.get(),
+                    reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.fileHandle),
+                    &fileHandle,
+                    sizeof(fileHandle),
+                    nullptr
+                );
+                struct {
+                    uint8_t lengthLow, lengthHigh;
+                    char content[4092];
+                } payload{};
+                ReadProcessMemory(
+                    _processHandle.get(),
+                    reinterpret_cast<LPCVOID>(fileHandle+0x10),
+                    &handleTmp1,
+                    sizeof(handleTmp1),
+                    nullptr
+                );
+                ReadProcessMemory(
+                    _processHandle.get(),
+                    reinterpret_cast<LPCVOID>(handleTmp1),
+                    &handleTmp2,
+                    sizeof(handleTmp2),
+                    nullptr
+                );
+                ptr((uint8_t*)handleTmp2, (uint16_t*)&payload);
                 _handleKeycode(windowProcData->wParam);
                 break;
             }
