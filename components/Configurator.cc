@@ -28,7 +28,7 @@ Configurator::Configurator() {
     }
 }
 
-EditorVersion Configurator::version() const {
+SiVersion::Full Configurator::version() const {
     return _siVersion;
 }
 

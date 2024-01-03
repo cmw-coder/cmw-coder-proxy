@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 #include <singleton_dclp.hpp>
 
+#include <types/CaretPosition.h>
 #include <types/Modification.h>
 
 namespace components {
@@ -16,23 +17,26 @@ namespace components {
 
         void addTab(const std::string& tabName, const std::string& path);
 
-        void instantCaret(const std::any& data);
+        // TODO: Remove temporary methods
+        types::CaretPosition getCurrentPosition() const;
 
-        void instantDelete(const std::any&);
+        void interactionAcceptCompletion(const std::any&);
 
-        void instantEnter(const std::any&);
+        void interactionCaretUpdate(const std::any& data);
 
-        void instantNavigate(const std::any& data);
+        void interactionDeleteInput(const std::any&);
 
-        void instantNormal(const std::any& data);
+        void interactionEnterInput(const std::any&);
 
-        void instantSelect(const std::any& data);
+        void interactionNavigate(const std::any& data);
 
-        void instantClearSelect(const std::any&);
+        void interactionNormalInput(const std::any& data);
 
-        std::string getCurrentTabContent();
+        void interactionSave(const std::any&);
 
-        void reloadTab();
+        void interactionSelectionClear(const std::any&);
+
+        void interactionSelectionSet(const std::any& data);
 
         void removeTab(const std::string& tabName);
 

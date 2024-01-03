@@ -28,23 +28,24 @@ namespace components {
 
         CompletionManager() = default;
 
-        void delayedDelete(types::CaretPosition newPosition, types::CaretPosition oldPosition, const std::any&);
+        std::optional<std::string> acceptCompletion(int line);
 
-        void delayedEnter(types::CaretPosition, types::CaretPosition, const std::any& = {});
+        void cancelCompletion();
 
-        void delayedNavigate(types::CaretPosition, types::CaretPosition, const std::any& = {});
+        void deleteInput(const types::CaretPosition& position);
 
-        void instantAccept(const std::any& = {});
-
-        void instantCancel(const std::any& data);
-
-        void instantNavigate(const std::any& = {});
-
-        void instantNormal(const std::any& data);
-
-        void instantSave(const std::any& = {});
+        /**
+         * @brief Handles normal input and returns if need to trigger accept.
+         * @param character The character to be input.
+         * @return A boolean indicating whether the input was handled successfully.
+         */
+        bool normalInput(char character);
 
         void instantUndo(const std::any& = {});
+
+        void wsActionCompletionGenerate(const nlohmann::json& data);
+
+        // TODO: Remove old methods
 
         void retrieveWithCurrentPrefix(const std::string& currentPrefix);
 
@@ -60,13 +61,13 @@ namespace components {
         mutable std::shared_mutex _componentsMutex, _editorInfoMutex;
         Components _components;
         EditorInfo _editorInfo;
-        std::atomic<bool> _isAutoCompletion{true}, _isContinuousEnter{}, _isJustAccepted{};
+
+        // TODO: Check if _isJustAccepted is still needed
+        std::atomic<bool> _isAutoCompletion{true}, _isContinuousEnter{false}, _isJustAccepted{false};
         std::atomic<types::Time> _currentRetrieveTime;
         types::CompletionCache _completionCache;
 
-        void _cancelCompletion(bool isCrossLine = false, bool isNeedReset = true);
-
-        void _reactToCompletion(types::Completion&& completion, bool isAccept);
+        void _cancelCompletion(bool isNeedReset = true);
 
         void _retrieveCompletion(const std::string& prefix);
 
