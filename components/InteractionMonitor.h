@@ -25,6 +25,8 @@ namespace components {
 
         [[nodiscard]] std::tuple<int, int> getCaretPixels(int line) const;
 
+        [[nodiscard]] std::string getFileName() const;
+
         [[nodiscard]] std::string getLineContent(int line) const;
 
         template<class T>
