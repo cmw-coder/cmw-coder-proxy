@@ -9,6 +9,7 @@
 #include <components/WebsocketManager.h>
 #include <components/WindowManager.h>
 #include <types/common.h>
+#include <types/CompactString.h>
 #include <types/SiVersion.h>
 #include <utils/crypto.h>
 #include <utils/inputbox.h>
@@ -50,10 +51,10 @@ namespace {
         },
     };
 
-    constexpr auto convertLineEndings = [](const std::string& input) {
+    constexpr auto convertLineEndings = [](const string& input) {
         return regex_replace(input, regex(R"(\\r\\n)"), "\r\n");
     };
-    constexpr auto convertPathSeperators = [](const std::string& input) {
+    constexpr auto convertPathSeperators = [](const string& input) {
         return regex_replace(input, regex(R"(\\\\)"), "/");
     };
 
@@ -123,7 +124,7 @@ InteractionMonitor::~InteractionMonitor() {
 tuple<int, int> InteractionMonitor::getCaretPixels(const int line) const {
     const auto hwndAddress = _baseAddress + _memoryAddress.caret.dimension.y.windowHandle;
     const auto functionYPosFromLine = StdCallFunction<int(int, int)>(
-        _baseAddress + _memoryAddress.caret.dimension.y.funcYPosFromLine
+        _baseAddress + _memoryAddress.caret.dimension.y.funcYPosFromLine.funcAddress
     );
     int hwnd{}, xPixel;
     ReadProcessMemory(
@@ -166,13 +167,45 @@ tuple<int, int> InteractionMonitor::getCaretPixels(const int line) const {
     return {clientX + xPixel, clientY + yPixel};
 }
 
-std::string InteractionMonitor::getLineContent(const int line) const {
-    struct {
-        uint8_t lengthLow, lengthHigh;
-        char content[4092];
-    } payload{};
-    const auto functionGetBufLine = StdCallFunction<int(int, int, void*)>(
-        _baseAddress + _memoryAddress.file.funcGetBufLine
+string InteractionMonitor::getFileName() const {
+    uint32_t param1;
+    const auto functionGetBufName = StdCallFunction<void(uint32_t, void*)>(
+        _baseAddress + _memoryAddress.file.funcGetBufName.funcAddress
+    ); {
+        uint32_t fileHandle, param1Offset1;
+        ReadProcessMemory(
+            _processHandle.get(),
+            reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.fileHandle),
+            &fileHandle,
+            sizeof(fileHandle),
+            nullptr
+        );
+        ReadProcessMemory(
+            _processHandle.get(),
+            reinterpret_cast<LPCVOID>(fileHandle + _memoryAddress.file.funcGetBufName.param1Offset1),
+            &param1Offset1,
+            sizeof(param1Offset1),
+            nullptr
+        );
+        ReadProcessMemory(
+            _processHandle.get(),
+            reinterpret_cast<LPCVOID>(param1Offset1 + _memoryAddress.file.funcGetBufName.param1Offset2),
+            &param1,
+            sizeof(param1),
+            nullptr
+        );
+    }
+
+    CompactString payload{};
+    functionGetBufName(param1, payload.data());
+    return payload.str();
+}
+
+string InteractionMonitor::getLineContent(const int line) const {
+    CompactString payload{};
+
+    const auto functionGetBufLine = StdCallFunction<void(uint32_t, int, void*)>(
+        _baseAddress + _memoryAddress.file.funcGetBufLine.funcAddress
     );
     uint32_t fileHandle;
     ReadProcessMemory(
@@ -184,8 +217,8 @@ std::string InteractionMonitor::getLineContent(const int line) const {
     );
 
     if (fileHandle) {
-        functionGetBufLine(static_cast<int>(fileHandle), line, &payload);
-        return {payload.content, payload.lengthLow + static_cast<uint32_t>(payload.lengthHigh << 8)};
+        functionGetBufLine(fileHandle, line, payload.data());
+        return payload.str();
     }
     return {};
 }
@@ -273,7 +306,7 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
     } catch (...) {}
 }
 
-void InteractionMonitor::_handleInteraction(const Interaction interaction, const std::any& data) const noexcept {
+void InteractionMonitor::_handleInteraction(const Interaction interaction, const any& data) const noexcept {
     try {
         for (const auto& handler: _handlerMap.at(interaction)) {
             handler(data);
@@ -466,6 +499,36 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                 break;
             }
             case UM_KEYCODE: {
+                const auto ptr = StdCallFunction<char*(uint8_t*, uint16_t*)>(_baseAddress + 0xC93D8);
+                uint32_t fileHandle;
+                uint32_t handleTmp1;
+                uint32_t handleTmp2;
+                ReadProcessMemory(
+                    _processHandle.get(),
+                    reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.fileHandle),
+                    &fileHandle,
+                    sizeof(fileHandle),
+                    nullptr
+                );
+                struct {
+                    uint8_t lengthLow, lengthHigh;
+                    char content[4092];
+                } payload{};
+                ReadProcessMemory(
+                    _processHandle.get(),
+                    reinterpret_cast<LPCVOID>(fileHandle + 0x10),
+                    &handleTmp1,
+                    sizeof(handleTmp1),
+                    nullptr
+                );
+                ReadProcessMemory(
+                    _processHandle.get(),
+                    reinterpret_cast<LPCVOID>(handleTmp1),
+                    &handleTmp2,
+                    sizeof(handleTmp2),
+                    nullptr
+                );
+                ptr((uint8_t *) handleTmp2, (uint16_t *) &payload);
                 _handleKeycode(windowProcData->wParam);
                 break;
             }
@@ -512,7 +575,7 @@ void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
 }
 
 
-void InteractionMonitor::_retrieveProjectId(const std::string& project) const {
+void InteractionMonitor::_retrieveProjectId(const string& project) const {
     const auto projectListKey = _subKey + "\\Project List";
     const auto projectHash = crypto::sha1(project);
     string projectId;

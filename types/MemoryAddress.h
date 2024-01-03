@@ -11,7 +11,11 @@ namespace types {
                 } x;
 
                 struct {
-                    uint32_t windowHandle, funcYPosFromLine;
+                    uint32_t windowHandle;
+
+                    struct {
+                        uint32_t funcAddress;
+                    } funcYPosFromLine;
                 } y;
             } dimension;
 
@@ -23,7 +27,15 @@ namespace types {
         } caret;
 
         struct {
-            uint32_t fileHandle, funcGetBufLine;
+            uint32_t fileHandle;
+
+            struct {
+                uint32_t funcAddress;
+            } funcGetBufLine;
+
+            struct {
+                uint32_t funcAddress, param1Offset1, param1Offset2;
+            } funcGetBufName;
         } file;
     };
 }
