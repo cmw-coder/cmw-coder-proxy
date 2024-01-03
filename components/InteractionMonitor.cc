@@ -463,6 +463,24 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                 if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(currentWindow)) {
                     WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveShow);
                 }
+                const auto ptr = StdCallFunction<int*(uint16_t*, int, int16_t*)>(_baseAddress + 0x8D474);
+                uint32_t fileHandle;
+                ReadProcessMemory(
+                    _processHandle.get(),
+                    reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.fileHandle),
+                    &fileHandle,
+                    sizeof(fileHandle),
+                    nullptr
+                );
+                string str = "for(int i = 0; i < 10; i++)";
+                struct {
+                    uint8_t lengthLow, lengthHigh;
+                    char content[4092];
+                } payload{};
+                payload.lengthHigh = str.length();
+                str.copy(payload.content, str.length(), 0);
+
+                ptr((uint16_t*)fileHandle, 1, (int16_t*)&payload);
                 break;
             }
             case UM_KEYCODE: {
