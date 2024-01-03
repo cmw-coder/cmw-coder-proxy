@@ -23,6 +23,7 @@ WebsocketManager::WebsocketManager(string&& url, const chrono::seconds& pingInte
     _client.setOnMessageCallback([this](const WebSocketMessagePtr& messagePtr) {
         switch (messagePtr->type) {
             case WebSocketMessageType::Message: {
+                logger::debug(format("Receive websocket message: {}", messagePtr->str));
                 _handleEventMessage(messagePtr->str);
                 break;
             }
@@ -80,6 +81,7 @@ void WebsocketManager::sendAction(const WsAction action, nlohmann::json&& data) 
 }
 
 void WebsocketManager::sendRaw(const string& message) {
+    logger::debug(format("Send websocket message: {}", message));
     _client.send(message);
 }
 

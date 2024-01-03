@@ -162,6 +162,7 @@ tuple<int, int> InteractionMonitor::getCaretPixels(const int line) const {
     }
 
     const auto [clientX, clientY] = WindowManager::GetInstance()->getCurrentPosition();
+    logger::debug(format("Client position ({}, {}), caret position ({}, {})", clientX, clientY, xPixel, yPixel));
     return {clientX + xPixel, clientY + yPixel};
 }
 
@@ -485,7 +486,6 @@ void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
         }
         case WM_MOUSEMOVE: {
             if (isLMDown.load()) {
-                logger::debug("WM_MOUSESELECT");
                 _isSelecting.store(true);
             }
             break;
