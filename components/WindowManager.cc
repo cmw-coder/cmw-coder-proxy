@@ -87,7 +87,7 @@ void WindowManager::_threadDebounceRetrieveInfo() {
             if (_needRetrieveInfo.load()) {
                 if (const auto deltaTime = _debounceRetrieveInfoTime.load() - chrono::high_resolution_clock::now();
                     deltaTime <= chrono::nanoseconds(0)) {
-                    logger::log("Sending retrieve info...");
+                    logger::info("Retrieve info from Source Insight");
                     window::postKeycode(
                         _codeWindowHandle,
                         _keyHelper.toKeycode(Key::F11, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})

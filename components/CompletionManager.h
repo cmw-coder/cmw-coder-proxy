@@ -13,7 +13,7 @@ namespace components {
     class CompletionManager : public SingletonDclp<CompletionManager> {
     public:
         struct Components {
-            std::string cursorString;
+            types::CaretPosition caretPosition;
             std::string path;
             std::string prefix;
             std::string suffix;
@@ -28,18 +28,19 @@ namespace components {
 
         CompletionManager() = default;
 
-        std::optional<std::string> acceptCompletion(int line);
+        void interactionAcceptCompletion(const std::any&);
 
-        void cancelCompletion();
+        void interactionCaretUpdate(const std::any& data);
 
-        void deleteInput(const types::CaretPosition& position);
+        void interactionDeleteInput(const std::any&);
 
-        /**
-         * @brief Handles normal input and returns if need to trigger accept.
-         * @param character The character to be input.
-         * @return A boolean indicating whether the input was handled successfully.
-         */
-        bool normalInput(char character);
+        void interactionEnterInput(const std::any&);
+
+        void interactionNavigate(const std::any& data);
+
+        void interactionNormalInput(const std::any& data);
+
+        void interactionSave(const std::any&);
 
         void instantUndo(const std::any& = {});
 
@@ -63,7 +64,7 @@ namespace components {
         EditorInfo _editorInfo;
 
         // TODO: Check if _isJustAccepted is still needed
-        std::atomic<bool> _isAutoCompletion{true}, _isContinuousEnter{false}, _isJustAccepted{false};
+        std::atomic<bool> _isAutoCompletion{true}, _isContinuousEnter{false}, _isJustAccepted{false}, _isNewLine{true};
         std::atomic<types::Time> _currentRetrieveTime;
         types::CompletionCache _completionCache;
 
@@ -72,5 +73,7 @@ namespace components {
         void _retrieveCompletion(const std::string& prefix);
 
         void _retrieveEditorInfo() const;
+
+        void _updateComponents();
     };
 }

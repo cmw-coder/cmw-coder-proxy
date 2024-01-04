@@ -27,7 +27,7 @@ namespace components {
 
         [[nodiscard]] std::string getFileName() const;
 
-        [[nodiscard]] std::string getLineContent(int line) const;
+        [[nodiscard]] std::string getLineContent(uint32_t line) const;
 
         void setLineContent(uint32_t line, const std::string& content) const;
 

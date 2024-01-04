@@ -25,34 +25,51 @@ namespace {
     constexpr auto completionGeneratedKey = "CMWCODER_completionGenerated";
 }
 
-optional<string> CompletionManager::acceptCompletion(const int line) {
+void CompletionManager::interactionAcceptCompletion(const any&) {
     _isContinuousEnter.store(false);
     _isJustAccepted.store(true);
     if (const auto [oldCompletion, cacheOffset] = _completionCache.reset();
         !oldCompletion.content().empty()) {
-        system::setEnvironmentVariable(
-            completionGeneratedKey,
-            (oldCompletion.isSnippet() ? "1" : "0") +
-            InteractionMonitor::GetInstance()->getLineContent(line) +
-            oldCompletion.content().substr(cacheOffset)
-        );
+        {
+            shared_lock lock(_componentsMutex);
+            system::setEnvironmentVariable(
+                completionGeneratedKey,
+                (oldCompletion.isSnippet() ? "1" : "0") +
+                InteractionMonitor::GetInstance()->getLineContent(_components.caretPosition.line) +
+                oldCompletion.content().substr(cacheOffset)
+            );
+        }
         WindowManager::GetInstance()->sendAcceptCompletion();
-        logger::log(format("Accepted completion: {}", oldCompletion.stringify()));
         WebsocketManager::GetInstance()->sendAction(WsAction::CompletionAccept);
-        return oldCompletion.content();
+        logger::log(format("Accepted completion: {}", oldCompletion.stringify()));
     }
-    return nullopt;
 }
 
-void CompletionManager::cancelCompletion() {
-    _isContinuousEnter.store(false);
-    _cancelCompletion();
-}
-
-void CompletionManager::deleteInput(const CaretPosition& position) {
+void CompletionManager::interactionCaretUpdate(const any& data) {
     _isContinuousEnter.store(false);
     try {
-        if (position.character != 0) {
+        const auto [newCursorPosition, _] = any_cast<tuple<CaretPosition, CaretPosition>>(data); {
+            shared_lock lock(_componentsMutex);
+            if (_components.caretPosition != newCursorPosition) {
+                _cancelCompletion();
+            }
+        }
+        unique_lock lock(_componentsMutex);
+        _components.caretPosition = newCursorPosition;
+    } catch (const bad_any_cast& e) {
+        logger::log(format("Invalid interactionCaretUpdate data: {}", e.what()));
+    }
+}
+
+void CompletionManager::interactionDeleteInput(const any&) {
+    _isContinuousEnter.store(false);
+    _isJustAccepted.store(false);
+    uint32_t chatacter; {
+        shared_lock lock(_componentsMutex);
+        chatacter = _components.caretPosition.character;
+    }
+    try {
+        if (chatacter != 0) {
             if (const auto previousCacheOpt = _completionCache.previous();
                 previousCacheOpt.has_value()) {
                 // Has valid cache
@@ -74,11 +91,40 @@ void CompletionManager::deleteInput(const CaretPosition& position) {
     }
 }
 
-bool CompletionManager::normalInput(const char character) {
-    bool needAccept = false;
-    _isContinuousEnter.store(false);
+void CompletionManager::interactionEnterInput(const any&) {
     _isJustAccepted.store(false);
+    // TODO: Support 1st level cache
+    if (_completionCache.valid()) {
+        _cancelCompletion();
+        logger::log("Enter Input. Send CompletionCancel");
+    }
+    if (_isContinuousEnter.load()) {
+        shared_lock lock(_componentsMutex);
+        _retrieveCompletion(_components.prefix);
+        logger::log("Detect Continuous enter, retrieve use previous completion");
+    } else {
+        _isContinuousEnter.store(true);
+        _retrieveEditorInfo();
+        logger::log("Detect first enter, retrieve editor info first");
+    }
+}
+
+void CompletionManager::interactionNavigate(const any& data) {
+    _isContinuousEnter.store(false);
     try {
+        const auto key = any_cast<Key>(data);
+        _cancelCompletion();
+        logger::log("Navigate. Send CompletionCancel");
+    } catch (const bad_any_cast& e) {
+        logger::log(format("Invalid interactionNavigate data: {}", e.what()));
+    }
+}
+
+void CompletionManager::interactionNormalInput(const any& data) {
+    try {
+        const auto character = any_cast<char>(data);
+        _isContinuousEnter.store(false);
+        _isJustAccepted.store(false);
         if (const auto nextCacheOpt = _completionCache.next();
             nextCacheOpt.has_value()) {
             // Has valid cache
@@ -92,15 +138,14 @@ bool CompletionManager::normalInput(const char character) {
                         logger::log("Normal input. Send CompletionCache due to cache hit");
                     } else {
                         // Out of cache
-                        needAccept = true;
+                        _completionCache.reset();
+                        WebsocketManager::GetInstance()->sendAction(WsAction::CompletionAccept);
+                        logger::log("Normal input. Send CompletionAccept due to cache complete");
                     }
                 } else {
                     // Cache miss
                     _cancelCompletion();
                     logger::log("Normal input. Send CompletionCancel due to cache miss");
-                    if (character == '\n') {
-                        _isContinuousEnter.store(true);
-                    }
                     _retrieveEditorInfo();
                 }
             } catch (runtime_error& e) {
@@ -108,25 +153,18 @@ bool CompletionManager::normalInput(const char character) {
             }
         } else {
             // No valid cache
-            if (character == '\n') {
-                // TODO: Implement logic for continuous enter
-                if (_isContinuousEnter) {
-                    shared_lock lock(_componentsMutex);
-                    _retrieveCompletion(_components.prefix);
-                    logger::log("Detect Continuous enter, retrieve completion directly");
-                } else {
-                    _isContinuousEnter.store(true);
-                    _retrieveEditorInfo();
-                    logger::log("Detect first enter, retrieve editor info first");
-                }
-            } else {
-                _retrieveEditorInfo();
-            }
+            _retrieveEditorInfo();
         }
     } catch (const bad_any_cast& e) {
-        logger::log(format("Invalid normalInput data: {}", e.what()));
+        logger::log(format("Invalid interactionNormalInput data: {}", e.what()));
     }
-    return needAccept;
+}
+
+void CompletionManager::interactionSave(const any&) {
+    if (_completionCache.valid()) {
+        _cancelCompletion();
+        logger::log("Save. Send CompletionCancel");
+    }
 }
 
 void CompletionManager::instantUndo(const any&) {
@@ -249,5 +287,23 @@ void CompletionManager::_retrieveCompletion(const string& prefix) {
 void CompletionManager::_retrieveEditorInfo() const {
     if (_isAutoCompletion.load()) {
         WindowManager::GetInstance()->requestRetrieveInfo();
+    }
+}
+
+void CompletionManager::_updateComponents() {
+    if (_isNewLine) {
+        const auto interactionMonitor = InteractionMonitor::GetInstance();
+        CaretPosition currentPosition{}; {
+            shared_lock lock(_componentsMutex);
+            currentPosition = _components.caretPosition;
+        }
+        auto lineIndices = views::iota(currentPosition.line - 29, currentPosition.line);
+        vector<string> prefix(30);
+        ranges::transform(lineIndices, prefix.rbegin(), [interactionMonitor](auto i) {
+            return interactionMonitor->getLineContent(i);
+        });
+
+        unique_lock lock(_componentsMutex);
+        _isNewLine = false;
     }
 }

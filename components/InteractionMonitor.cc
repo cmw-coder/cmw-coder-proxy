@@ -177,10 +177,10 @@ string InteractionMonitor::getFileName() const {
     return payload.str();
 }
 
-string InteractionMonitor::getLineContent(const int line) const {
+string InteractionMonitor::getLineContent(const uint32_t line) const {
     CompactString payload;
 
-    const auto functionGetBufLine = StdCallFunction<void(uint32_t, int, void*)>(
+    const auto functionGetBufLine = StdCallFunction<void(uint32_t, uint32_t, void*)>(
         _baseAddress + _memoryAddress.file.funcGetBufLine.funcAddress
     );
     uint32_t fileHandle;
@@ -417,60 +417,37 @@ void InteractionMonitor::_monitorDebugLog() const {
 void InteractionMonitor::_monitorEditorInfo() const {
     thread([this] {
         while (_isRunning.load()) {
-            if (const auto currentLinePrefixOpt = system::getEnvironmentVariable(currentPrefixKey);
-                currentLinePrefixOpt.has_value()) {
-                system::setEnvironmentVariable(currentPrefixKey);
-                CompletionManager::GetInstance()->retrieveWithCurrentPrefix(
-                    convertLineEndings(currentLinePrefixOpt.value())
-                );
-            } else {
-                optional<string> suffixOpt, prefixOpt;
+            const auto projectOpt = system::getEnvironmentVariable(projectKey);
+            const auto pathOpt = system::getEnvironmentVariable(pathKey);
+            const auto symbolStringOpt = system::getEnvironmentVariable(symbolsKey);
+            const auto tabStringOpt = system::getEnvironmentVariable(tabsKey);
+            if (const auto versionOpt = system::getEnvironmentVariable(versionKey);
+                projectOpt.has_value() &&
+                pathOpt.has_value() &&
+                versionOpt.has_value()
+            ) {
                 if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
-                    suffixOpt = system::getEnvironmentVariable(suffixKey);
-                    prefixOpt = system::getEnvironmentVariable(prefixKey);
+                    system::setEnvironmentVariable(suffixKey);
+                    system::setEnvironmentVariable(prefixKey);
                 } else {
-                    suffixOpt = system::getRegValue(_subKey, suffixKey);
-                    prefixOpt = system::getRegValue(_subKey, prefixKey);
+                    system::deleteRegValue(_subKey, suffixKey);
+                    system::deleteRegValue(_subKey, prefixKey);
                 }
-                const auto projectOpt = system::getEnvironmentVariable(projectKey);
-                const auto pathOpt = system::getEnvironmentVariable(pathKey);
-                const auto cursorStringOpt = system::getEnvironmentVariable(cursorKey);
-                const auto symbolStringOpt = system::getEnvironmentVariable(symbolsKey);
-                const auto tabStringOpt = system::getEnvironmentVariable(tabsKey);
-                if (const auto versionOpt = system::getEnvironmentVariable(versionKey);
-                    suffixOpt.has_value() &&
-                    prefixOpt.has_value() &&
-                    projectOpt.has_value() &&
-                    pathOpt.has_value() &&
-                    cursorStringOpt.has_value() &&
-                    versionOpt.has_value()
-                ) {
-                    if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
-                        system::setEnvironmentVariable(suffixKey);
-                        system::setEnvironmentVariable(prefixKey);
-                    } else {
-                        system::deleteRegValue(_subKey, suffixKey);
-                        system::deleteRegValue(_subKey, prefixKey);
-                    }
-                    system::setEnvironmentVariable(projectKey);
-                    system::setEnvironmentVariable(pathKey);
-                    system::setEnvironmentVariable(cursorKey);
-                    system::setEnvironmentVariable(symbolsKey);
-                    system::setEnvironmentVariable(versionKey);
-                    system::setEnvironmentVariable(tabsKey);
+                system::setEnvironmentVariable(projectKey);
+                system::setEnvironmentVariable(pathKey);
+                system::setEnvironmentVariable(cursorKey);
+                system::setEnvironmentVariable(symbolsKey);
+                system::setEnvironmentVariable(versionKey);
+                system::setEnvironmentVariable(tabsKey);
 
-                    _retrieveProjectId(convertPathSeperators(projectOpt.value()));
-                    CompletionManager::GetInstance()->setVersion(versionOpt.value());
+                _retrieveProjectId(convertPathSeperators(projectOpt.value()));
+                CompletionManager::GetInstance()->setVersion(versionOpt.value());
 
-                    CompletionManager::GetInstance()->retrieveWithFullInfo({
-                        .cursorString = cursorStringOpt.value(),
-                        .path = convertPathSeperators(pathOpt.value()),
-                        .prefix = convertLineEndings(prefixOpt.value()),
-                        .suffix = convertLineEndings(suffixOpt.value()),
-                        .symbolString = symbolStringOpt.value_or(""),
-                        .tabString = tabStringOpt.value_or("")
-                    });
-                }
+                CompletionManager::GetInstance()->retrieveWithFullInfo({
+                    .path = convertPathSeperators(pathOpt.value()),
+                    .symbolString = symbolStringOpt.value_or(""),
+                    .tabString = tabStringOpt.value_or("")
+                });
             }
             this_thread::sleep_for(chrono::milliseconds(5));
         }
