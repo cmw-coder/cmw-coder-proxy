@@ -495,6 +495,18 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                 break;
             }
             case UM_KEYCODE: {
+                const auto SetWndSel = StdCallFunction<int(uint32_t, int, int, int, int)>(_baseAddress + 0x108894);
+                uint32_t hwnd;
+
+                ReadProcessMemory(
+                    _processHandle.get(),
+                    reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.dimension.y.windowHandle),
+                    &hwnd,
+                    sizeof(hwnd),
+                    nullptr
+                );
+                SetWndSel(hwnd, 1, 0, 1, 0);
+
                 _handleKeycode(windowProcData->wParam);
                 break;
             }
