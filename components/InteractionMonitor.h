@@ -29,6 +29,8 @@ namespace components {
 
         [[nodiscard]] std::string getLineContent(int line) const;
 
+        void setLineContent(uint32_t line, const std::string& content) const;
+
         template<class T>
         void registerInteraction(
             const types::Interaction interaction,

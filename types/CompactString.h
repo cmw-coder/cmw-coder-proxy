@@ -11,6 +11,10 @@ namespace types {
         };
 
     public:
+        CompactString() = default;
+
+        explicit CompactString(std::string_view str);
+
         [[nodiscard]] std::string str() const;
 
         Data* data();
