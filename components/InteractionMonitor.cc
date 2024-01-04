@@ -27,30 +27,6 @@ using namespace types;
 using namespace utils;
 
 namespace {
-    const SiVersion::Map<tuple<uint32_t, uint32_t>> caretPositionAddressMap = {
-        {
-            SiVersion::Major::V35, {
-                {SiVersion::Minor::V0076, {0x1CBEFC, 0x1CBF00}},
-                {SiVersion::Minor::V0086, {0x1CD3DC, 0x1CD3E0}}
-            }
-        },
-        {
-            SiVersion::Major::V40, {
-                {SiVersion::Minor::V0084, {0x268A60, 0x268A64}},
-                {SiVersion::Minor::V0086, {0x26D938, 0x26D93C}},
-                {SiVersion::Minor::V0088, {0x26EA08, 0x26EA0C}},
-                {SiVersion::Minor::V0089, {0x26EAC8, 0x26EACC}},
-                {SiVersion::Minor::V0096, {0x278D30, 0x278D34}},
-                {SiVersion::Minor::V0116, {0x27E468, 0x27E46C}},
-                {SiVersion::Minor::V0118, {0x27F490, 0x27F494}},
-                {SiVersion::Minor::V0120, {0x2807F8, 0x2807FC}},
-                {SiVersion::Minor::V0124, {0x284DF0, 0x284DF4}},
-                {SiVersion::Minor::V0130, {0x289F9C, 0x289FA0}},
-                {SiVersion::Minor::V0132, {0x28B2FC, 0x28B300}}
-            }
-        },
-    };
-
     constexpr auto convertLineEndings = [](const string& input) {
         return regex_replace(input, regex(R"(\\r\\n)"), "\r\n");
     };
@@ -196,13 +172,13 @@ string InteractionMonitor::getFileName() const {
         );
     }
 
-    CompactString payload{};
+    CompactString payload;
     functionGetBufName(param1, payload.data());
     return payload.str();
 }
 
 string InteractionMonitor::getLineContent(const int line) const {
-    CompactString payload{};
+    CompactString payload;
 
     const auto functionGetBufLine = StdCallFunction<void(uint32_t, int, void*)>(
         _baseAddress + _memoryAddress.file.funcGetBufLine.funcAddress
@@ -221,6 +197,26 @@ string InteractionMonitor::getLineContent(const int line) const {
         return payload.str();
     }
     return {};
+}
+
+void InteractionMonitor::setLineContent(const uint32_t line, const std::string& content) const {
+    const auto functionPutBufLine = StdCallFunction<void(uint32_t, uint32_t, void*)>(
+        _baseAddress + _memoryAddress.file.funcPutBufLine.funcAddress
+    );
+
+    uint32_t fileHandle;
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.fileHandle),
+        &fileHandle,
+        sizeof(fileHandle),
+        nullptr
+    );
+
+    if (fileHandle) {
+        CompactString payload(content);
+        functionPutBufLine(fileHandle, line, payload.data());
+    }
 }
 
 void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
@@ -499,36 +495,6 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                 break;
             }
             case UM_KEYCODE: {
-                const auto ptr = StdCallFunction<char*(uint8_t*, uint16_t*)>(_baseAddress + 0xC93D8);
-                uint32_t fileHandle;
-                uint32_t handleTmp1;
-                uint32_t handleTmp2;
-                ReadProcessMemory(
-                    _processHandle.get(),
-                    reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.fileHandle),
-                    &fileHandle,
-                    sizeof(fileHandle),
-                    nullptr
-                );
-                struct {
-                    uint8_t lengthLow, lengthHigh;
-                    char content[4092];
-                } payload{};
-                ReadProcessMemory(
-                    _processHandle.get(),
-                    reinterpret_cast<LPCVOID>(fileHandle + 0x10),
-                    &handleTmp1,
-                    sizeof(handleTmp1),
-                    nullptr
-                );
-                ReadProcessMemory(
-                    _processHandle.get(),
-                    reinterpret_cast<LPCVOID>(handleTmp1),
-                    &handleTmp2,
-                    sizeof(handleTmp2),
-                    nullptr
-                );
-                ptr((uint8_t *) handleTmp2, (uint16_t *) &payload);
                 _handleKeycode(windowProcData->wParam);
                 break;
             }
