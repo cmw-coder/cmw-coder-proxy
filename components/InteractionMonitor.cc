@@ -499,36 +499,19 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                 break;
             }
             case UM_KEYCODE: {
-                const auto ptr = StdCallFunction<char*(uint8_t*, uint16_t*)>(_baseAddress + 0xC93D8);
-                uint32_t fileHandle;
-                uint32_t handleTmp1;
-                uint32_t handleTmp2;
+                // const auto DelBufLine = StdCallFunction<int(int, int, int)>(_baseAddress + 0x8DB9B);
+                // DelBufLine(fileHandle, 1, 1);
+                const auto SetBufSelText = StdCallFunction<int(int, void*)>(_baseAddress + 0x9180C);
+                string str = "for(int i = 0; i < 10; i++)";
+                uint32_t handle;
                 ReadProcessMemory(
                     _processHandle.get(),
-                    reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.fileHandle),
-                    &fileHandle,
-                    sizeof(fileHandle),
+                    reinterpret_cast<LPCVOID>(_baseAddress + 0X1CCD48),
+                    &handle,
+                    sizeof(handle),
                     nullptr
                 );
-                struct {
-                    uint8_t lengthLow, lengthHigh;
-                    char content[4092];
-                } payload{};
-                ReadProcessMemory(
-                    _processHandle.get(),
-                    reinterpret_cast<LPCVOID>(fileHandle + 0x10),
-                    &handleTmp1,
-                    sizeof(handleTmp1),
-                    nullptr
-                );
-                ReadProcessMemory(
-                    _processHandle.get(),
-                    reinterpret_cast<LPCVOID>(handleTmp1),
-                    &handleTmp2,
-                    sizeof(handleTmp2),
-                    nullptr
-                );
-                ptr((uint8_t *) handleTmp2, (uint16_t *) &payload);
+                SetBufSelText(handle,str.data());
                 _handleKeycode(windowProcData->wParam);
                 break;
             }
