@@ -15,10 +15,8 @@ namespace components {
 
         ~ModificationManager() override = default;
 
-        void addTab(const std::string& tabName, const std::string& path);
-
         // TODO: Remove temporary methods
-        types::CaretPosition getCurrentPosition() const;
+        types::CaretPosition getCurrentPosition();
 
         void interactionAcceptCompletion(const std::any&);
 
@@ -38,13 +36,10 @@ namespace components {
 
         void interactionSelectionSet(const std::any& data);
 
-        void removeTab(const std::string& tabName);
-
-        bool switchTab(const std::string& tabName);
-
     private:
         mutable std::shared_mutex _currentModificationMutex;
-        std::string _currentTabName;
         std::unordered_map<std::string, types::Modification> _modificationMap;
+
+        types::Modification& _currentFile();
     };
 }

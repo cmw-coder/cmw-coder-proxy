@@ -220,6 +220,7 @@ void CompletionManager::_cancelCompletion(const bool isNeedReset) {
 
 void CompletionManager::_retrieveCompletion(const string& prefix) {
     _currentRetrieveTime.store(chrono::high_resolution_clock::now());
+    // TODO: replace this with better solution
     const auto currentPosition = ModificationManager::GetInstance()->getCurrentPosition();
     const auto [xPixel, yPixel] = InteractionMonitor::GetInstance()->getCaretPixels(
         static_cast<int>(currentPosition.line)

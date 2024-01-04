@@ -28,11 +28,6 @@ namespace {
         CompletionManager::Construct();
         InteractionMonitor::Construct();
         WindowManager::Construct();
-
-        ModificationManager::GetInstance()->addTab(
-            "main.c",
-            "C:/Users/particleg/Documents/Source Insight/Projects/FunctionTest/main.c"
-        );
     }
 
     void finalize() {
