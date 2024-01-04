@@ -23,7 +23,6 @@ WebsocketManager::WebsocketManager(string&& url, const chrono::seconds& pingInte
     _client.setOnMessageCallback([this](const WebSocketMessagePtr& messagePtr) {
         switch (messagePtr->type) {
             case WebSocketMessageType::Message: {
-                logger::debug(format("Receive websocket message: {}", messagePtr->str));
                 _handleEventMessage(messagePtr->str);
                 break;
             }
@@ -68,12 +67,14 @@ WebsocketManager::~WebsocketManager() {
 }
 
 void WebsocketManager::sendAction(const WsAction action) {
+    logger::debug(format("Send websocket action: {}", enum_name(action)));
     sendRaw(nlohmann::json{
         {"action", enum_name(action)}
     }.dump());
 }
 
 void WebsocketManager::sendAction(const WsAction action, nlohmann::json&& data) {
+    logger::debug(format("Send websocket action: {}", enum_name(action)));
     sendRaw(nlohmann::json{
         {"action", enum_name(action)},
         {"data", move(data)}
@@ -81,7 +82,6 @@ void WebsocketManager::sendAction(const WsAction action, nlohmann::json&& data) 
 }
 
 void WebsocketManager::sendRaw(const string& message) {
-    logger::debug(format("Send websocket message: {}", message));
     _client.send(message);
 }
 
@@ -91,6 +91,7 @@ void WebsocketManager::_handleEventMessage(const string& messageString) {
             message.contains("action")) {
             if (const auto actionOpt = enum_cast<WsAction>(message["action"].get<string>());
                 actionOpt.has_value()) {
+                logger::debug(format("Receive websocket action: {}",message["action"].get<string>()));
                 for (const auto& handlers: _handlerMap[actionOpt.value()]) {
                     handlers(message["data"]);
                 }

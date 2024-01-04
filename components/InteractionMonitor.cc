@@ -139,7 +139,7 @@ tuple<int, int> InteractionMonitor::getCaretPixels(const int line) const {
     }
 
     const auto [clientX, clientY] = WindowManager::GetInstance()->getCurrentPosition();
-    logger::debug(format("Client position ({}, {}), caret position ({}, {})", clientX, clientY, xPixel, yPixel));
+    logger::debug(format("Line {} Positions: Client ({}, {}), Caret ({}, {})", line, clientX, clientY, xPixel, yPixel));
     return {clientX + xPixel, clientY + yPixel};
 }
 
@@ -484,13 +484,13 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
         switch (windowProcData->message) {
             case WM_KILLFOCUS: {
                 if (WindowManager::GetInstance()->checkNeedHideWhenLostFocus(windowProcData->wParam)) {
-                    WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveHide);
+                    // WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveHide);
                 }
                 break;
             }
             case WM_SETFOCUS: {
                 if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(currentWindow)) {
-                    WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveShow);
+                    // WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveShow);
                 }
                 break;
             }
