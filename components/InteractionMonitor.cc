@@ -272,6 +272,24 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                         _handleInteraction(Interaction::SelectionClear);
                         break;
                     }
+                    case Key::F11: {
+                        {
+                        const auto ptr = StdCallFunction<int*(uint16_t*, int, int16_t*)>(_baseAddress + 0x8D530);
+                        uint32_t fileHandle;
+                        ReadProcessMemory(
+                            _processHandle.get(),
+                            reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.fileHandle),
+                            &fileHandle,
+                            sizeof(fileHandle),
+                            nullptr
+                        );
+                        string str = "for(int i = 0; i < 10; i++)";
+                        CompactString Insstr(str);
+                        ptr((uint16_t*)fileHandle, 1, (int16_t*)Insstr.data());
+                        }
+
+                        break;
+                    }
                     default: {
                         // TODO: Support Key::Delete
                         break;
