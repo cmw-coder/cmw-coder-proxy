@@ -27,21 +27,13 @@ using namespace types;
 using namespace utils;
 
 namespace {
-    constexpr auto convertLineEndings = [](const string& input) {
-        return regex_replace(input, regex(R"(\\r\\n)"), "\r\n");
-    };
     constexpr auto convertPathSeperators = [](const string& input) {
         return regex_replace(input, regex(R"(\\\\)"), "/");
     };
 
     constexpr auto autoCompletionKey = "CMWCODER_autoCompletion";
-    constexpr auto currentPrefixKey = "CMWCODER_currentPrefix";
-    constexpr auto cursorKey = "CMWCODER_cursor";
     constexpr auto debugLogKey = "CMWCODER_debugLog";
-    constexpr auto pathKey = "CMWCODER_path";
-    constexpr auto prefixKey = "CMWCODER_prefix";
     constexpr auto projectKey = "CMWCODER_project";
-    constexpr auto suffixKey = "CMWCODER_suffix";
     constexpr auto symbolsKey = "CMWCODER_symbols";
     constexpr auto tabsKey = "CMWCODER_tabs";
     constexpr auto versionKey = "CMWCODER_version";
@@ -97,12 +89,16 @@ InteractionMonitor::~InteractionMonitor() {
     _isRunning.store(false);
 }
 
-tuple<int, int> InteractionMonitor::getCaretPixels(const int line) const {
+tuple<int64_t, int64_t> InteractionMonitor::getCaretPixels(const uint32_t line) const {
+    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
+        throw runtime_error("No valid code window");
+    }
+
     const auto hwndAddress = _baseAddress + _memoryAddress.caret.dimension.y.windowHandle;
-    const auto functionYPosFromLine = StdCallFunction<int(int, int)>(
+    const auto functionYPosFromLine = StdCallFunction<uint32_t(uint32_t, uint32_t)>(
         _baseAddress + _memoryAddress.caret.dimension.y.funcYPosFromLine.funcAddress
     );
-    int hwnd{}, xPixel;
+    uint32_t hwnd, xPixel;
     ReadProcessMemory(
         _processHandle.get(),
         reinterpret_cast<LPCVOID>(hwndAddress),
@@ -140,10 +136,36 @@ tuple<int, int> InteractionMonitor::getCaretPixels(const int line) const {
 
     const auto [clientX, clientY] = WindowManager::GetInstance()->getCurrentPosition();
     logger::debug(format("Line {} Positions: Client ({}, {}), Caret ({}, {})", line, clientX, clientY, xPixel, yPixel));
-    return {clientX + xPixel, clientY + yPixel};
+    return {
+        clientX + static_cast<int64_t>(xPixel),
+        clientY + static_cast<int64_t>(yPixel)
+    };
+}
+
+CaretPosition InteractionMonitor::getCaretPosition() const {
+    CaretPosition cursorPosition{};
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.current.line),
+        &cursorPosition.line,
+        sizeof(cursorPosition.line),
+        nullptr
+    );
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.current.character),
+        &cursorPosition.character,
+        sizeof(cursorPosition.character),
+        nullptr
+    );
+    return cursorPosition;
 }
 
 string InteractionMonitor::getFileName() const {
+    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
+        throw runtime_error("No valid code window");
+    }
+
     uint32_t param1;
     const auto functionGetBufName = StdCallFunction<void(uint32_t, void*)>(
         _baseAddress + _memoryAddress.file.funcGetBufName.funcAddress
@@ -177,12 +199,19 @@ string InteractionMonitor::getFileName() const {
     return payload.str();
 }
 
-string InteractionMonitor::getLineContent(const int line) const {
-    CompactString payload;
+string InteractionMonitor::getLineContent() const {
+    return getLineContent(getCaretPosition().line);
+}
 
-    const auto functionGetBufLine = StdCallFunction<void(uint32_t, int, void*)>(
+string InteractionMonitor::getLineContent(const uint32_t line) const {
+    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
+        throw runtime_error("No valid code window");
+    }
+
+    const auto functionGetBufLine = StdCallFunction<void(uint32_t, uint32_t, void*)>(
         _baseAddress + _memoryAddress.file.funcGetBufLine.funcAddress
     );
+
     uint32_t fileHandle;
     ReadProcessMemory(
         _processHandle.get(),
@@ -193,13 +222,18 @@ string InteractionMonitor::getLineContent(const int line) const {
     );
 
     if (fileHandle) {
+        CompactString payload;
         functionGetBufLine(fileHandle, line, payload.data());
         return payload.str();
     }
     return {};
 }
 
-void InteractionMonitor::setLineContent(const uint32_t line, const std::string& content) const {
+void InteractionMonitor::setLineContent(const uint32_t line, const string& content) const {
+    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
+        throw runtime_error("No valid code window");
+    }
+
     const auto functionPutBufLine = StdCallFunction<void(uint32_t, uint32_t, void*)>(
         _baseAddress + _memoryAddress.file.funcPutBufLine.funcAddress
     );
@@ -343,21 +377,7 @@ void InteractionMonitor::_monitorCaretPosition() {
                 continue;
             }
 
-            CaretPosition newCursorPosition{};
-            ReadProcessMemory(
-                _processHandle.get(),
-                reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.current.line),
-                &newCursorPosition.line,
-                sizeof(newCursorPosition.line),
-                nullptr
-            );
-            ReadProcessMemory(
-                _processHandle.get(),
-                reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.current.character),
-                &newCursorPosition.character,
-                sizeof(newCursorPosition.character),
-                nullptr
-            );
+            auto newCursorPosition = getCaretPosition();
             newCursorPosition.maxCharacter = newCursorPosition.character;
             if (const auto oldCursorPosition = _currentCaretPosition.load();
                 oldCursorPosition != newCursorPosition) {
@@ -417,62 +437,22 @@ void InteractionMonitor::_monitorDebugLog() const {
 void InteractionMonitor::_monitorEditorInfo() const {
     thread([this] {
         while (_isRunning.load()) {
-            if (const auto currentLinePrefixOpt = system::getEnvironmentVariable(currentPrefixKey);
-                currentLinePrefixOpt.has_value()) {
-                system::setEnvironmentVariable(currentPrefixKey);
-                CompletionManager::GetInstance()->retrieveWithCurrentPrefix(
-                    convertLineEndings(currentLinePrefixOpt.value())
-                );
-            } else {
-                optional<string> suffixOpt, prefixOpt;
-                if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
-                    suffixOpt = system::getEnvironmentVariable(suffixKey);
-                    prefixOpt = system::getEnvironmentVariable(prefixKey);
-                } else {
-                    suffixOpt = system::getRegValue(_subKey, suffixKey);
-                    prefixOpt = system::getRegValue(_subKey, prefixKey);
-                }
-                const auto projectOpt = system::getEnvironmentVariable(projectKey);
-                const auto pathOpt = system::getEnvironmentVariable(pathKey);
-                const auto cursorStringOpt = system::getEnvironmentVariable(cursorKey);
-                const auto symbolStringOpt = system::getEnvironmentVariable(symbolsKey);
-                const auto tabStringOpt = system::getEnvironmentVariable(tabsKey);
-                if (const auto versionOpt = system::getEnvironmentVariable(versionKey);
-                    suffixOpt.has_value() &&
-                    prefixOpt.has_value() &&
-                    projectOpt.has_value() &&
-                    pathOpt.has_value() &&
-                    cursorStringOpt.has_value() &&
-                    versionOpt.has_value()
-                ) {
-                    if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
-                        system::setEnvironmentVariable(suffixKey);
-                        system::setEnvironmentVariable(prefixKey);
-                    } else {
-                        system::deleteRegValue(_subKey, suffixKey);
-                        system::deleteRegValue(_subKey, prefixKey);
-                    }
-                    system::setEnvironmentVariable(projectKey);
-                    system::setEnvironmentVariable(pathKey);
-                    system::setEnvironmentVariable(cursorKey);
-                    system::setEnvironmentVariable(symbolsKey);
-                    system::setEnvironmentVariable(versionKey);
-                    system::setEnvironmentVariable(tabsKey);
+            const auto projectOpt = system::getEnvironmentVariable(projectKey);
+            const auto symbolStringOpt = system::getEnvironmentVariable(symbolsKey);
+            const auto tabStringOpt = system::getEnvironmentVariable(tabsKey);
+            if (const auto versionOpt = system::getEnvironmentVariable(versionKey);
+                projectOpt.has_value() &&
+                versionOpt.has_value()
+            ) {
+                system::setEnvironmentVariable(projectKey);
+                system::setEnvironmentVariable(symbolsKey);
+                system::setEnvironmentVariable(versionKey);
+                system::setEnvironmentVariable(tabsKey);
 
-                    _retrieveProjectId(convertPathSeperators(projectOpt.value()));
-                    CompletionManager::GetInstance()->setVersion(versionOpt.value());
-
-                    CompletionManager::GetInstance()->retrieveWithFullInfo({
-                        .cursorString = cursorStringOpt.value(),
-                        .path = convertPathSeperators(pathOpt.value()),
-                        .prefix = convertLineEndings(prefixOpt.value()),
-                        .suffix = convertLineEndings(suffixOpt.value()),
-                        .symbolString = symbolStringOpt.value_or(""),
-                        .tabString = tabStringOpt.value_or("")
-                    });
-                }
+                _retrieveProjectId(convertPathSeperators(projectOpt.value()));
+                CompletionManager::GetInstance()->setVersion(versionOpt.value());
             }
-            this_thread::sleep_for(chrono::milliseconds(5));
+            this_thread::sleep_for(chrono::milliseconds(10));
         }
     }).detach();
 }
@@ -531,7 +511,6 @@ void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
         }
         case WM_LBUTTONDBLCLK: {
             _isSelecting.store(true);
-            logger::debug("WM_LBUTTONDBLCLK");
             break;
         }
         default: {

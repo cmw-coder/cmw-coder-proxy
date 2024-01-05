@@ -18,7 +18,7 @@ namespace {
                     SiVersion::Minor::V0086, {
                         {
                             {
-                                {0x1C4C10, 0x000024},
+                                {0x1CCD44, 0x000024},
                                 {
                                     0x1CCD44,
                                     {0x1007D7},
