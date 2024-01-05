@@ -44,6 +44,10 @@ tuple<int64_t, int64_t> WindowManager::getCurrentPosition() const {
     return window::getClientPosition(_codeWindowHandle);
 }
 
+bool WindowManager::hasValidCodeWindow() const {
+    return _codeWindowHandle.load() > 0;
+}
+
 void WindowManager::interactionPaste(const any&) {
     _cancelRetrieveInfo();
 }

@@ -19,6 +19,8 @@ namespace components {
 
         std::tuple<int64_t, int64_t> getCurrentPosition() const;
 
+        bool hasValidCodeWindow() const;
+
         void interactionPaste(const std::any& = {});
 
         void requestRetrieveInfo();

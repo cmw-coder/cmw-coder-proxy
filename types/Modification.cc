@@ -9,7 +9,6 @@
 #include <utility>
 #include <algorithm>
 
-#include <components/CompletionManager.h>
 #include <components/WebsocketManager.h>
 #include <helpers/HttpHelper.h>
 #include <types/IndentType.h>

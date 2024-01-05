@@ -90,6 +90,10 @@ InteractionMonitor::~InteractionMonitor() {
 }
 
 tuple<int64_t, int64_t> InteractionMonitor::getCaretPixels(const uint32_t line) const {
+    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
+        throw runtime_error("No valid code window");
+    }
+
     const auto hwndAddress = _baseAddress + _memoryAddress.caret.dimension.y.windowHandle;
     const auto functionYPosFromLine = StdCallFunction<uint32_t(uint32_t, uint32_t)>(
         _baseAddress + _memoryAddress.caret.dimension.y.funcYPosFromLine.funcAddress
@@ -158,6 +162,10 @@ CaretPosition InteractionMonitor::getCaretPosition() const {
 }
 
 string InteractionMonitor::getFileName() const {
+    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
+        throw runtime_error("No valid code window");
+    }
+
     uint32_t param1;
     const auto functionGetBufName = StdCallFunction<void(uint32_t, void*)>(
         _baseAddress + _memoryAddress.file.funcGetBufName.funcAddress
@@ -191,16 +199,19 @@ string InteractionMonitor::getFileName() const {
     return payload.str();
 }
 
-std::string InteractionMonitor::getLineContent() const {
+string InteractionMonitor::getLineContent() const {
     return getLineContent(getCaretPosition().line);
 }
 
 string InteractionMonitor::getLineContent(const uint32_t line) const {
-    CompactString payload;
+    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
+        throw runtime_error("No valid code window");
+    }
 
     const auto functionGetBufLine = StdCallFunction<void(uint32_t, uint32_t, void*)>(
         _baseAddress + _memoryAddress.file.funcGetBufLine.funcAddress
     );
+
     uint32_t fileHandle;
     ReadProcessMemory(
         _processHandle.get(),
@@ -211,13 +222,18 @@ string InteractionMonitor::getLineContent(const uint32_t line) const {
     );
 
     if (fileHandle) {
+        CompactString payload;
         functionGetBufLine(fileHandle, line, payload.data());
         return payload.str();
     }
     return {};
 }
 
-void InteractionMonitor::setLineContent(const uint32_t line, const std::string& content) const {
+void InteractionMonitor::setLineContent(const uint32_t line, const string& content) const {
+    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
+        throw runtime_error("No valid code window");
+    }
+
     const auto functionPutBufLine = StdCallFunction<void(uint32_t, uint32_t, void*)>(
         _baseAddress + _memoryAddress.file.funcPutBufLine.funcAddress
     );
@@ -495,7 +511,6 @@ void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
         }
         case WM_LBUTTONDBLCLK: {
             _isSelecting.store(true);
-            logger::debug("WM_LBUTTONDBLCLK");
             break;
         }
         default: {
