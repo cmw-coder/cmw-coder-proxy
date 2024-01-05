@@ -15,14 +15,14 @@ string window::getWindowClassName(const int64_t hwnd) {
     return text.substr(0, GetClassName(reinterpret_cast<HWND>(hwnd), text.data(), 256));
 }
 
-tuple<int, int> window::getClientPosition(const int64_t hwnd) {
+tuple<int64_t, int64_t> window::getClientPosition(const int64_t hwnd) {
     POINT ptClient = {};
     ClientToScreen(reinterpret_cast<HWND>(hwnd), &ptClient);
 
     return {ptClient.x, ptClient.y};
 }
 
-tuple<int, int> window::getWindowPosition(const int64_t hwnd) {
+tuple<int64_t, int64_t> window::getWindowPosition(const int64_t hwnd) {
     RECT rect;
     GetWindowRect(reinterpret_cast<HWND>(hwnd), &rect);
     return {rect.left, rect.top};

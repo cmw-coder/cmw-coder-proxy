@@ -27,21 +27,13 @@ using namespace types;
 using namespace utils;
 
 namespace {
-    constexpr auto convertLineEndings = [](const string& input) {
-        return regex_replace(input, regex(R"(\\r\\n)"), "\r\n");
-    };
     constexpr auto convertPathSeperators = [](const string& input) {
         return regex_replace(input, regex(R"(\\\\)"), "/");
     };
 
     constexpr auto autoCompletionKey = "CMWCODER_autoCompletion";
-    constexpr auto currentPrefixKey = "CMWCODER_currentPrefix";
-    constexpr auto cursorKey = "CMWCODER_cursor";
     constexpr auto debugLogKey = "CMWCODER_debugLog";
-    constexpr auto pathKey = "CMWCODER_path";
-    constexpr auto prefixKey = "CMWCODER_prefix";
     constexpr auto projectKey = "CMWCODER_project";
-    constexpr auto suffixKey = "CMWCODER_suffix";
     constexpr auto symbolsKey = "CMWCODER_symbols";
     constexpr auto tabsKey = "CMWCODER_tabs";
     constexpr auto versionKey = "CMWCODER_version";
@@ -97,12 +89,12 @@ InteractionMonitor::~InteractionMonitor() {
     _isRunning.store(false);
 }
 
-tuple<int, int> InteractionMonitor::getCaretPixels(const int line) const {
+tuple<int64_t, int64_t> InteractionMonitor::getCaretPixels(const uint32_t line) const {
     const auto hwndAddress = _baseAddress + _memoryAddress.caret.dimension.y.windowHandle;
-    const auto functionYPosFromLine = StdCallFunction<int(int, int)>(
+    const auto functionYPosFromLine = StdCallFunction<uint32_t(uint32_t, uint32_t)>(
         _baseAddress + _memoryAddress.caret.dimension.y.funcYPosFromLine.funcAddress
     );
-    int hwnd{}, xPixel;
+    uint32_t hwnd, xPixel;
     ReadProcessMemory(
         _processHandle.get(),
         reinterpret_cast<LPCVOID>(hwndAddress),
@@ -140,7 +132,29 @@ tuple<int, int> InteractionMonitor::getCaretPixels(const int line) const {
 
     const auto [clientX, clientY] = WindowManager::GetInstance()->getCurrentPosition();
     logger::debug(format("Line {} Positions: Client ({}, {}), Caret ({}, {})", line, clientX, clientY, xPixel, yPixel));
-    return {clientX + xPixel, clientY + yPixel};
+    return {
+        clientX + static_cast<int64_t>(xPixel),
+        clientY + static_cast<int64_t>(yPixel)
+    };
+}
+
+CaretPosition InteractionMonitor::getCaretPosition() const {
+    CaretPosition cursorPosition{};
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.current.line),
+        &cursorPosition.line,
+        sizeof(cursorPosition.line),
+        nullptr
+    );
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.current.character),
+        &cursorPosition.character,
+        sizeof(cursorPosition.character),
+        nullptr
+    );
+    return cursorPosition;
 }
 
 string InteractionMonitor::getFileName() const {
@@ -175,6 +189,10 @@ string InteractionMonitor::getFileName() const {
     CompactString payload;
     functionGetBufName(param1, payload.data());
     return payload.str();
+}
+
+std::string InteractionMonitor::getLineContent() const {
+    return getLineContent(getCaretPosition().line);
 }
 
 string InteractionMonitor::getLineContent(const uint32_t line) const {
@@ -343,21 +361,7 @@ void InteractionMonitor::_monitorCaretPosition() {
                 continue;
             }
 
-            CaretPosition newCursorPosition{};
-            ReadProcessMemory(
-                _processHandle.get(),
-                reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.current.line),
-                &newCursorPosition.line,
-                sizeof(newCursorPosition.line),
-                nullptr
-            );
-            ReadProcessMemory(
-                _processHandle.get(),
-                reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.current.character),
-                &newCursorPosition.character,
-                sizeof(newCursorPosition.character),
-                nullptr
-            );
+            auto newCursorPosition = getCaretPosition();
             newCursorPosition.maxCharacter = newCursorPosition.character;
             if (const auto oldCursorPosition = _currentCaretPosition.load();
                 oldCursorPosition != newCursorPosition) {
@@ -418,38 +422,21 @@ void InteractionMonitor::_monitorEditorInfo() const {
     thread([this] {
         while (_isRunning.load()) {
             const auto projectOpt = system::getEnvironmentVariable(projectKey);
-            const auto pathOpt = system::getEnvironmentVariable(pathKey);
             const auto symbolStringOpt = system::getEnvironmentVariable(symbolsKey);
             const auto tabStringOpt = system::getEnvironmentVariable(tabsKey);
             if (const auto versionOpt = system::getEnvironmentVariable(versionKey);
                 projectOpt.has_value() &&
-                pathOpt.has_value() &&
                 versionOpt.has_value()
             ) {
-                if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
-                    system::setEnvironmentVariable(suffixKey);
-                    system::setEnvironmentVariable(prefixKey);
-                } else {
-                    system::deleteRegValue(_subKey, suffixKey);
-                    system::deleteRegValue(_subKey, prefixKey);
-                }
                 system::setEnvironmentVariable(projectKey);
-                system::setEnvironmentVariable(pathKey);
-                system::setEnvironmentVariable(cursorKey);
                 system::setEnvironmentVariable(symbolsKey);
                 system::setEnvironmentVariable(versionKey);
                 system::setEnvironmentVariable(tabsKey);
 
                 _retrieveProjectId(convertPathSeperators(projectOpt.value()));
                 CompletionManager::GetInstance()->setVersion(versionOpt.value());
-
-                CompletionManager::GetInstance()->retrieveWithFullInfo({
-                    .path = convertPathSeperators(pathOpt.value()),
-                    .symbolString = symbolStringOpt.value_or(""),
-                    .tabString = tabStringOpt.value_or("")
-                });
             }
-            this_thread::sleep_for(chrono::milliseconds(5));
+            this_thread::sleep_for(chrono::milliseconds(10));
         }
     }).detach();
 }

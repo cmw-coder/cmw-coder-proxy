@@ -40,11 +40,11 @@ bool WindowManager::checkNeedShowWhenGainFocus(const int64_t windowHandle) {
     return false;
 }
 
-std::tuple<int, int> WindowManager::getCurrentPosition() const {
+tuple<int64_t, int64_t> WindowManager::getCurrentPosition() const {
     return window::getClientPosition(_codeWindowHandle);
 }
 
-void WindowManager::interactionPaste(const std::any&) {
+void WindowManager::interactionPaste(const any&) {
     _cancelRetrieveInfo();
 }
 

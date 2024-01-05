@@ -26,7 +26,7 @@ namespace components {
             std::string version;
         };
 
-        CompletionManager() = default;
+        CompletionManager();
 
         void interactionAcceptCompletion(const std::any&);
 
@@ -48,10 +48,6 @@ namespace components {
 
         // TODO: Remove old methods
 
-        void retrieveWithCurrentPrefix(const std::string& currentPrefix);
-
-        void retrieveWithFullInfo(Components&& components);
-
         void setAutoCompletion(bool isAutoCompletion);
 
         void setProjectId(const std::string& projectId);
@@ -64,16 +60,15 @@ namespace components {
         EditorInfo _editorInfo;
 
         // TODO: Check if _isJustAccepted is still needed
-        std::atomic<bool> _isAutoCompletion{true}, _isContinuousEnter{false}, _isJustAccepted{false}, _isNewLine{true};
-        std::atomic<types::Time> _currentRetrieveTime;
+        std::atomic<bool> _isAutoCompletion{true}, _isContinuousEnter{false}, _isJustAccepted{false},
+                _isNewLine{true}, _isRunning{true}, _needRetrieveCompletion{false};
+        std::atomic<types::Time> _debounceRetrieveCompletionTime, _wsActionSentTime;
         types::CompletionCache _completionCache;
 
-        void _cancelCompletion(bool isNeedReset = true);
+        void _cancelCompletion();
 
-        void _retrieveCompletion(const std::string& prefix);
+        void _sendCompletionGenerate();
 
-        void _retrieveEditorInfo() const;
-
-        void _updateComponents();
+        void _threadDebounceRetrieveCompletion();
     };
 }
