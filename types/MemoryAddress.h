@@ -39,6 +39,10 @@ namespace types {
 
             struct {
                 uint32_t funcAddress;
+            } funcInsBufLine;
+
+            struct {
+                uint32_t funcAddress;
             } funcPutBufLine;
         } file;
     };

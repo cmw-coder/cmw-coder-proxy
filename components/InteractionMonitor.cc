@@ -229,6 +229,30 @@ string InteractionMonitor::getLineContent(const uint32_t line) const {
     return {};
 }
 
+void InteractionMonitor::insertLineContent(const uint32_t line, const std::string& content) const {
+    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
+        throw runtime_error("No valid code window");
+    }
+
+    const auto functionInsBufLine = StdCallFunction<void(uint32_t, uint32_t, void*)>(
+        _baseAddress + _memoryAddress.file.funcInsBufLine.funcAddress
+    );
+
+    uint32_t fileHandle;
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.fileHandle),
+        &fileHandle,
+        sizeof(fileHandle),
+        nullptr
+    );
+
+    if (fileHandle) {
+        CompactString payload(content);
+        functionInsBufLine(fileHandle, line, payload.data());
+    }
+}
+
 void InteractionMonitor::setLineContent(const uint32_t line, const string& content) const {
     if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
         throw runtime_error("No valid code window");
