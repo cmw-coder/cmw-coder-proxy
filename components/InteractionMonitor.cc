@@ -229,6 +229,30 @@ string InteractionMonitor::getLineContent(const uint32_t line) const {
     return {};
 }
 
+void InteractionMonitor::insertLineContent(const uint32_t line, const std::string& content) const {
+    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
+        throw runtime_error("No valid code window");
+    }
+
+    const auto functionInsBufLine = StdCallFunction<void(uint32_t, uint32_t, void*)>(
+        _baseAddress + _memoryAddress.file.funcInsBufLine.funcAddress
+    );
+
+    uint32_t fileHandle;
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.fileHandle),
+        &fileHandle,
+        sizeof(fileHandle),
+        nullptr
+    );
+
+    if (fileHandle) {
+        CompactString payload(content);
+        functionInsBufLine(fileHandle, line, payload.data());
+    }
+}
+
 void InteractionMonitor::setLineContent(const uint32_t line, const string& content) const {
     if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
         throw runtime_error("No valid code window");
@@ -304,24 +328,6 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                         _navigateBuffer.store(key);
                         _isSelecting.store(false);
                         _handleInteraction(Interaction::SelectionClear);
-                        break;
-                    }
-                    case Key::F11: {
-                        {
-                        const auto ptr = StdCallFunction<int*(uint16_t*, int, int16_t*)>(_baseAddress + 0x8D530);
-                        uint32_t fileHandle;
-                        ReadProcessMemory(
-                            _processHandle.get(),
-                            reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.fileHandle),
-                            &fileHandle,
-                            sizeof(fileHandle),
-                            nullptr
-                        );
-                        string str = "for(int i = 0; i < 10; i++)";
-                        CompactString Insstr(str);
-                        ptr((uint16_t*)fileHandle, 1, (int16_t*)Insstr.data());
-                        }
-
                         break;
                     }
                     default: {

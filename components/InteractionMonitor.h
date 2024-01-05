@@ -33,6 +33,8 @@ namespace components {
 
         [[nodiscard]] std::string getLineContent(uint32_t line) const;
 
+        void insertLineContent(uint32_t line, const std::string& content) const;
+
         void setLineContent(uint32_t line, const std::string& content) const;
 
         template<class T>
