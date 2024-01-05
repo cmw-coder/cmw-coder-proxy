@@ -23,7 +23,7 @@ using namespace utils;
 
 namespace {
     constexpr auto completionGeneratedKey = "CMWCODER_completionGenerated";
-    const vector<string> keywords = {"if", "for", "switch", "while"};
+    const vector<string> keywords = {"class", "if", "for", "struct", "switch", "union", "while"};
 }
 
 CompletionManager::CompletionManager() {
