@@ -7,9 +7,9 @@
 namespace utils::window {
     std::string getWindowClassName(int64_t hwnd);
 
-    std::tuple<int, int> getClientPosition(int64_t hwnd);
+    std::tuple<int64_t, int64_t> getClientPosition(int64_t hwnd);
 
-    std::tuple<int, int> getWindowPosition(int64_t hwnd);
+    std::tuple<int64_t, int64_t> getWindowPosition(int64_t hwnd);
 
     std::string getWindowText(int64_t hwnd);
 

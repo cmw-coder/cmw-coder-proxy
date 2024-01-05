@@ -40,11 +40,15 @@ bool WindowManager::checkNeedShowWhenGainFocus(const int64_t windowHandle) {
     return false;
 }
 
-std::tuple<int, int> WindowManager::getCurrentPosition() const {
+tuple<int64_t, int64_t> WindowManager::getCurrentPosition() const {
     return window::getClientPosition(_codeWindowHandle);
 }
 
-void WindowManager::interactionPaste(const std::any&) {
+bool WindowManager::hasValidCodeWindow() const {
+    return _codeWindowHandle.load() > 0;
+}
+
+void WindowManager::interactionPaste(const any&) {
     _cancelRetrieveInfo();
 }
 
@@ -87,7 +91,7 @@ void WindowManager::_threadDebounceRetrieveInfo() {
             if (_needRetrieveInfo.load()) {
                 if (const auto deltaTime = _debounceRetrieveInfoTime.load() - chrono::high_resolution_clock::now();
                     deltaTime <= chrono::nanoseconds(0)) {
-                    logger::log("Sending retrieve info...");
+                    logger::info("Retrieve info from Source Insight");
                     window::postKeycode(
                         _codeWindowHandle,
                         _keyHelper.toKeycode(Key::F11, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})

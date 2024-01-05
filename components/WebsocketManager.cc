@@ -15,11 +15,6 @@ WebsocketManager::WebsocketManager(string&& url, const chrono::seconds& pingInte
     initNetSystem();
     _client.setUrl(url);
     _client.setPingInterval(static_cast<int>(pingInterval.count()));
-    _client.setOnMessageCallback([](const WebSocketMessagePtr& msg) {
-        if (msg->type == WebSocketMessageType::Message) {
-            logger::debug(msg->str);
-        }
-    });
     _client.setOnMessageCallback([this](const WebSocketMessagePtr& messagePtr) {
         switch (messagePtr->type) {
             case WebSocketMessageType::Message: {

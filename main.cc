@@ -56,8 +56,18 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
 
             InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::AcceptCompletion,
+                CompletionManager::GetInstance(),
+                &CompletionManager::interactionAcceptCompletion
+            );
+            InteractionMonitor::GetInstance()->registerInteraction(
+                Interaction::AcceptCompletion,
                 ModificationManager::GetInstance(),
                 &ModificationManager::interactionAcceptCompletion
+            );
+            InteractionMonitor::GetInstance()->registerInteraction(
+                Interaction::CaretUpdate,
+                CompletionManager::GetInstance(),
+                &CompletionManager::interactionCaretUpdate
             );
             InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::CaretUpdate,
@@ -66,8 +76,18 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
             );
             InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::DeleteInput,
+                CompletionManager::GetInstance(),
+                &CompletionManager::interactionDeleteInput
+            );
+            InteractionMonitor::GetInstance()->registerInteraction(
+                Interaction::DeleteInput,
                 ModificationManager::GetInstance(),
                 &ModificationManager::interactionDeleteInput
+            );
+            InteractionMonitor::GetInstance()->registerInteraction(
+                Interaction::EnterInput,
+                CompletionManager::GetInstance(),
+                &CompletionManager::interactionEnterInput
             );
             InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::EnterInput,
@@ -76,13 +96,28 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
             );
             InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::Navigate,
+                CompletionManager::GetInstance(),
+                &CompletionManager::interactionNavigate
+            );
+            InteractionMonitor::GetInstance()->registerInteraction(
+                Interaction::Navigate,
                 ModificationManager::GetInstance(),
                 &ModificationManager::interactionNavigate
             );
             InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::NormalInput,
+                CompletionManager::GetInstance(),
+                &CompletionManager::interactionNormalInput
+            );
+            InteractionMonitor::GetInstance()->registerInteraction(
+                Interaction::NormalInput,
                 ModificationManager::GetInstance(),
                 &ModificationManager::interactionNormalInput
+            );
+            InteractionMonitor::GetInstance()->registerInteraction(
+                Interaction::Save,
+                CompletionManager::GetInstance(),
+                &CompletionManager::interactionSave
             );
             InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::Save,
