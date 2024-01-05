@@ -5,7 +5,6 @@
 #include <nlohmann/json.hpp>
 #include <singleton_dclp.hpp>
 
-#include <types/CaretPosition.h>
 #include <types/Modification.h>
 
 namespace components {
@@ -14,9 +13,6 @@ namespace components {
         ModificationManager() = default;
 
         ~ModificationManager() override = default;
-
-        // TODO: Remove temporary methods
-        types::CaretPosition getCurrentPosition();
 
         void interactionAcceptCompletion(const std::any&);
 

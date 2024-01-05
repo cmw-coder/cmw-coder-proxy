@@ -23,11 +23,17 @@ namespace components {
 
         ~InteractionMonitor() override;
 
-        [[nodiscard]] std::tuple<int, int> getCaretPixels(int line) const;
+        [[nodiscard]] std::tuple<int64_t, int64_t> getCaretPixels(uint32_t line) const;
+
+        [[nodiscard]] types::CaretPosition getCaretPosition() const;
 
         [[nodiscard]] std::string getFileName() const;
 
-        [[nodiscard]] std::string getLineContent(int line) const;
+        [[nodiscard]] std::string getLineContent() const;
+
+        [[nodiscard]] std::string getLineContent(uint32_t line) const;
+
+        void insertLineContent(uint32_t line, const std::string& content) const;
 
         void setLineContent(uint32_t line, const std::string& content) const;
 

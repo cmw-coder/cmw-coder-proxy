@@ -8,7 +8,6 @@
 #include <regex>
 #include <utility>
 #include <algorithm>
-#include <components/CompletionManager.h>
 
 #include <components/WebsocketManager.h>
 #include <helpers/HttpHelper.h>
@@ -40,17 +39,18 @@ Modification::Modification(string path): path(move(path)) {
 }
 
 void Modification::acceptCompletion() {
-    if (const auto completionOpt = CompletionManager::GetInstance()->acceptCompletion(_lastPosition.line);
-        completionOpt.has_value()) {
-        add(completionOpt.value());
+    // if (const auto completionOpt = CompletionManager::GetInstance()->acceptCompletion(_lastPosition.line);
+    //     completionOpt.has_value()) {
+    //     add(completionOpt.value());
+    // } else {
+    // TODO: Implement acceptCompletion
+    if (!_lastSelect.isEmpty()) {
+        const auto selectContent = _addRangeIndent(_lastSelect);
+        _setRangeContent(_lastSelect, selectContent);
     } else {
-        if (!_lastSelect.isEmpty()) {
-            const auto selectContent = _addRangeIndent(_lastSelect);
-            _setRangeContent(_lastSelect, selectContent);
-        } else {
-            add(tabString);
-        }
+        add(tabString);
     }
+    // }
 }
 
 /**
@@ -129,9 +129,6 @@ void Modification::add(const char character) {
             offset += 1;
         }
     }
-    if (CompletionManager::GetInstance()->normalInput(character)) {
-        CompletionManager::GetInstance()->acceptCompletion(_lastPosition.line);
-    }
     _debugSync();
 }
 
@@ -175,7 +172,6 @@ void Modification::navigate(const CaretPosition& newPosition) {
         newPosition.line < _lineOffsets.size() &&
         newPosition.character <= _getLineLength(newPosition.line)) {
         _lastPosition = newPosition;
-        CompletionManager::GetInstance()->cancelCompletion();
     }
 }
 
@@ -184,7 +180,6 @@ void Modification::navigate(const CaretPosition& newPosition) {
  * @param key The key that determines how to navigate.
  */
 void Modification::navigate(const Key key) {
-    CompletionManager::GetInstance()->cancelCompletion();
     switch (key) {
         // TODO: Implement these keys
         // case Key::Home: {
@@ -263,7 +258,6 @@ void Modification::reload() {
         _lineOffsets.push_back(_lineOffsets.back() + line.size() + 1);
     }
     _lineOffsets.pop_back();
-    CompletionManager::GetInstance()->cancelCompletion();
     _debugSync();
 }
 
@@ -271,7 +265,6 @@ void Modification::reload() {
  * @brief Removes a character from the content at the current position.
  */
 void Modification::remove() {
-    CompletionManager::GetInstance()->deleteInput(_lastPosition);
     if (!_lastSelect.isEmpty()) {
         logger::info(format(
             "Remove selection from ({}, {}) to ({}, {})",
@@ -304,12 +297,10 @@ void Modification::remove() {
 }
 
 void Modification::selectionClear() {
-    // TODO: Check if need call CompletionManager
     _lastSelect.reset();
 }
 
 void Modification::selectionSet(const Range& range) {
-    // TODO: Check if need call CompletionManager
     _lastSelect = range;
 }
 
