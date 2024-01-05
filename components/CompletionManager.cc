@@ -177,22 +177,38 @@ void CompletionManager::interactionNormalInput(const any& data) {
             // No valid cache
             needRetrieveCompletion = true;
         }
-        if (needRetrieveCompletion && character != '}') {
+        if (needRetrieveCompletion) {
             const auto interactionMonitor = InteractionMonitor::GetInstance();
             const auto currentCaretPosition = interactionMonitor->getCaretPosition();
             if (const auto currentLineContent = interactionMonitor->getLineContent(currentCaretPosition.line);
-                currentCaretPosition.character == currentLineContent.size() - 1) {
-                if (character == ';' &&
-                    ranges::none_of(keywords, [&currentLineContent](const string& keyword) {
-                        return regex_match(currentLineContent, regex(format(R"(\b{}\b)", keyword)));
-                    })) {
-                    logger::info("Normal input. Ignore due to ';' without any keyword");
-                    return;
+                currentCaretPosition.character >= currentLineContent.size()) {
+                switch (character) {
+                    case ';': {
+                        if (ranges::none_of(keywords, [&currentLineContent](const string& keyword) {
+                            return regex_match(currentLineContent, regex(format(R"(.*?\b{}\b.*?)", keyword)));
+                        })) {
+                            logger::info("Normal input. Ignore due to ';' without any keyword");
+                            _needRetrieveCompletion.store(false);
+                        } else {
+                            _needRetrieveCompletion.store(true);
+                        }
+                        break;
+                    }
+                    case '}': {
+                        logger::info("Normal input. Ignore due to '}'");
+                        _needRetrieveCompletion.store(false);
+                        break;
+                    }
+                    // TODO: Support more cases
+                    default: {
+                        _needRetrieveCompletion.store(true);
+                        break;
+                    }
                 }
+            } else {
+                _needRetrieveCompletion.store(false);
             }
-
             _debounceRetrieveCompletionTime.store(chrono::high_resolution_clock::now());
-            _needRetrieveCompletion.store(true);
         }
     } catch (const bad_any_cast& e) {
         logger::warn(format("Invalid interactionNormalInput data: {}", e.what()));
