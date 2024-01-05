@@ -35,15 +35,12 @@ void CompletionManager::interactionAcceptCompletion(const any&) {
     _isJustAccepted.store(true);
     if (const auto [oldCompletion, cacheOffset] = _completionCache.reset();
         !oldCompletion.content().empty()) {
-        {
-            shared_lock lock(_componentsMutex);
-            system::setEnvironmentVariable(
-                completionGeneratedKey,
-                (oldCompletion.isSnippet() ? "1" : "0") +
-                InteractionMonitor::GetInstance()->getLineContent() +
-                oldCompletion.content().substr(cacheOffset)
-            );
-        }
+        system::setEnvironmentVariable(
+            completionGeneratedKey,
+            (oldCompletion.isSnippet() ? "1" : "0") +
+            InteractionMonitor::GetInstance()->getLineContent() +
+            oldCompletion.content().substr(cacheOffset)
+        );
         WindowManager::GetInstance()->sendAcceptCompletion();
         WebsocketManager::GetInstance()->sendAction(WsAction::CompletionAccept);
         logger::log(format("Accepted completion: {}", oldCompletion.stringify()));
