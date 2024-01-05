@@ -45,5 +45,11 @@ namespace types {
                 uint32_t funcAddress;
             } funcPutBufLine;
         } file;
+
+        struct {
+            struct {
+                uint32_t funcAddress;
+            } funcSetWndSel;
+        } window;
     };
 }
