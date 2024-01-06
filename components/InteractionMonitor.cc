@@ -436,10 +436,14 @@ void InteractionMonitor::_handleInteraction(const Interaction interaction, const
         for (const auto& handler: _handlerMap.at(interaction)) {
             handler(data);
         }
-    } catch (out_of_range&) {
-        logger::log(format("No instant handlers for interaction '{}'", enum_name(interaction)));
-    }
-    catch (exception& e) {
+    } catch (out_of_range& e) {
+        logger::log(format(
+            "No instant handlers for interaction '{}'\n"
+            "\tError: {}",
+            enum_name(interaction),
+            e.what()
+        ));
+    } catch (exception& e) {
         logger::log(format(
             "Exception when processing instant interaction '{}' : {}",
             enum_name(interaction),
@@ -479,7 +483,8 @@ void InteractionMonitor::_monitorCaretPosition() {
                 _currentCaretPosition.store(newCursorPosition);
                 if (const auto navigateWithMouseOpt = _navigateWithMouse.load();
                     navigateWithMouseOpt.has_value()) {
-                    _handleInteraction(Interaction::NavigateWithMouse, make_tuple(newCursorPosition, oldCursorPosition));
+                    _handleInteraction(Interaction::NavigateWithMouse,
+                                       make_tuple(newCursorPosition, oldCursorPosition));
                     _navigateWithMouse.store(nullopt);
                 }
             }
