@@ -24,6 +24,34 @@ using namespace utils;
 namespace {
     constexpr auto completionGeneratedKey = "CMWCODER_completionGenerated";
     const vector<string> keywords = {"class", "if", "for", "struct", "switch", "union", "while"};
+
+    bool checkNeedRetrieveCompletion(const char character) {
+        const auto interactionMonitor = InteractionMonitor::GetInstance();
+        const auto currentCaretPosition = interactionMonitor->getCaretPosition();
+        const auto currentLineContent = interactionMonitor->getLineContent(currentCaretPosition.line);
+        if (currentCaretPosition.character < currentLineContent.size()) {
+            return false;
+        }
+        switch (character) {
+            case ';': {
+                if (ranges::none_of(keywords, [&currentLineContent](const string& keyword) {
+                    return regex_match(currentLineContent, regex(format(R"(.*?\b{}\b.*?)", keyword)));
+                })) {
+                    logger::info("Normal input. Ignore due to ';' without any keyword");
+                    return false;
+                }
+                return true;
+            }
+            case '}': {
+                logger::info("Normal input. Ignore due to '}'");
+                return false;
+            }
+            // TODO: Support more cases
+            default: {
+                return true;
+            }
+        }
+    }
 }
 
 CompletionManager::CompletionManager() {
@@ -175,36 +203,7 @@ void CompletionManager::interactionNormalInput(const any& data) {
             needRetrieveCompletion = true;
         }
         if (needRetrieveCompletion) {
-            const auto interactionMonitor = InteractionMonitor::GetInstance();
-            const auto currentCaretPosition = interactionMonitor->getCaretPosition();
-            if (const auto currentLineContent = interactionMonitor->getLineContent(currentCaretPosition.line);
-                currentCaretPosition.character >= currentLineContent.size()) {
-                switch (character) {
-                    case ';': {
-                        if (ranges::none_of(keywords, [&currentLineContent](const string& keyword) {
-                            return regex_match(currentLineContent, regex(format(R"(.*?\b{}\b.*?)", keyword)));
-                        })) {
-                            logger::info("Normal input. Ignore due to ';' without any keyword");
-                            _needRetrieveCompletion.store(false);
-                        } else {
-                            _needRetrieveCompletion.store(true);
-                        }
-                        break;
-                    }
-                    case '}': {
-                        logger::info("Normal input. Ignore due to '}'");
-                        _needRetrieveCompletion.store(false);
-                        break;
-                    }
-                    // TODO: Support more cases
-                    default: {
-                        _needRetrieveCompletion.store(true);
-                        break;
-                    }
-                }
-            } else {
-                _needRetrieveCompletion.store(false);
-            }
+            _needRetrieveCompletion.store(checkNeedRetrieveCompletion(character));
             _debounceRetrieveCompletionTime.store(chrono::high_resolution_clock::now());
         }
     } catch (const bad_any_cast& e) {
