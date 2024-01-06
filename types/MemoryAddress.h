@@ -31,6 +31,10 @@ namespace types {
 
             struct {
                 uint32_t funcAddress;
+            } funcDelBufLine;
+
+            struct {
+                uint32_t funcAddress;
             } funcGetBufLine;
 
             struct {
@@ -47,6 +51,12 @@ namespace types {
         } file;
 
         struct {
+            uint32_t windowHandle;
+
+            struct {
+                uint32_t funcAddress, param1;
+            } funcSetBufSelText;
+
             struct {
                 uint32_t funcAddress;
             } funcSetWndSel;

@@ -23,6 +23,8 @@ namespace components {
 
         ~InteractionMonitor() override;
 
+        void deleteLineContent(uint32_t line) const;
+
         [[nodiscard]] std::tuple<int64_t, int64_t> getCaretPixels(uint32_t line) const;
 
         [[nodiscard]] types::CaretPosition getCaretPosition() const;
@@ -35,10 +37,6 @@ namespace components {
 
         void insertLineContent(uint32_t line, const std::string& content) const;
 
-        void setCaretPosition(const types::CaretPosition& caretPosition) const;
-
-        void setLineContent(uint32_t line, const std::string& content) const;
-
         template<class T>
         void registerInteraction(
             const types::Interaction interaction,
@@ -47,6 +45,12 @@ namespace components {
         ) {
             _handlerMap[interaction].push_back(std::bind_front(memberFunction, other));
         }
+
+        void setCaretPosition(const types::CaretPosition& caretPosition) const;
+
+        void setLineContent(uint32_t line, const std::string& content) const;
+
+        void setSelectedContent(const std::string& content) const;
 
     private:
         const std::string _subKey;
