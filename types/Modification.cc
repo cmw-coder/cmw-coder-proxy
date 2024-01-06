@@ -321,13 +321,15 @@ string Modification::_addRangeIndent(const Range& range) const {
 }
 
 void Modification::_debugSync() const {
-    WebsocketManager::GetInstance()->sendAction(
-        WsAction::DebugSync,
-        {
-            {"content", encode(_content, crypto::Encoding::Base64)},
-            {"path", encode(path, crypto::Encoding::Base64)}
-        }
-    );
+    thread([content = _content, path = path] {
+        WebsocketManager::GetInstance()->sendAction(
+            WsAction::DebugSync,
+            {
+                {"content", encode(content, crypto::Encoding::Base64)},
+                {"path", encode(path, crypto::Encoding::Base64)}
+            }
+        );
+    }).detach();
 }
 
 string Modification::_getLineContent(const uint32_t lineIndex) const {

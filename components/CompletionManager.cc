@@ -381,7 +381,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             auto prefix = getContextLine().substr(0, currentCaretPosition.character);
                             auto suffix = getContextLine().substr(currentCaretPosition.character);
                             for (auto index = 1; index <= 30; ++index) {
-                                prefix.insert(0, getContextLine(-index)).insert(0, "\r\n");
+                                prefix.insert(0, getContextLine(-index).append("\r\n"));
                             }
                             for (auto index = 1; index <= 5; ++index) {
                                 suffix.append("\r\n").append(getContextLine(index));

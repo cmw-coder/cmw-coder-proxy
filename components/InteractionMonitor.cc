@@ -590,6 +590,7 @@ void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
             if (!_isMouseLeftDown.load()) {
                 _isMouseLeftDown.store(true);
             }
+            _navigateWithMouse.store(Mouse::Left);
             break;
         }
         case WM_MOUSEMOVE: {
@@ -606,7 +607,6 @@ void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
                 _handleInteraction(Interaction::SelectionClear);
             }
             _isMouseLeftDown.store(false);
-            _navigateWithMouse.store(Mouse::Left);
             break;
         }
         case WM_LBUTTONDBLCLK: {
