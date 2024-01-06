@@ -35,6 +35,8 @@ namespace components {
 
         void insertLineContent(uint32_t line, const std::string& content) const;
 
+        void setCaretPosition(const types::CaretPosition& caretPosition) const;
+
         void setLineContent(uint32_t line, const std::string& content) const;
 
         template<class T>

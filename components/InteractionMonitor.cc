@@ -253,6 +253,27 @@ void InteractionMonitor::insertLineContent(const uint32_t line, const std::strin
     }
 }
 
+void InteractionMonitor::setCaretPosition(const CaretPosition& caretPosition) const {
+    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
+        throw runtime_error("No valid code window");
+    }
+    const auto SetWndSel = StdCallFunction<void(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(
+        _baseAddress + _memoryAddress.window.funcSetWndSel.funcAddress
+    );
+
+    uint32_t hwnd;
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.dimension.y.windowHandle),
+        &hwnd,
+        sizeof(hwnd),
+        nullptr
+    );
+    if (hwnd) {
+        SetWndSel(hwnd, caretPosition.line, caretPosition.character, caretPosition.line, caretPosition.character);
+    }
+}
+
 void InteractionMonitor::setLineContent(const uint32_t line, const string& content) const {
     if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
         throw runtime_error("No valid code window");
