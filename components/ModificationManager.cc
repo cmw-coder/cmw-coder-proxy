@@ -16,18 +16,6 @@ void ModificationManager::interactionAcceptCompletion(const std::any&) {
     }
 }
 
-void ModificationManager::interactionCaretUpdate(const any& data) {
-    try {
-        const auto [newCursorPosition, oldCursorPosition] = any_cast<tuple<CaretPosition, CaretPosition>>(data);
-        unique_lock lock(_currentModificationMutex);
-        _currentFile().navigate(newCursorPosition);
-    } catch (const bad_any_cast& e) {
-        logger::log(format("Invalid interactionCaretUpdate data: {}", e.what()));
-    } catch (const runtime_error& e) {
-        logger::warn(e.what());
-    }
-}
-
 void ModificationManager::interactionDeleteInput(const any&) {
     try {
         unique_lock lock(_currentModificationMutex);
@@ -41,13 +29,25 @@ void ModificationManager::interactionEnterInput(const any&) {
     interactionNormalInput('\n');
 }
 
-void ModificationManager::interactionNavigate(const any& data) {
+void ModificationManager::interactionNavigateWithKey(const any& data) {
     try {
         const auto key = any_cast<Key>(data);
         unique_lock lock(_currentModificationMutex);
         _currentFile().navigate(key);
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid interactionNavigate data: {}", e.what()));
+    } catch (const runtime_error& e) {
+        logger::warn(e.what());
+    }
+}
+
+void ModificationManager::interactionNavigateWithMouse(const any& data) {
+    try {
+        const auto [newCursorPosition, oldCursorPosition] = any_cast<tuple<CaretPosition, CaretPosition>>(data);
+        unique_lock lock(_currentModificationMutex);
+        _currentFile().navigate(newCursorPosition);
+    } catch (const bad_any_cast& e) {
+        logger::log(format("Invalid interactionCaretUpdate data: {}", e.what()));
     } catch (const runtime_error& e) {
         logger::warn(e.what());
     }

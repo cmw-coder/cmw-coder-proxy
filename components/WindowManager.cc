@@ -57,14 +57,6 @@ void WindowManager::requestRetrieveInfo() {
     _needRetrieveInfo.store(true);
 }
 
-bool WindowManager::sendAcceptCompletion() {
-    _cancelRetrieveInfo();
-    return window::postKeycode(
-        _codeWindowHandle,
-        _keyHelper.toKeycode(Key::F10, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
-    );
-}
-
 bool WindowManager::sendSave() {
     _cancelRetrieveInfo();
     return window::postKeycode(

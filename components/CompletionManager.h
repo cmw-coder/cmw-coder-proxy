@@ -30,13 +30,13 @@ namespace components {
 
         void interactionAcceptCompletion(const std::any&);
 
-        void interactionCaretUpdate(const std::any& data);
-
         void interactionDeleteInput(const std::any&);
 
         void interactionEnterInput(const std::any&);
 
-        void interactionNavigate(const std::any& data);
+        void interactionNavigateWithKey(const std::any& data);
+
+        void interactionNavigateWithMouse(const std::any& data);
 
         void interactionNormalInput(const std::any& data);
 
@@ -55,7 +55,7 @@ namespace components {
         void setVersion(const std::string& version);
 
     private:
-        mutable std::shared_mutex _componentsMutex, _editorInfoMutex;
+        mutable std::shared_mutex _completionCacheMutex, _componentsMutex, _editorInfoMutex;
         Components _components;
         EditorInfo _editorInfo;
 

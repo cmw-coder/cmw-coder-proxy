@@ -252,6 +252,10 @@ string InteractionMonitor::getLineContent(const uint32_t line) const {
     return {};
 }
 
+void InteractionMonitor::insertLineContent(const std::string& content) const {
+    insertLineContent(getCaretPosition().line, content);
+}
+
 void InteractionMonitor::insertLineContent(const uint32_t line, const std::string& content) const {
     if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
         throw runtime_error("No valid code window");
@@ -392,7 +396,7 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                     case Key::Up:
                     case Key::Right:
                     case Key::Down: {
-                        _navigateBuffer.store(key);
+                        _navigateWithKey.store(key);
                         _isSelecting.store(false);
                         _handleInteraction(Interaction::SelectionClear);
                         break;
@@ -461,10 +465,10 @@ void InteractionMonitor::_monitorAutoCompletion() const {
 void InteractionMonitor::_monitorCaretPosition() {
     thread([this] {
         while (_isRunning.load()) {
-            if (const auto navigationBufferOpt = _navigateBuffer.load();
+            if (const auto navigationBufferOpt = _navigateWithKey.load();
                 navigationBufferOpt.has_value()) {
-                _handleInteraction(Interaction::Navigate, navigationBufferOpt.value());
-                _navigateBuffer.store(nullopt);
+                _handleInteraction(Interaction::NavigateWithKey, navigationBufferOpt.value());
+                _navigateWithKey.store(nullopt);
                 continue;
             }
 
@@ -472,8 +476,12 @@ void InteractionMonitor::_monitorCaretPosition() {
             newCursorPosition.maxCharacter = newCursorPosition.character;
             if (const auto oldCursorPosition = _currentCaretPosition.load();
                 oldCursorPosition != newCursorPosition) {
-                this->_currentCaretPosition.store(newCursorPosition);
-                _handleInteraction(Interaction::CaretUpdate, make_tuple(newCursorPosition, oldCursorPosition));
+                _currentCaretPosition.store(newCursorPosition);
+                if (const auto navigateWithMouseOpt = _navigateWithMouse.load();
+                    navigateWithMouseOpt.has_value()) {
+                    _handleInteraction(Interaction::NavigateWithMouse, make_tuple(newCursorPosition, oldCursorPosition));
+                    _navigateWithMouse.store(nullopt);
+                }
             }
         }
     }).detach();
@@ -579,13 +587,13 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
 void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
     switch (wParam) {
         case WM_LBUTTONDOWN: {
-            if (!isLMDown.load()) {
-                isLMDown.store(true);
+            if (!_isMouseLeftDown.load()) {
+                _isMouseLeftDown.store(true);
             }
             break;
         }
         case WM_MOUSEMOVE: {
-            if (isLMDown.load()) {
+            if (_isMouseLeftDown.load()) {
                 _isSelecting.store(true);
             }
             break;
@@ -597,7 +605,8 @@ void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
             } else {
                 _handleInteraction(Interaction::SelectionClear);
             }
-            isLMDown.store(false);
+            _isMouseLeftDown.store(false);
+            _navigateWithMouse.store(Mouse::Left);
             break;
         }
         case WM_LBUTTONDBLCLK: {

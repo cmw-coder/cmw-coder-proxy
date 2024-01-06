@@ -12,6 +12,7 @@
 #include <types/CaretPosition.h>
 #include <types/Interaction.h>
 #include <types/MemoryAddress.h>
+#include <types/Mouse.h>
 #include <types/Range.h>
 
 namespace components {
@@ -35,6 +36,8 @@ namespace components {
 
         [[nodiscard]] std::string getLineContent(uint32_t line) const;
 
+        void insertLineContent(const std::string& content) const;
+
         void insertLineContent(uint32_t line, const std::string& content) const;
 
         template<class T>
@@ -56,9 +59,10 @@ namespace components {
         const std::string _subKey;
         const uint32_t _baseAddress;
         helpers::KeyHelper _keyHelper;
-        std::atomic<bool> _isRunning{true}, isLMDown{false}, _isSelecting{false};
+        std::atomic<bool> _isRunning{true}, _isMouseLeftDown{false}, _isSelecting{false};
         std::atomic<types::CaretPosition> _currentCaretPosition, _downCursorPosition;
-        std::atomic<std::optional<types::Key>> _navigateBuffer;
+        std::atomic<std::optional<types::Key>> _navigateWithKey;
+        std::atomic<std::optional<types::Mouse>> _navigateWithMouse;
         std::shared_ptr<void> _mouseHookHandle, _processHandle, _windowHookHandle;
         std::unordered_map<types::Interaction, std::vector<CallBack>> _handlerMap;
         types::MemoryAddress _memoryAddress{};

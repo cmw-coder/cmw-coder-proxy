@@ -25,8 +25,6 @@ namespace components {
 
         void requestRetrieveInfo();
 
-        bool sendAcceptCompletion();
-
         bool sendSave();
 
         bool sendUndo();

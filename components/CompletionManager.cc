@@ -1,6 +1,7 @@
 #include <chrono>
 #include <format>
 
+#include <magic_enum.hpp>
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 
@@ -9,7 +10,6 @@
 #include <components/InteractionMonitor.h>
 #include <components/ModificationManager.h>
 #include <components/WebsocketManager.h>
-#include <components/WindowManager.h>
 #include <types/CaretPosition.h>
 #include <utils/crypto.h>
 #include <utils/logger.h>
@@ -17,12 +17,12 @@
 
 using namespace components;
 using namespace helpers;
+using namespace magic_enum;
 using namespace std;
 using namespace types;
 using namespace utils;
 
 namespace {
-    constexpr auto completionGeneratedKey = "CMWCODER_completionGenerated";
     const vector<string> keywords = {"class", "if", "for", "struct", "switch", "union", "while"};
 
     bool checkNeedRetrieveCompletion(const char character) {
@@ -61,36 +61,23 @@ CompletionManager::CompletionManager() {
 void CompletionManager::interactionAcceptCompletion(const any&) {
     // _isContinuousEnter.store(false);
     _isJustAccepted.store(true);
-    if (const auto [oldCompletion, cacheOffset] = _completionCache.reset();
-        !oldCompletion.content().empty()) {
-        system::setEnvironmentVariable(
-            completionGeneratedKey,
-            (oldCompletion.isSnippet() ? "1" : "0") +
-            InteractionMonitor::GetInstance()->getLineContent() +
-            oldCompletion.content().substr(cacheOffset)
-        );
-        WindowManager::GetInstance()->sendAcceptCompletion();
-        WebsocketManager::GetInstance()->sendAction(WsAction::CompletionAccept);
-        logger::log(format("Accepted completion: {}", oldCompletion.stringify()));
+    string content;
+    int64_t index; {
+        unique_lock lock(_completionCacheMutex);
+        tie(content, index) = _completionCache.reset();
     }
-}
-
-void CompletionManager::interactionCaretUpdate(const any& data) {
-    // _isContinuousEnter.store(false);
-    try {
-        const auto [newCursorPosition, _] = any_cast<tuple<CaretPosition, CaretPosition>>(data); {
-            shared_lock lock(_componentsMutex);
-            if (_components.caretPosition.line != newCursorPosition.line) {
-                _isNewLine = true;
+    if (!content.empty()) {
+        auto lineCount = 1;
+        for (const auto line: content.substr(index) | views::split("\r\n"sv)) {
+            if (lineCount == 0) {
+                InteractionMonitor::GetInstance()->setSelectedContent(string(line.begin(), line.end()));
+            } else {
+                InteractionMonitor::GetInstance()->insertLineContent(string(line.begin(), line.end()));
             }
-            if (_components.caretPosition != newCursorPosition) {
-                _cancelCompletion();
-            }
+            ++lineCount;
         }
-        unique_lock lock(_componentsMutex);
-        _components.caretPosition = newCursorPosition;
-    } catch (const bad_any_cast& e) {
-        logger::log(format("Invalid interactionCaretUpdate data: {}", e.what()));
+        WebsocketManager::GetInstance()->sendAction(WsAction::CompletionAccept);
+        logger::log(format("Accepted completion: {}", content));
     }
 }
 
@@ -103,8 +90,11 @@ void CompletionManager::interactionDeleteInput(const any&) {
     }
     try {
         if (chatacter != 0) {
-            if (const auto previousCacheOpt = _completionCache.previous();
-                previousCacheOpt.has_value()) {
+            optional<pair<char, optional<string>>> previousCacheOpt; {
+                unique_lock lock(_completionCacheMutex);
+                previousCacheOpt = _completionCache.previous();
+            }
+            if (previousCacheOpt.has_value()) {
                 // Has valid cache
                 if (const auto [_, completionOpt] = previousCacheOpt.value();
                     completionOpt.has_value()) {
@@ -115,10 +105,16 @@ void CompletionManager::interactionDeleteInput(const any&) {
                     logger::log("Delete backward. Send CompletionCancel due to cache miss");
                 }
             }
-        } else if (_completionCache.valid()) {
-            _isNewLine = true;
-            _cancelCompletion();
-            logger::log("Delete backward. Send CompletionCancel due to delete across line");
+        } else {
+            bool hasValidCache; {
+                shared_lock lock(_completionCacheMutex);
+                hasValidCache = _completionCache.valid();
+            }
+            if (hasValidCache) {
+                _isNewLine = true;
+                _cancelCompletion();
+                logger::log("Delete backward. Send CompletionCancel due to delete across line");
+            }
         }
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid delayedDelete data: {}", e.what()));
@@ -129,7 +125,11 @@ void CompletionManager::interactionEnterInput(const any&) {
     _isJustAccepted.store(false);
     _isNewLine = true;
     // TODO: Support 1st level cache
-    if (_completionCache.valid()) {
+    bool hasValidCache; {
+        shared_lock lock(_completionCacheMutex);
+        hasValidCache = _completionCache.valid();
+    }
+    if (hasValidCache) {
         _cancelCompletion();
         logger::log("Enter Input. Send CompletionCancel");
     }
@@ -147,7 +147,7 @@ void CompletionManager::interactionEnterInput(const any&) {
     // }
 }
 
-void CompletionManager::interactionNavigate(const any& data) {
+void CompletionManager::interactionNavigateWithKey(const any& data) {
     // _isContinuousEnter.store(false);
     try {
         switch (any_cast<Key>(data)) {
@@ -170,14 +170,36 @@ void CompletionManager::interactionNavigate(const any& data) {
     }
 }
 
+void CompletionManager::interactionNavigateWithMouse(const any& data) {
+    // _isContinuousEnter.store(false);
+    try {
+        const auto [newCursorPosition, _] = any_cast<tuple<CaretPosition, CaretPosition>>(data); {
+            shared_lock lock(_componentsMutex);
+            if (_components.caretPosition.line != newCursorPosition.line) {
+                _isNewLine = true;
+            }
+            if (_components.caretPosition != newCursorPosition) {
+                _cancelCompletion();
+            }
+        }
+        unique_lock lock(_componentsMutex);
+        _components.caretPosition = newCursorPosition;
+    } catch (const bad_any_cast& e) {
+        logger::log(format("Invalid interactionCaretUpdate data: {}", e.what()));
+    }
+}
+
 void CompletionManager::interactionNormalInput(const any& data) {
     try {
         bool needRetrieveCompletion = false;
         const auto character = any_cast<char>(data);
         // _isContinuousEnter.store(false);
         _isJustAccepted.store(false);
-        if (const auto nextCacheOpt = _completionCache.next();
-            nextCacheOpt.has_value()) {
+        optional<pair<char, optional<string>>> nextCacheOpt; {
+            unique_lock lock(_completionCacheMutex);
+            nextCacheOpt = _completionCache.next();
+        }
+        if (nextCacheOpt.has_value()) {
             // Has valid cache
             if (const auto [currentChar, completionOpt] = nextCacheOpt.value();
                 character == currentChar) {
@@ -188,7 +210,10 @@ void CompletionManager::interactionNormalInput(const any& data) {
                     logger::log("Normal input. Send CompletionCache due to cache hit");
                 } else {
                     // Out of cache
-                    _completionCache.reset();
+                    {
+                        unique_lock lock(_completionCacheMutex);
+                        _completionCache.reset();
+                    }
                     WebsocketManager::GetInstance()->sendAction(WsAction::CompletionAccept);
                     logger::log("Normal input. Send CompletionAccept due to cache complete");
                 }
@@ -214,7 +239,11 @@ void CompletionManager::interactionNormalInput(const any& data) {
 }
 
 void CompletionManager::interactionSave(const any&) {
-    if (_completionCache.valid()) {
+    bool hasValidCache; {
+        shared_lock lock(_completionCacheMutex);
+        hasValidCache = _completionCache.valid();
+    }
+    if (hasValidCache) {
         _cancelCompletion();
         logger::log("Save. Send CompletionCancel");
     }
@@ -225,13 +254,19 @@ void CompletionManager::instantUndo(const any&) {
     _isNewLine = true;
     if (_isJustAccepted.load()) {
         _isJustAccepted.store(false);
-    } else if (_completionCache.valid()) {
-        _cancelCompletion();
-        logger::log("Undo. Send CompletionCancel");
     } else {
-        // Invalidate current retrieval
-        _debounceRetrieveCompletionTime.store(chrono::high_resolution_clock::now());
-        _needRetrieveCompletion.store(false);
+        bool hasValidCache; {
+            shared_lock lock(_completionCacheMutex);
+            hasValidCache = _completionCache.valid();
+        }
+        if (hasValidCache) {
+            _cancelCompletion();
+            logger::log("Undo. Send CompletionCancel");
+        } else {
+            // Invalidate current retrieval
+            _debounceRetrieveCompletionTime.store(chrono::high_resolution_clock::now());
+            _needRetrieveCompletion.store(false);
+        }
     }
 }
 
@@ -244,16 +279,16 @@ void CompletionManager::wsActionCompletionGenerate(const nlohmann::json& data) {
         result == "success") {
         if (const auto& completions = data["completions"];
             completions.is_array() && !completions.empty()) {
-            const auto completionsDecodes = decode(completions[0].get<string>(), crypto::Encoding::Base64);
-            _completionCache.reset(
-                completionsDecodes[0] == '1',
-                completionsDecodes.substr(1)
-            );
+            // TODO: Support multiple completions
+            {
+                unique_lock lock(_completionCacheMutex);
+                _completionCache.reset(decode(completions[0].get<string>(), crypto::Encoding::Base64));
+            }
         } else {
             logger::log("(WsAction::CompletionGenerate) No completion");
         }
     } else {
-        logger::log(format(
+        logger::warn(format(
             "(WsAction::CompletionGenerate) Result: {}\n"
             "\tMessage: {}",
             result,
@@ -294,6 +329,7 @@ void CompletionManager::setVersion(const string& version) {
 
 void CompletionManager::_cancelCompletion() {
     WebsocketManager::GetInstance()->sendAction(WsAction::CompletionCancel);
+    unique_lock lock(_completionCacheMutex);
     _completionCache.reset();
 }
 
