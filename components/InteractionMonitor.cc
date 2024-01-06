@@ -89,6 +89,29 @@ InteractionMonitor::~InteractionMonitor() {
     _isRunning.store(false);
 }
 
+void InteractionMonitor::deleteLineContent(const uint32_t line) const {
+    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
+        throw runtime_error("No valid code window");
+    }
+
+    const auto functionDelBufLine = StdCallFunction<void(uint32_t, uint32_t, uint32_t)>(
+        _baseAddress + _memoryAddress.file.funcDelBufLine.funcAddress
+    );
+
+    uint32_t fileHandle;
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.fileHandle),
+        &fileHandle,
+        sizeof(fileHandle),
+        nullptr
+    );
+
+    if (fileHandle) {
+        functionDelBufLine(fileHandle, line, 1);
+    }
+}
+
 tuple<int64_t, int64_t> InteractionMonitor::getCaretPixels(const uint32_t line) const {
     if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
         throw runtime_error("No valid code window");
@@ -295,6 +318,29 @@ void InteractionMonitor::setLineContent(const uint32_t line, const string& conte
     if (fileHandle) {
         CompactString payload(content);
         functionPutBufLine(fileHandle, line, payload.data());
+    }
+}
+
+void InteractionMonitor::setSelectedContent(const std::string& content) const {
+    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
+        throw runtime_error("No valid code window");
+    }
+
+    const auto functionSetBufSelText = StdCallFunction<void(uint32_t, const char*)>(
+        _baseAddress + _memoryAddress.window.funcSetBufSelText.funcAddress
+    );
+
+    uint32_t param1;
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.funcSetBufSelText.param1),
+        &param1,
+        sizeof(param1),
+        nullptr
+    );
+
+    if (param1) {
+        functionSetBufSelText(param1, content.data());
     }
 }
 
@@ -520,19 +566,6 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                 break;
             }
             case UM_KEYCODE: {
-                // const auto DelBufLine = StdCallFunction<int(int, int, int)>(_baseAddress + 0x8DB9B);
-                // DelBufLine(fileHandle, 1, 1);
-                const auto SetBufSelText = StdCallFunction<int(int, void*)>(_baseAddress + 0x9180C);
-                string str = "for(int i = 0; i < 10; i++)";
-                uint32_t handle;
-                ReadProcessMemory(
-                    _processHandle.get(),
-                    reinterpret_cast<LPCVOID>(_baseAddress + 0X1CCD48),
-                    &handle,
-                    sizeof(handle),
-                    nullptr
-                );
-                SetBufSelText(handle,str.data());
                 _handleKeycode(windowProcData->wParam);
                 break;
             }
