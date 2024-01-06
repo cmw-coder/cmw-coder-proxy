@@ -100,10 +100,10 @@ void CompletionManager::interactionDeleteInput(const any&) {
                     completionOpt.has_value()) {
                     WebsocketManager::GetInstance()->sendAction(WsAction::CompletionCache, true);
                     logger::log("Delete backward. Send CompletionCache due to cache hit");
-                } else {
-                    _cancelCompletion();
-                    logger::log("Delete backward. Send CompletionCancel due to cache miss");
+                    return;
                 }
+                _cancelCompletion();
+                logger::log("Delete backward. Send CompletionCancel due to cache miss");
             }
         } else {
             bool hasValidCache; {
@@ -116,6 +116,8 @@ void CompletionManager::interactionDeleteInput(const any&) {
                 logger::log("Delete backward. Send CompletionCancel due to delete across line");
             }
         }
+        _needRetrieveCompletion.store(false);
+        _debounceRetrieveCompletionTime.store(chrono::high_resolution_clock::now());
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid delayedDelete data: {}", e.what()));
     }
@@ -377,9 +379,23 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             return InteractionMonitor::GetInstance()->
                                     getLineContent(currentCaretPosition.line + offset);
                         };
+                        const auto currentLine = getContextLine();
+                        if (currentLine.length() < currentCaretPosition.character) {
+                            logger::warn(format(
+                                "Read current line failed\n"
+                                "\t CurrentCaret: ({}, {})\n"
+                                "\tContent: {} (Length: {}))",
+                                currentCaretPosition.line,
+                                currentCaretPosition.character,
+                                currentLine,
+                                currentLine.length()
+                            ));
+                            this_thread::sleep_for(chrono::milliseconds(25));
+                            continue;
+                        }
+                        auto prefix = currentLine.substr(0, currentCaretPosition.character);
+                        auto suffix = currentLine.substr(currentCaretPosition.character);
                         if (_isNewLine) {
-                            auto prefix = getContextLine().substr(0, currentCaretPosition.character);
-                            auto suffix = getContextLine().substr(currentCaretPosition.character);
                             for (auto index = 1; index <= 30; ++index) {
                                 prefix.insert(0, getContextLine(-index).append("\r\n"));
                             }
@@ -395,8 +411,6 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
 
                             _isNewLine = false;
                         } else {
-                            auto prefix = getContextLine().substr(0, currentCaretPosition.character);
-                            auto suffix = getContextLine().substr(currentCaretPosition.character);
                             unique_lock lock(_componentsMutex);
                             _components.caretPosition = currentCaretPosition;
                             _components.path = InteractionMonitor::GetInstance()->getFileName();
