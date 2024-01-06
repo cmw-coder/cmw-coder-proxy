@@ -1,28 +1,19 @@
+#include <components/InteractionMonitor.h>
 #include <components/ModificationManager.h>
-#include <utils/fs.h>
 #include <utils/logger.h>
-
-#include "InteractionMonitor.h"
 
 using namespace components;
 using namespace std;
 using namespace types;
 using namespace utils;
 
-CaretPosition ModificationManager::getCurrentPosition() {
-    try {
-        shared_lock lock(_currentModificationMutex);
-        return _currentFile().getPosition();
-    } catch (out_of_range&) {
-        return CaretPosition{};
-    }
-}
-
 void ModificationManager::interactionAcceptCompletion(const std::any&) {
     try {
         unique_lock lock(_currentModificationMutex);
         _currentFile().acceptCompletion();
-    } catch (out_of_range&) {}
+    } catch (const runtime_error& e) {
+        logger::warn(e.what());
+    }
 }
 
 void ModificationManager::interactionCaretUpdate(const any& data) {
@@ -32,15 +23,18 @@ void ModificationManager::interactionCaretUpdate(const any& data) {
         _currentFile().navigate(newCursorPosition);
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid interactionCaretUpdate data: {}", e.what()));
+    } catch (const runtime_error& e) {
+        logger::warn(e.what());
     }
-    catch (out_of_range&) {}
 }
 
 void ModificationManager::interactionDeleteInput(const any&) {
     try {
         unique_lock lock(_currentModificationMutex);
         _currentFile().remove();
-    } catch (out_of_range&) {}
+    } catch (const runtime_error& e) {
+        logger::warn(e.what());
+    }
 }
 
 void ModificationManager::interactionEnterInput(const any&) {
@@ -54,8 +48,9 @@ void ModificationManager::interactionNavigate(const any& data) {
         _currentFile().navigate(key);
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid interactionNavigate data: {}", e.what()));
+    } catch (const runtime_error& e) {
+        logger::warn(e.what());
     }
-    catch (out_of_range&) {}
 }
 
 void ModificationManager::interactionNormalInput(const any& data) {
@@ -65,8 +60,9 @@ void ModificationManager::interactionNormalInput(const any& data) {
         _currentFile().add(keycode);
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid interactionNormalInput data: {}", e.what()));
+    } catch (const runtime_error& e) {
+        logger::warn(e.what());
     }
-    catch (out_of_range&) {}
 }
 
 void ModificationManager::interactionSave(const std::any&) {
@@ -76,14 +72,18 @@ void ModificationManager::interactionSave(const std::any&) {
             unique_lock lock(_currentModificationMutex);
             _currentFile().reload();
         }).detach();
-    } catch (out_of_range&) {}
+    } catch (const runtime_error& e) {
+        logger::warn(e.what());
+    }
 }
 
 void ModificationManager::interactionSelectionClear(const std::any&) {
     try {
         unique_lock lock(_currentModificationMutex);
         _currentFile().selectionClear();
-    } catch (out_of_range&) {}
+    } catch (const runtime_error& e) {
+        logger::warn(e.what());
+    }
 }
 
 void ModificationManager::interactionSelectionSet(const std::any& data) {
@@ -93,8 +93,9 @@ void ModificationManager::interactionSelectionSet(const std::any& data) {
         _currentFile().selectionSet(range);
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid interactionSelectionSet data: {}", e.what()));
+    } catch (const runtime_error& e) {
+        logger::warn(e.what());
     }
-    catch (out_of_range&) {}
 }
 
 Modification& ModificationManager::_currentFile() {

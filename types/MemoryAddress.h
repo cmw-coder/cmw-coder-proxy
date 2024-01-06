@@ -36,6 +36,20 @@ namespace types {
             struct {
                 uint32_t funcAddress, param1Offset1, param1Offset2;
             } funcGetBufName;
+
+            struct {
+                uint32_t funcAddress;
+            } funcInsBufLine;
+
+            struct {
+                uint32_t funcAddress;
+            } funcPutBufLine;
         } file;
+
+        struct {
+            struct {
+                uint32_t funcAddress;
+            } funcSetWndSel;
+        } window;
     };
 }
