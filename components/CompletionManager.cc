@@ -67,14 +67,18 @@ void CompletionManager::interactionAcceptCompletion(const any&) {
         tie(content, index) = _completionCache.reset();
     }
     if (!content.empty()) {
-        auto lineCount = 1;
+        const auto currentLineIndex = InteractionMonitor::GetInstance()->getCaretPosition().line;
+        uint32_t insertedlineCount = 0;
         for (const auto line: content.substr(index) | views::split("\r\n"sv)) {
-            if (lineCount == 0) {
+            if (insertedlineCount == 0) {
                 InteractionMonitor::GetInstance()->setSelectedContent(string(line.begin(), line.end()));
             } else {
-                InteractionMonitor::GetInstance()->insertLineContent(string(line.begin(), line.end()));
+                InteractionMonitor::GetInstance()->insertLineContent(
+                    currentLineIndex + insertedlineCount,
+                    string(line.begin(), line.end())
+                );
             }
-            ++lineCount;
+            ++insertedlineCount;
         }
         WebsocketManager::GetInstance()->sendAction(WsAction::CompletionAccept);
         logger::log(format("Accepted completion: {}", content));
