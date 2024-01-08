@@ -354,7 +354,7 @@ void InteractionMonitor::setSelectedContent(const std::string& content) const {
 }
 
 long InteractionMonitor::_keyProcedureHook(const int nCode, const unsigned wParam, const long lParam) {
-    if (GetInstance()->_processKeyMessage(wParam)) {
+    if (GetInstance()->_processKeyMessage(wParam, lParam)) {
         return true;
     }
     return CallNextHookEx(nullptr, nCode, wParam, lParam);
