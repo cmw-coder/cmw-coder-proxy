@@ -18,7 +18,7 @@
 namespace components {
     class InteractionMonitor : public SingletonDclp<InteractionMonitor> {
     public:
-        using CallBack = std::function<void(const std::any&)>;
+        using InteractionCallBack = std::function<void(const std::any&, bool&)>;
 
         InteractionMonitor();
 
@@ -42,7 +42,7 @@ namespace components {
         void registerInteraction(
             const types::Interaction interaction,
             T* const other,
-            void (T::* const memberFunction)(const std::any&)
+            void (T::* const memberFunction)(const std::any&, bool&)
         ) {
             _handlerMap[interaction].push_back(std::bind_front(memberFunction, other));
         }
@@ -62,7 +62,7 @@ namespace components {
         std::atomic<std::optional<types::Key>> _navigateWithKey;
         std::atomic<std::optional<types::Mouse>> _navigateWithMouse;
         std::shared_ptr<void> _keyHookHandle, _mouseHookHandle, _processHandle, _windowHookHandle;
-        std::unordered_map<types::Interaction, std::vector<CallBack>> _handlerMap;
+        std::unordered_map<types::Interaction, std::vector<InteractionCallBack>> _handlerMap;
         types::MemoryAddress _memoryAddress{};
 
         static long __stdcall _keyProcedureHook(int nCode, unsigned int wParam, long lParam);
@@ -73,7 +73,7 @@ namespace components {
 
         void _handleKeycode(types::Keycode keycode) noexcept;
 
-        void _handleInteraction(types::Interaction interaction, const std::any& data = {}) const noexcept;
+        bool _handleInteraction(types::Interaction interaction, const std::any& data = {}) const noexcept;
 
         void _monitorAutoCompletion() const;
 
@@ -85,9 +85,9 @@ namespace components {
 
         void _monitorEditorInfo() const;
 
-        bool _processKeyMessage(unsigned int wParam);
+        bool _processKeyMessage(unsigned wParam, unsigned lParam) const;
 
-        void _processMouseMessage(unsigned int wParam);
+        void _processMouseMessage(unsigned wParam);
 
         void _processWindowMessage(long lParam);
 

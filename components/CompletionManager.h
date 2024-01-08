@@ -28,19 +28,19 @@ namespace components {
 
         CompletionManager();
 
-        void interactionAcceptCompletion(const std::any&);
+        void interactionAcceptCompletion(const std::any&, bool& needBlockMessage);
 
-        void interactionDeleteInput(const std::any&);
+        void interactionDeleteInput(const std::any&, bool&);
 
-        void interactionEnterInput(const std::any&);
+        void interactionEnterInput(const std::any&, bool&);
 
-        void interactionNavigateWithKey(const std::any& data);
+        void interactionNavigateWithKey(const std::any& data, bool&);
 
-        void interactionNavigateWithMouse(const std::any& data);
+        void interactionNavigateWithMouse(const std::any& data, bool&);
 
-        void interactionNormalInput(const std::any& data);
+        void interactionNormalInput(const std::any& data, bool&);
 
-        void interactionSave(const std::any&);
+        void interactionSave(const std::any&, bool&);
 
         void instantUndo(const std::any& = {});
 

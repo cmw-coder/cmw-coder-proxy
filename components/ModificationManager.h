@@ -14,23 +14,23 @@ namespace components {
 
         ~ModificationManager() override = default;
 
-        void interactionAcceptCompletion(const std::any&);
+        void interactionAcceptCompletion(const std::any&, bool&);
 
-        void interactionDeleteInput(const std::any&);
+        void interactionDeleteInput(const std::any&, bool&);
 
-        void interactionEnterInput(const std::any&);
+        void interactionEnterInput(const std::any&, bool& needBlockMessage);
 
-        void interactionNavigateWithKey(const std::any& data);
+        void interactionNavigateWithKey(const std::any& data, bool&);
 
-        void interactionNavigateWithMouse(const std::any& data);
+        void interactionNavigateWithMouse(const std::any& data, bool&);
 
-        void interactionNormalInput(const std::any& data);
+        void interactionNormalInput(const std::any& data, bool&);
 
-        void interactionSave(const std::any&);
+        void interactionSave(const std::any&, bool&);
 
-        void interactionSelectionClear(const std::any&);
+        void interactionSelectionClear(const std::any&, bool&);
 
-        void interactionSelectionSet(const std::any& data);
+        void interactionSelectionSet(const std::any& data, bool&);
 
     private:
         mutable std::shared_mutex _currentModificationMutex;

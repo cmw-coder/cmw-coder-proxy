@@ -58,7 +58,7 @@ CompletionManager::CompletionManager() {
     _threadDebounceRetrieveCompletion();
 }
 
-void CompletionManager::interactionAcceptCompletion(const any&) {
+void CompletionManager::interactionAcceptCompletion(const any&, bool& needBlockMessage) {
     // _isContinuousEnter.store(false);
     _isJustAccepted.store(true);
     string content;
@@ -82,10 +82,11 @@ void CompletionManager::interactionAcceptCompletion(const any&) {
         }
         WebsocketManager::GetInstance()->sendAction(WsAction::CompletionAccept);
         logger::log(format("Accepted completion: {}", content));
+        needBlockMessage = true;
     }
 }
 
-void CompletionManager::interactionDeleteInput(const any&) {
+void CompletionManager::interactionDeleteInput(const any&, bool&) {
     // _isContinuousEnter.store(false);
     _isJustAccepted.store(false);
     uint32_t chatacter; {
@@ -127,7 +128,7 @@ void CompletionManager::interactionDeleteInput(const any&) {
     }
 }
 
-void CompletionManager::interactionEnterInput(const any&) {
+void CompletionManager::interactionEnterInput(const any&, bool&) {
     _isJustAccepted.store(false);
     _isNewLine = true;
     // TODO: Support 1st level cache
@@ -153,7 +154,7 @@ void CompletionManager::interactionEnterInput(const any&) {
     // }
 }
 
-void CompletionManager::interactionNavigateWithKey(const any& data) {
+void CompletionManager::interactionNavigateWithKey(const any& data, bool&) {
     // _isContinuousEnter.store(false);
     try {
         switch (any_cast<Key>(data)) {
@@ -176,7 +177,7 @@ void CompletionManager::interactionNavigateWithKey(const any& data) {
     }
 }
 
-void CompletionManager::interactionNavigateWithMouse(const any& data) {
+void CompletionManager::interactionNavigateWithMouse(const any& data, bool&) {
     // _isContinuousEnter.store(false);
     try {
         const auto [newCursorPosition, _] = any_cast<tuple<CaretPosition, CaretPosition>>(data); {
@@ -195,7 +196,7 @@ void CompletionManager::interactionNavigateWithMouse(const any& data) {
     }
 }
 
-void CompletionManager::interactionNormalInput(const any& data) {
+void CompletionManager::interactionNormalInput(const any& data, bool&) {
     try {
         bool needRetrieveCompletion = false;
         const auto character = any_cast<char>(data);
@@ -244,7 +245,7 @@ void CompletionManager::interactionNormalInput(const any& data) {
     }
 }
 
-void CompletionManager::interactionSave(const any&) {
+void CompletionManager::interactionSave(const any&, bool&) {
     bool hasValidCache; {
         shared_lock lock(_completionCacheMutex);
         hasValidCache = _completionCache.valid();

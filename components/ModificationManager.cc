@@ -7,7 +7,7 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
-void ModificationManager::interactionAcceptCompletion(const std::any&) {
+void ModificationManager::interactionAcceptCompletion(const std::any&, bool&) {
     try {
         unique_lock lock(_currentModificationMutex);
         _currentFile().acceptCompletion();
@@ -16,7 +16,7 @@ void ModificationManager::interactionAcceptCompletion(const std::any&) {
     }
 }
 
-void ModificationManager::interactionDeleteInput(const any&) {
+void ModificationManager::interactionDeleteInput(const any&, bool&) {
     try {
         unique_lock lock(_currentModificationMutex);
         _currentFile().remove();
@@ -25,11 +25,11 @@ void ModificationManager::interactionDeleteInput(const any&) {
     }
 }
 
-void ModificationManager::interactionEnterInput(const any&) {
-    interactionNormalInput('\n');
+void ModificationManager::interactionEnterInput(const any&, bool& needBlockMessage) {
+    interactionNormalInput('\n', needBlockMessage);
 }
 
-void ModificationManager::interactionNavigateWithKey(const any& data) {
+void ModificationManager::interactionNavigateWithKey(const any& data, bool&) {
     try {
         const auto key = any_cast<Key>(data);
         unique_lock lock(_currentModificationMutex);
@@ -41,7 +41,7 @@ void ModificationManager::interactionNavigateWithKey(const any& data) {
     }
 }
 
-void ModificationManager::interactionNavigateWithMouse(const any& data) {
+void ModificationManager::interactionNavigateWithMouse(const any& data, bool&) {
     try {
         const auto [newCursorPosition, oldCursorPosition] = any_cast<tuple<CaretPosition, CaretPosition>>(data);
         unique_lock lock(_currentModificationMutex);
@@ -53,7 +53,7 @@ void ModificationManager::interactionNavigateWithMouse(const any& data) {
     }
 }
 
-void ModificationManager::interactionNormalInput(const any& data) {
+void ModificationManager::interactionNormalInput(const any& data, bool&) {
     try {
         const auto keycode = any_cast<char>(data);
         unique_lock lock(_currentModificationMutex);
@@ -65,7 +65,7 @@ void ModificationManager::interactionNormalInput(const any& data) {
     }
 }
 
-void ModificationManager::interactionSave(const std::any&) {
+void ModificationManager::interactionSave(const std::any&, bool&) {
     try {
         thread([this] {
             this_thread::sleep_for(chrono::milliseconds(100));
@@ -77,7 +77,7 @@ void ModificationManager::interactionSave(const std::any&) {
     }
 }
 
-void ModificationManager::interactionSelectionClear(const std::any&) {
+void ModificationManager::interactionSelectionClear(const std::any&, bool&) {
     try {
         unique_lock lock(_currentModificationMutex);
         _currentFile().selectionClear();
@@ -86,7 +86,7 @@ void ModificationManager::interactionSelectionClear(const std::any&) {
     }
 }
 
-void ModificationManager::interactionSelectionSet(const std::any& data) {
+void ModificationManager::interactionSelectionSet(const std::any& data, bool&) {
     try {
         const auto range = any_cast<Range>(data);
         unique_lock lock(_currentModificationMutex);

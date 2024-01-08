@@ -373,7 +373,7 @@ long InteractionMonitor::_windowProcedureHook(const int nCode, const unsigned in
 // ReSharper disable once CppDFAUnreachableFunctionCall
 void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
     if (_keyHelper.isPrintable(keycode)) {
-        _handleInteraction(Interaction::NormalInput, _keyHelper.toPrintable(keycode));
+        ignore = _handleInteraction(Interaction::NormalInput, _keyHelper.toPrintable(keycode));
         _isSelecting.store(false);
         return;
     }
@@ -385,16 +385,12 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                 modifiers.empty()) {
                 switch (key) {
                     case Key::BackSpace: {
-                        _handleInteraction(Interaction::DeleteInput);
+                        ignore = _handleInteraction(Interaction::DeleteInput);
                         _isSelecting.store(false);
                         break;
                     }
-                    case Key::Tab: {
-                        _handleInteraction(Interaction::AcceptCompletion);
-                        break;
-                    }
                     case Key::Enter: {
-                        _handleInteraction(Interaction::EnterInput);
+                        ignore = _handleInteraction(Interaction::EnterInput);
                         _isSelecting.store(false);
                         break;
                     }
@@ -403,10 +399,10 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                         if (Configurator::GetInstance()->version().first == SiVersion::Major::V40) {
                             thread([this] {
                                 this_thread::sleep_for(chrono::milliseconds(150));
-                                _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
+                                ignore = _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
                             }).detach();
                         } else {
-                            _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
+                            ignore = _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
                         }
                         break;
                     }
@@ -420,11 +416,11 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                     case Key::Down: {
                         _navigateWithKey.store(key);
                         _isSelecting.store(false);
-                        _handleInteraction(Interaction::SelectionClear);
+                        ignore = _handleInteraction(Interaction::SelectionClear);
                         break;
                     }
                     case Key::F12: {
-                        _handleInteraction(Interaction::AcceptCompletion);
+                        ignore = _handleInteraction(Interaction::AcceptCompletion);
                     }
                     default: {
                         // TODO: Support Key::Delete
@@ -435,15 +431,15 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                 if (modifiers.size() == 1 && modifiers.contains(Modifier::Ctrl)) {
                     switch (key) {
                         case Key::S: {
-                            _handleInteraction(Interaction::Save);
+                            ignore = _handleInteraction(Interaction::Save);
                             break;
                         }
                         case Key::V: {
-                            _handleInteraction(Interaction::Paste);
+                            ignore = _handleInteraction(Interaction::Paste);
                             break;
                         }
                         case Key::Z: {
-                            _handleInteraction(Interaction::Undo);
+                            ignore = _handleInteraction(Interaction::Undo);
                             break;
                         }
                         default: {
@@ -457,10 +453,13 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
 }
 
 // ReSharper disable once CppDFAUnreachableFunctionCall
-void InteractionMonitor::_handleInteraction(const Interaction interaction, const any& data) const noexcept {
+bool InteractionMonitor::_handleInteraction(const Interaction interaction, const any& data) const noexcept {
+    bool needBlockMessage{false};
     try {
         for (const auto& handler: _handlerMap.at(interaction)) {
-            handler(data);
+            bool handlerNeedBlockMessage{false};
+            handler(data, handlerNeedBlockMessage);
+            needBlockMessage |= handlerNeedBlockMessage;
         }
     } catch (out_of_range& e) {
         logger::log(format(
@@ -476,6 +475,7 @@ void InteractionMonitor::_handleInteraction(const Interaction interaction, const
             e.what()
         ));
     }
+    return needBlockMessage;
 }
 
 void InteractionMonitor::_monitorAutoCompletion() const {
@@ -497,7 +497,7 @@ void InteractionMonitor::_monitorCaretPosition() {
         while (_isRunning.load()) {
             if (const auto navigationBufferOpt = _navigateWithKey.load();
                 navigationBufferOpt.has_value()) {
-                _handleInteraction(Interaction::NavigateWithKey, navigationBufferOpt.value());
+                ignore = _handleInteraction(Interaction::NavigateWithKey, navigationBufferOpt.value());
                 _navigateWithKey.store(nullopt);
                 continue;
             }
@@ -589,12 +589,15 @@ void InteractionMonitor::_monitorEditorInfo() const {
 }
 
 // ReSharper disable once CppDFAUnreachableFunctionCall
-bool InteractionMonitor::_processKeyMessage(const unsigned wParam) {
+bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigned lParam) const {
+    const auto keyFlags = HIWORD(lParam);
+    const auto isKeyUp = (keyFlags & KF_UP) == KF_UP;
+    bool needBlockMessage{false};
     switch (wParam) {
         case VK_TAB: {
-            logger::debug("Tab pressed");
+            logger::debug(format("Tab key, isKeyUp: {}", isKeyUp));
             if (WindowManager::GetInstance()->hasValidCodeWindow()) {
-                return true;
+                needBlockMessage = _handleInteraction(Interaction::AcceptCompletion);
             }
             break;
         }
@@ -602,7 +605,10 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam) {
             break;
         }
     }
-    return false;
+    if (needBlockMessage) {
+        logger::debug("Block message");
+    }
+    return needBlockMessage;
 }
 
 // ReSharper disable once CppDFAUnreachableFunctionCall
@@ -624,9 +630,9 @@ void InteractionMonitor::_processMouseMessage(const unsigned wParam) {
         case WM_LBUTTONUP: {
             if (_isSelecting.load()) {
                 auto selectRange = _monitorCursorSelect();
-                _handleInteraction(Interaction::SelectionSet, selectRange);
+                ignore = _handleInteraction(Interaction::SelectionSet, selectRange);
             } else {
-                _handleInteraction(Interaction::SelectionClear);
+                ignore = _handleInteraction(Interaction::SelectionClear);
             }
             _isMouseLeftDown.store(false);
             break;
