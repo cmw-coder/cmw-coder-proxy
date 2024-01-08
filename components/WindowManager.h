@@ -27,6 +27,8 @@ namespace components {
 
         bool sendAcceptCompletion();
 
+        void sendLeftThenRight() const;
+
         bool sendSave();
 
         bool sendUndo();

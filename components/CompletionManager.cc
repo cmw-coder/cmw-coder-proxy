@@ -72,26 +72,23 @@ void CompletionManager::interactionAcceptCompletion(const any&, bool& needBlockM
     if (!content.empty()) {
         const auto interactionMonitor = InteractionMonitor::GetInstance();
         const auto currentLineIndex = interactionMonitor->getCaretPosition().line;
-        // uint32_t insertedlineCount = 0;
-        // for (const auto lineRange: content.substr(index) | views::split("\r\n"sv)) {
-        //     if (insertedlineCount == 0) {
-        //         interactionMonitor->deleteLineContent(currentLineIndex);
-        //         interactionMonitor->insertLineContent(
-        //             currentLineIndex,
-        //             interactionMonitor->getLineContent(currentLineIndex) + string{lineRange.begin(), lineRange.end()}
-        //         );
-        //     } else {
-        //         interactionMonitor->insertLineContent(
-        //             currentLineIndex + insertedlineCount, {lineRange.begin(), lineRange.end()}
-        //         );
-        //     }
-        //     ++insertedlineCount;
-        // }
-        system::setEnvironmentVariable(
-            completionGeneratedKey,
-            interactionMonitor->getLineContent(currentLineIndex) + regex_replace(content, regex("\r\n"), R"(\r\n)")
-        );
-        WindowManager::GetInstance()->sendAcceptCompletion();
+        uint32_t insertedlineCount = 0;
+        for (const auto lineRange: content.substr(index) | views::split("\r\n"sv)) {
+            if (insertedlineCount == 0) {
+                interactionMonitor->setSelectedContent({lineRange.begin(), lineRange.end()});
+            } else {
+                interactionMonitor->insertLineContent(
+                    currentLineIndex + insertedlineCount, {lineRange.begin(), lineRange.end()}
+                );
+            }
+            ++insertedlineCount;
+        }
+        WindowManager::GetInstance()->sendLeftThenRight();
+        // system::setEnvironmentVariable(
+        //     completionGeneratedKey,
+        //     interactionMonitor->getLineContent(currentLineIndex) + regex_replace(content, regex("\r\n"), R"(\r\n)")
+        // );
+        // WindowManager::GetInstance()->sendAcceptCompletion();
         WebsocketManager::GetInstance()->sendAction(WsAction::CompletionAccept);
         logger::log(format("Accepted completion: {}", content));
         needBlockMessage = true;
@@ -133,7 +130,6 @@ void CompletionManager::interactionDeleteInput(const any&, bool&) {
                 logger::log("Delete backward. Send CompletionCancel due to delete across line");
             }
         }
-        _needRetrieveCompletion.store(false);
         _debounceRetrieveCompletionTime.store(chrono::high_resolution_clock::now());
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid delayedDelete data: {}", e.what()));
