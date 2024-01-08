@@ -252,10 +252,6 @@ string InteractionMonitor::getLineContent(const uint32_t line) const {
     return {};
 }
 
-void InteractionMonitor::insertLineContent(const std::string& content) const {
-    insertLineContent(getCaretPosition().line, content);
-}
-
 void InteractionMonitor::insertLineContent(const uint32_t line, const std::string& content) const {
     if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
         throw runtime_error("No valid code window");
@@ -368,7 +364,6 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                     }
                     case Key::Tab: {
                         _handleInteraction(Interaction::AcceptCompletion);
-                        // Keep expanding when _isSelecting == true
                         break;
                     }
                     case Key::Enter: {
@@ -400,6 +395,9 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                         _isSelecting.store(false);
                         _handleInteraction(Interaction::SelectionClear);
                         break;
+                    }
+                    case Key::F12: {
+                        _handleInteraction(Interaction::AcceptCompletion);
                     }
                     default: {
                         // TODO: Support Key::Delete
