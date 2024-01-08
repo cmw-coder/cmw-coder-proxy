@@ -69,16 +69,13 @@ void CompletionManager::interactionAcceptCompletion(const any&) {
     if (!content.empty()) {
         const auto currentLineIndex = InteractionMonitor::GetInstance()->getCaretPosition().line;
         uint32_t insertedlineCount = 0;
-        for (const auto line: content.substr(index) | views::split("\r\n"sv)) {
+        this_thread::sleep_for(chrono::milliseconds(50));
+        for (const auto lineRange: content.substr(index) | views::split("\r\n"sv)) {
             if (insertedlineCount == 0) {
-                InteractionMonitor::GetInstance()->setLineContent(
-                    currentLineIndex,
-                    string(line.begin(), line.end())
-                );
+                InteractionMonitor::GetInstance()->setSelectedContent({lineRange.begin(), lineRange.end()});
             } else {
                 InteractionMonitor::GetInstance()->insertLineContent(
-                    currentLineIndex + insertedlineCount,
-                    string(line.begin(), line.end())
+                    currentLineIndex + insertedlineCount, {lineRange.begin(), lineRange.end()}
                 );
             }
             ++insertedlineCount;

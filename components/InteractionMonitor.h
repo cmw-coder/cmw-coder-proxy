@@ -61,9 +61,15 @@ namespace components {
         std::atomic<types::CaretPosition> _currentCaretPosition, _downCursorPosition;
         std::atomic<std::optional<types::Key>> _navigateWithKey;
         std::atomic<std::optional<types::Mouse>> _navigateWithMouse;
-        std::shared_ptr<void> _mouseHookHandle, _processHandle, _windowHookHandle;
+        std::shared_ptr<void> _keyHookHandle, _mouseHookHandle, _processHandle, _windowHookHandle;
         std::unordered_map<types::Interaction, std::vector<CallBack>> _handlerMap;
         types::MemoryAddress _memoryAddress{};
+
+        static long __stdcall _keyProcedureHook(int nCode, unsigned int wParam, long lParam);
+
+        static long __stdcall _mouseProcedureHook(int nCode, unsigned int wParam, long lParam);
+
+        static long __stdcall _windowProcedureHook(int nCode, unsigned int wParam, long lParam);
 
         void _handleKeycode(types::Keycode keycode) noexcept;
 
@@ -79,12 +85,12 @@ namespace components {
 
         void _monitorEditorInfo() const;
 
+        bool _processKeyMessage(unsigned int wParam);
+
+        void _processMouseMessage(unsigned int wParam);
+
         void _processWindowMessage(long lParam);
 
-        void _processWindowMouse(unsigned int wParam);
-
         void _retrieveProjectId(const std::string& project) const;
-
-        static long __stdcall _windowProcedureHook(int nCode, unsigned int wParam, long lParam);
     };
 }

@@ -45,10 +45,19 @@ InteractionMonitor::InteractionMonitor()
                   : R"(SOFTWARE\Source Dynamics\Source Insight\4.0)"),
       _baseAddress(reinterpret_cast<uint32_t>(GetModuleHandle(nullptr))),
       _keyHelper(Configurator::GetInstance()->version().first),
+      _keyHookHandle(
+          SetWindowsHookEx(
+              WH_KEYBOARD,
+              _keyProcedureHook,
+              GetModuleHandle(nullptr),
+              GetCurrentThreadId()
+          ),
+          UnhookWindowsHookEx
+      ),
       _mouseHookHandle(
           SetWindowsHookEx(
               WH_MOUSE,
-              _windowProcedureHook,
+              _mouseProcedureHook,
               GetModuleHandle(nullptr),
               GetCurrentThreadId()
           ),
@@ -344,6 +353,24 @@ void InteractionMonitor::setSelectedContent(const std::string& content) const {
     }
 }
 
+long InteractionMonitor::_keyProcedureHook(const int nCode, const unsigned wParam, const long lParam) {
+    if (GetInstance()->_processKeyMessage(wParam)) {
+        return true;
+    }
+    return CallNextHookEx(nullptr, nCode, wParam, lParam);
+}
+
+long InteractionMonitor::_mouseProcedureHook(const int nCode, const unsigned wParam, const long lParam) {
+    GetInstance()->_processMouseMessage(wParam);
+    return CallNextHookEx(nullptr, nCode, wParam, lParam);
+}
+
+long InteractionMonitor::_windowProcedureHook(const int nCode, const unsigned int wParam, const long lParam) {
+    GetInstance()->_processWindowMessage(lParam);
+    return CallNextHookEx(nullptr, nCode, wParam, lParam);
+}
+
+// ReSharper disable once CppDFAUnreachableFunctionCall
 void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
     if (_keyHelper.isPrintable(keycode)) {
         _handleInteraction(Interaction::NormalInput, _keyHelper.toPrintable(keycode));
@@ -429,6 +456,7 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
     } catch (...) {}
 }
 
+// ReSharper disable once CppDFAUnreachableFunctionCall
 void InteractionMonitor::_handleInteraction(const Interaction interaction, const any& data) const noexcept {
     try {
         for (const auto& handler: _handlerMap.at(interaction)) {
@@ -490,6 +518,7 @@ void InteractionMonitor::_monitorCaretPosition() {
     }).detach();
 }
 
+// ReSharper disable once CppDFAUnreachableFunctionCall
 Range InteractionMonitor::_monitorCursorSelect() const {
     Range select{};
     ReadProcessMemory(
@@ -559,35 +588,25 @@ void InteractionMonitor::_monitorEditorInfo() const {
     }).detach();
 }
 
-void InteractionMonitor::_processWindowMessage(const long lParam) {
-    const auto windowProcData = reinterpret_cast<PCWPSTRUCT>(lParam);
-    if (const auto currentWindow = reinterpret_cast<int64_t>(windowProcData->hwnd);
-        window::getWindowClassName(currentWindow) == "si_Sw") {
-        switch (windowProcData->message) {
-            case WM_KILLFOCUS: {
-                if (WindowManager::GetInstance()->checkNeedHideWhenLostFocus(windowProcData->wParam)) {
-                    // WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveHide);
-                }
-                break;
+// ReSharper disable once CppDFAUnreachableFunctionCall
+bool InteractionMonitor::_processKeyMessage(const unsigned wParam) {
+    switch (wParam) {
+        case VK_TAB: {
+            logger::debug("Tab pressed");
+            if (WindowManager::GetInstance()->hasValidCodeWindow()) {
+                return true;
             }
-            case WM_SETFOCUS: {
-                if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(currentWindow)) {
-                    // WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveShow);
-                }
-                break;
-            }
-            case UM_KEYCODE: {
-                _handleKeycode(windowProcData->wParam);
-                break;
-            }
-            default: {
-                break;
-            }
+            break;
+        }
+        default: {
+            break;
         }
     }
+    return false;
 }
 
-void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
+// ReSharper disable once CppDFAUnreachableFunctionCall
+void InteractionMonitor::_processMouseMessage(const unsigned wParam) {
     switch (wParam) {
         case WM_LBUTTONDOWN: {
             if (!_isMouseLeftDown.load()) {
@@ -622,6 +641,34 @@ void InteractionMonitor::_processWindowMouse(const unsigned wParam) {
     }
 }
 
+// ReSharper disable once CppDFAUnreachableFunctionCall
+void InteractionMonitor::_processWindowMessage(const long lParam) {
+    const auto windowProcData = reinterpret_cast<PCWPSTRUCT>(lParam);
+    if (const auto currentWindow = reinterpret_cast<int64_t>(windowProcData->hwnd);
+        window::getWindowClassName(currentWindow) == "si_Sw") {
+        switch (windowProcData->message) {
+            case WM_KILLFOCUS: {
+                if (WindowManager::GetInstance()->checkNeedHideWhenLostFocus(windowProcData->wParam)) {
+                    // WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveHide);
+                }
+                break;
+            }
+            case WM_SETFOCUS: {
+                if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(currentWindow)) {
+                    // WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveShow);
+                }
+                break;
+            }
+            case UM_KEYCODE: {
+                _handleKeycode(windowProcData->wParam);
+                break;
+            }
+            default: {
+                break;
+            }
+        }
+    }
+}
 
 void InteractionMonitor::_retrieveProjectId(const string& project) const {
     const auto projectListKey = _subKey + "\\Project List";
@@ -642,10 +689,4 @@ void InteractionMonitor::_retrieveProjectId(const string& project) const {
     }
 
     CompletionManager::GetInstance()->setProjectId(projectId);
-}
-
-long InteractionMonitor::_windowProcedureHook(const int nCode, const unsigned int wParam, const long lParam) {
-    GetInstance()->_processWindowMessage(lParam);
-    GetInstance()->_processWindowMouse(wParam);
-    return CallNextHookEx(nullptr, nCode, wParam, lParam);
 }
