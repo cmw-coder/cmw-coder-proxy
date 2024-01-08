@@ -15,6 +15,8 @@
 #include <utils/logger.h>
 #include <utils/system.h>
 
+#include "WindowManager.h"
+
 using namespace components;
 using namespace helpers;
 using namespace magic_enum;
@@ -23,6 +25,7 @@ using namespace types;
 using namespace utils;
 
 namespace {
+    constexpr auto completionGeneratedKey = "CMWCODER_completionGenerated";
     const vector<string> keywords = {"class", "if", "for", "struct", "switch", "union", "while"};
 
     bool checkNeedRetrieveCompletion(const char character) {
@@ -67,19 +70,28 @@ void CompletionManager::interactionAcceptCompletion(const any&, bool& needBlockM
         tie(content, index) = _completionCache.reset();
     }
     if (!content.empty()) {
-        const auto currentLineIndex = InteractionMonitor::GetInstance()->getCaretPosition().line;
-        uint32_t insertedlineCount = 0;
-        this_thread::sleep_for(chrono::milliseconds(50));
-        for (const auto lineRange: content.substr(index) | views::split("\r\n"sv)) {
-            if (insertedlineCount == 0) {
-                InteractionMonitor::GetInstance()->setSelectedContent({lineRange.begin(), lineRange.end()});
-            } else {
-                InteractionMonitor::GetInstance()->insertLineContent(
-                    currentLineIndex + insertedlineCount, {lineRange.begin(), lineRange.end()}
-                );
-            }
-            ++insertedlineCount;
-        }
+        const auto interactionMonitor = InteractionMonitor::GetInstance();
+        const auto currentLineIndex = interactionMonitor->getCaretPosition().line;
+        // uint32_t insertedlineCount = 0;
+        // for (const auto lineRange: content.substr(index) | views::split("\r\n"sv)) {
+        //     if (insertedlineCount == 0) {
+        //         interactionMonitor->deleteLineContent(currentLineIndex);
+        //         interactionMonitor->insertLineContent(
+        //             currentLineIndex,
+        //             interactionMonitor->getLineContent(currentLineIndex) + string{lineRange.begin(), lineRange.end()}
+        //         );
+        //     } else {
+        //         interactionMonitor->insertLineContent(
+        //             currentLineIndex + insertedlineCount, {lineRange.begin(), lineRange.end()}
+        //         );
+        //     }
+        //     ++insertedlineCount;
+        // }
+        system::setEnvironmentVariable(
+            completionGeneratedKey,
+            interactionMonitor->getLineContent(currentLineIndex) + regex_replace(content, regex("\r\n"), R"(\r\n)")
+        );
+        WindowManager::GetInstance()->sendAcceptCompletion();
         WebsocketManager::GetInstance()->sendAction(WsAction::CompletionAccept);
         logger::log(format("Accepted completion: {}", content));
         needBlockMessage = true;

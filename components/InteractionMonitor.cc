@@ -349,7 +349,7 @@ void InteractionMonitor::setSelectedContent(const std::string& content) const {
     );
 
     if (param1) {
-        functionSetBufSelText(param1, content.data());
+        functionSetBufSelText(param1, content.c_str());
     }
 }
 
@@ -418,9 +418,6 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                         _isSelecting.store(false);
                         ignore = _handleInteraction(Interaction::SelectionClear);
                         break;
-                    }
-                    case Key::F12: {
-                        ignore = _handleInteraction(Interaction::AcceptCompletion);
                     }
                     default: {
                         // TODO: Support Key::Delete
@@ -595,9 +592,12 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
     bool needBlockMessage{false};
     switch (wParam) {
         case VK_TAB: {
-            logger::debug(format("Tab key, isKeyUp: {}", isKeyUp));
             if (WindowManager::GetInstance()->hasValidCodeWindow()) {
-                needBlockMessage = _handleInteraction(Interaction::AcceptCompletion);
+                if (isKeyUp) {
+                    needBlockMessage = true;
+                } else {
+                    needBlockMessage = _handleInteraction(Interaction::AcceptCompletion);
+                }
             }
             break;
         }
