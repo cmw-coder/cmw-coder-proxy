@@ -24,7 +24,7 @@ namespace {
         ModuleProxy::Construct();
         Configurator::Construct();
         WebsocketManager::Construct("ws://127.0.0.1:3000");
-        ModificationManager::Construct();
+        // ModificationManager::Construct();
         CompletionManager::Construct();
         InteractionMonitor::Construct();
         WindowManager::Construct();
@@ -36,7 +36,7 @@ namespace {
         WindowManager::Destruct();
         InteractionMonitor::Destruct();
         CompletionManager::Destruct();
-        ModificationManager::Destruct();
+        // ModificationManager::Destruct();
         WebsocketManager::Destruct();
         Configurator::Destruct();
         ModuleProxy::Destruct();

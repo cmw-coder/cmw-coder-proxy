@@ -556,12 +556,12 @@ void InteractionMonitor::_processMouseMessage(const unsigned wParam) {
             break;
         }
         case WM_LBUTTONUP: {
-            if (_isSelecting.load()) {
-                auto selectRange = _monitorCursorSelect();
-                ignore = _handleInteraction(Interaction::SelectionSet, selectRange);
-            } else {
-                ignore = _handleInteraction(Interaction::SelectionClear);
-            }
+            // if (_isSelecting.load()) {
+            //     auto selectRange = _monitorCursorSelect();
+            //     ignore = _handleInteraction(Interaction::SelectionSet, selectRange);
+            // } else {
+            //     ignore = _handleInteraction(Interaction::SelectionClear);
+            // }
             _isMouseLeftDown.store(false);
             break;
         }
