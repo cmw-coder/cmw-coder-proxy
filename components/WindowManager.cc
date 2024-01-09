@@ -40,7 +40,7 @@ bool WindowManager::checkNeedShowWhenGainFocus(const int64_t windowHandle) {
     return false;
 }
 
-tuple<int64_t, int64_t> WindowManager::getCurrentPosition() const {
+tuple<int64_t, int64_t> WindowManager::getClientPosition() const {
     return window::getClientPosition(_codeWindowHandle);
 }
 
@@ -55,14 +55,6 @@ void WindowManager::interactionPaste(const any&) {
 void WindowManager::requestRetrieveInfo() {
     _debounceRetrieveInfoTime.store(chrono::high_resolution_clock::now() + chrono::milliseconds(250));
     _needRetrieveInfo.store(true);
-}
-
-bool WindowManager::sendAcceptCompletion() {
-    _cancelRetrieveInfo();
-    return window::postKeycode(
-        _codeWindowHandle,
-        _keyHelper.toKeycode(Key::F10, {Modifier::Shift, Modifier::Ctrl, Modifier::Alt})
-    );
 }
 
 void WindowManager::sendLeftThenRight() const {

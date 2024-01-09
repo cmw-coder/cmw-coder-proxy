@@ -17,15 +17,13 @@ namespace components {
 
         bool checkNeedShowWhenGainFocus(int64_t windowHandle);
 
-        std::tuple<int64_t, int64_t> getCurrentPosition() const;
+        std::tuple<int64_t, int64_t> getClientPosition() const;
 
         bool hasValidCodeWindow() const;
 
         void interactionPaste(const std::any& = {});
 
         void requestRetrieveInfo();
-
-        bool sendAcceptCompletion();
 
         void sendLeftThenRight() const;
 
