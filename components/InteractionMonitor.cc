@@ -37,7 +37,6 @@ namespace {
         }
     }
 
-    constexpr auto autoCompletionKey = "CMWCODER_autoCompletion";
     constexpr auto debugLogKey = "CMWCODER_debugLog";
     constexpr auto projectKey = "CMWCODER_project";
     constexpr auto symbolsKey = "CMWCODER_symbols";
@@ -94,7 +93,6 @@ InteractionMonitor::InteractionMonitor()
         abort();
     }
 
-    _monitorAutoCompletion();
     _monitorCaretPosition();
     _monitorDebugLog();
     _monitorEditorInfo();
@@ -115,7 +113,7 @@ void InteractionMonitor::deleteLineContent(const uint32_t line) const {
 }
 
 tuple<int64_t, int64_t> InteractionMonitor::getCaretPixels(const uint32_t line) const {
-    const auto [clientX, clientY] = WindowManager::GetInstance()->getCurrentPosition();
+    const auto [clientX, clientY] = WindowManager::GetInstance()->getClientPosition();
     const auto funcYPosFromLine = StdCallFunction<uint32_t(uint32_t, uint32_t)>(
         _baseAddress + _memoryAddress.window.funcYPosFromLine.base
     );
@@ -336,18 +334,6 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                         _isSelecting.store(false);
                         break;
                     }
-                    case Key::Escape: {
-                        _isSelecting.store(false);
-                        if (Configurator::GetInstance()->version().first == SiVersion::Major::V40) {
-                            thread([this] {
-                                this_thread::sleep_for(chrono::milliseconds(150));
-                                ignore = _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
-                            }).detach();
-                        } else {
-                            ignore = _handleInteraction(Interaction::CancelCompletion, make_tuple(false, true));
-                        }
-                        break;
-                    }
                     case Key::Home:
                     case Key::End:
                     case Key::PageDown:
@@ -415,20 +401,6 @@ bool InteractionMonitor::_handleInteraction(const Interaction interaction, const
         ));
     }
     return needBlockMessage;
-}
-
-void InteractionMonitor::_monitorAutoCompletion() const {
-    thread([this] {
-        while (_isRunning.load()) {
-            if (const auto isAutoCompletionOpt = system::getRegValue(_subKey, autoCompletionKey);
-                isAutoCompletionOpt.has_value()) {
-                CompletionManager::GetInstance()->setAutoCompletion(
-                    static_cast<bool>(stoi(isAutoCompletionOpt.value()))
-                );
-            }
-            this_thread::sleep_for(chrono::milliseconds(25));
-        }
-    }).detach();
 }
 
 void InteractionMonitor::_monitorCaretPosition() {
@@ -528,18 +500,32 @@ void InteractionMonitor::_monitorEditorInfo() const {
 }
 
 // ReSharper disable once CppDFAUnreachableFunctionCall
-bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigned lParam) const {
+bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigned lParam) {
+    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
+        return false;
+    }
+
     const auto keyFlags = HIWORD(lParam);
     const auto isKeyUp = (keyFlags & KF_UP) == KF_UP;
     bool needBlockMessage{false};
+
     switch (wParam) {
-        case VK_TAB: {
-            if (WindowManager::GetInstance()->hasValidCodeWindow()) {
-                if (isKeyUp) {
-                    needBlockMessage = true;
-                } else {
-                    needBlockMessage = _handleInteraction(Interaction::AcceptCompletion);
+        case VK_ESCAPE: {
+            if (isKeyUp) {
+                needBlockMessage = true;
+            } else {
+                needBlockMessage = _handleInteraction(Interaction::CancelCompletion);
+                if (!needBlockMessage) {
+                    _isSelecting.store(false);
                 }
+            }
+            break;
+        }
+        case VK_TAB: {
+            if (isKeyUp) {
+                needBlockMessage = true;
+            } else {
+                needBlockMessage = _handleInteraction(Interaction::AcceptCompletion);
             }
             break;
         }

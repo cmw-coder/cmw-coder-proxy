@@ -79,8 +79,6 @@ namespace components {
 
         bool _handleInteraction(types::Interaction interaction, const std::any& data = {}) const noexcept;
 
-        void _monitorAutoCompletion() const;
-
         void _monitorCaretPosition();
 
         types::Range _monitorCursorSelect() const;
@@ -89,7 +87,7 @@ namespace components {
 
         void _monitorEditorInfo() const;
 
-        bool _processKeyMessage(unsigned wParam, unsigned lParam) const;
+        bool _processKeyMessage(unsigned wParam, unsigned lParam);
 
         void _processMouseMessage(unsigned wParam);
 
