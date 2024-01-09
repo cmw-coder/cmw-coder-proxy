@@ -129,16 +129,16 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
             //     ModificationManager::GetInstance(),
             //     &ModificationManager::interactionSave
             // );
-            InteractionMonitor::GetInstance()->registerInteraction(
-                Interaction::SelectionSet,
-                ModificationManager::GetInstance(),
-                &ModificationManager::interactionSelectionSet
-            );
-            InteractionMonitor::GetInstance()->registerInteraction(
-                Interaction::SelectionClear,
-                ModificationManager::GetInstance(),
-                &ModificationManager::interactionSelectionClear
-            );
+            // InteractionMonitor::GetInstance()->registerInteraction(
+            //     Interaction::SelectionSet,
+            //     ModificationManager::GetInstance(),
+            //     &ModificationManager::interactionSelectionSet
+            // );
+            // InteractionMonitor::GetInstance()->registerInteraction(
+            //     Interaction::SelectionClear,
+            //     ModificationManager::GetInstance(),
+            //     &ModificationManager::interactionSelectionClear
+            // );
 
             WebsocketManager::GetInstance()->registerAction(
                 WsAction::CompletionGenerate,
