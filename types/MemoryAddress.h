@@ -44,7 +44,7 @@ namespace types {
             } dataSelection;
 
             struct {
-                uint32_t base, offset1;
+                uint32_t offset1;
             } dataXPos;
 
             struct {
