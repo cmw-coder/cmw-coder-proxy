@@ -30,9 +30,9 @@ namespace components {
 
         ~CompletionManager() override;
 
-        void interactionAcceptCompletion(const std::any&, bool& needBlockMessage);
+        void interactionCompletionAccept(const std::any&, bool& needBlockMessage);
 
-        void interactionCancelCompletion(const std::any&, bool& needBlockMessage);
+        void interactionCompletionCancel(const std::any& data, bool& needBlockMessage);
 
         void interactionDeleteInput(const std::any&, bool&);
 

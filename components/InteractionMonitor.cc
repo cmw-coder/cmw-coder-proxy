@@ -508,7 +508,7 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
             if (isKeyUp) {
                 needBlockMessage = true;
             } else {
-                needBlockMessage = _handleInteraction(Interaction::CancelCompletion);
+                needBlockMessage = _handleInteraction(Interaction::CompletionCancel, false);
                 if (!needBlockMessage) {
                     _isSelecting.store(false);
                 }
@@ -519,9 +519,9 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
             if (isKeyUp) {
                 needBlockMessage = true;
             } else if (WindowManager::GetInstance()->hasPopListWindow()) {
-                ignore = _handleInteraction(Interaction::CancelCompletion);
+                ignore = _handleInteraction(Interaction::CompletionCancel, true);
             } else {
-                needBlockMessage = _handleInteraction(Interaction::AcceptCompletion);
+                needBlockMessage = _handleInteraction(Interaction::CompletionAccept);
             }
             break;
         }

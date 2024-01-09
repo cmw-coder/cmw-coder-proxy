@@ -68,7 +68,7 @@ CompletionManager::~CompletionManager() {
     _isRunning = false;
 }
 
-void CompletionManager::interactionAcceptCompletion(const any&, bool& needBlockMessage) {
+void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockMessage) {
     // _isContinuousEnter.store(false);
     _isJustAccepted.store(true);
     string content;
@@ -97,11 +97,18 @@ void CompletionManager::interactionAcceptCompletion(const any&, bool& needBlockM
     }
 }
 
-void CompletionManager::interactionCancelCompletion(const std::any&, bool& needBlockMessage) {
+void CompletionManager::interactionCompletionCancel(const std::any& data, bool& needBlockMessage) {
     if (_hasValidCache()) {
         _cancelCompletion();
-        logger::log("Cancel completion");
+        logger::log("Cancel completion, Send CompletionCancel");
         needBlockMessage = true;
+    }
+    try {
+        if (any_cast<bool>(data)) {
+            _requestRetrieveCompletion();
+        }
+    } catch (const bad_any_cast& e) {
+        logger::log(format("Invalid interactionCompletionCancel data: {}", e.what()));
     }
 }
 
