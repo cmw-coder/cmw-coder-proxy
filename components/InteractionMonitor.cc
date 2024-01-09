@@ -518,6 +518,8 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
         case VK_TAB: {
             if (isKeyUp) {
                 needBlockMessage = true;
+            } else if (WindowManager::GetInstance()->hasPopListWindow()) {
+                ignore = _handleInteraction(Interaction::CancelCompletion);
             } else {
                 needBlockMessage = _handleInteraction(Interaction::AcceptCompletion);
             }

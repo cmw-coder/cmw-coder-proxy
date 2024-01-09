@@ -44,6 +44,10 @@ tuple<int64_t, int64_t> WindowManager::getClientPosition() const {
     return window::getClientPosition(_codeWindowHandle);
 }
 
+bool WindowManager::hasPopListWindow() const {
+    return _popListWindowHandle.load() > 0;
+}
+
 bool WindowManager::hasValidCodeWindow() const {
     return _codeWindowHandle.load() > 0;
 }

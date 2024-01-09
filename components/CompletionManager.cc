@@ -44,6 +44,10 @@ namespace {
                 }
                 return true;
             }
+            case '{': {
+                logger::info("Normal input. Ignore due to '{'");
+                return false;
+            }
             case '}': {
                 logger::info("Normal input. Ignore due to '}'");
                 return false;
@@ -58,6 +62,10 @@ namespace {
 
 CompletionManager::CompletionManager() {
     _threadDebounceRetrieveCompletion();
+}
+
+CompletionManager::~CompletionManager() {
+    _isRunning = false;
 }
 
 void CompletionManager::interactionAcceptCompletion(const any&, bool& needBlockMessage) {
@@ -139,16 +147,13 @@ void CompletionManager::interactionEnterInput(const any&, bool&) {
         _cancelCompletion();
         logger::log("Enter Input. Send CompletionCancel");
     }
-    _debounceRetrieveCompletionTime.store(chrono::high_resolution_clock::now());
-    _needRetrieveCompletion.store(true);
+    _requestRetrieveCompletion();
     // if (_isContinuousEnter.load()) {
-    //     _debounceRetrieveCompletionTime.store(chrono::high_resolution_clock::now());
-    //     _needRetrieveCompletion.store(true);
+    //     _requestRetrieveCompletion();
     //     logger::log("Detect Continuous enter, retrieve use previous completion");
     // } else {
     //     _isContinuousEnter.store(true);
-    //     _debounceRetrieveCompletionTime.store(chrono::high_resolution_clock::now());
-    //     _needRetrieveCompletion.store(true);
+    //     _requestRetrieveCompletion();
     //     logger::log("Detect first enter, retrieve editor info first");
     // }
 }
@@ -239,8 +244,11 @@ void CompletionManager::interactionNormalInput(const any& data, bool&) {
             needRetrieveCompletion = true;
         }
         if (needRetrieveCompletion) {
-            _needRetrieveCompletion.store(checkNeedRetrieveCompletion(character));
-            _debounceRetrieveCompletionTime.store(chrono::high_resolution_clock::now());
+            _prolongRetrieveCompletion();
+            _needDiscardWsAction.store(true);
+            if (checkNeedRetrieveCompletion(character)) {
+                _needRetrieveCompletion.store(true);
+            }
         }
     } catch (const bad_any_cast& e) {
         logger::warn(format("Invalid interactionNormalInput data: {}", e.what()));
@@ -254,9 +262,8 @@ void CompletionManager::interactionPaste(const std::any&, bool&) {
         _cancelCompletion();
         logger::log("Paste. Send CompletionCancel");
     }
+
     _isNewLine = true;
-    _needRetrieveCompletion.store(true);
-    _debounceRetrieveCompletionTime.store(chrono::high_resolution_clock::now());
 }
 
 void CompletionManager::interactionSave(const any&, bool&) {
@@ -271,20 +278,22 @@ void CompletionManager::interactionUndo(const any&, bool&) {
     _isNewLine = true;
     if (_isJustAccepted.load()) {
         _isJustAccepted.store(false);
+        return;
+    }
+
+    if (_hasValidCache()) {
+        _cancelCompletion();
+        logger::log("Undo. Send CompletionCancel");
     } else {
-        if (_hasValidCache()) {
-            _cancelCompletion();
-            logger::log("Undo. Send CompletionCancel");
-        } else {
-            // Invalidate current retrieval
-            _debounceRetrieveCompletionTime.store(chrono::high_resolution_clock::now());
-            _needRetrieveCompletion.store(false);
-        }
+        // Invalidate current retrieval
+        _prolongRetrieveCompletion();
+        _needDiscardWsAction.store(true);
+        _needRetrieveCompletion.store(false);
     }
 }
 
 void CompletionManager::wsActionCompletionGenerate(const nlohmann::json& data) {
-    if (_debounceRetrieveCompletionTime.load() > _wsActionSentTime.load()) {
+    if (_needDiscardWsAction.load()) {
         logger::log("(WsAction::CompletionGenerate) Ignore due to debounce");
         return;
     }
@@ -354,6 +363,16 @@ bool CompletionManager::_hasValidCache() const {
     return hasValidCache;
 }
 
+void CompletionManager::_prolongRetrieveCompletion() {
+    _debounceRetrieveCompletionTime.store(chrono::high_resolution_clock::now());
+}
+
+void CompletionManager::_requestRetrieveCompletion() {
+    _prolongRetrieveCompletion();
+    _needDiscardWsAction.store(true);
+    _needRetrieveCompletion.store(true);
+}
+
 void CompletionManager::_sendCompletionGenerate() {
     try {
         shared_lock componentsLock(_componentsMutex);
@@ -361,7 +380,7 @@ void CompletionManager::_sendCompletionGenerate() {
         const auto [xPixel, yPixel] = InteractionMonitor::GetInstance()->getCaretPixels(
             _components.caretPosition.line
         );
-        _wsActionSentTime.store(chrono::high_resolution_clock::now());
+        _needDiscardWsAction.store(false);
         WebsocketManager::GetInstance()->sendAction(
             WsAction::CompletionGenerate,
             {
@@ -435,7 +454,6 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     }
                     _sendCompletionGenerate();
                     _needRetrieveCompletion.store(false);
-                    this_thread::sleep_for(chrono::milliseconds(100));
                     continue;
                 } catch (const exception& e) {
                     logger::warn(format("Exception when retrieving completion: {}", e.what()));

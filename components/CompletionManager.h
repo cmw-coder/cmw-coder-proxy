@@ -28,6 +28,8 @@ namespace components {
 
         CompletionManager();
 
+        ~CompletionManager() override;
+
         void interactionAcceptCompletion(const std::any&, bool& needBlockMessage);
 
         void interactionCancelCompletion(const std::any&, bool& needBlockMessage);
@@ -65,13 +67,17 @@ namespace components {
 
         // TODO: Check if _isJustAccepted is still needed
         std::atomic<bool> _isAutoCompletion{true}, _isContinuousEnter{false}, _isJustAccepted{false},
-                _isNewLine{true}, _isRunning{true}, _needRetrieveCompletion{false};
-        std::atomic<types::Time> _debounceRetrieveCompletionTime, _wsActionSentTime;
+                _isNewLine{true}, _isRunning{true}, _needDiscardWsAction{false}, _needRetrieveCompletion{false};
+        std::atomic<types::Time> _debounceRetrieveCompletionTime;
         types::CompletionCache _completionCache;
 
         void _cancelCompletion();
 
         bool _hasValidCache() const;
+
+        void _prolongRetrieveCompletion();
+
+        void _requestRetrieveCompletion();
 
         void _sendCompletionGenerate();
 
