@@ -90,11 +90,7 @@ void CompletionManager::interactionAcceptCompletion(const any&, bool& needBlockM
 }
 
 void CompletionManager::interactionCancelCompletion(const std::any&, bool& needBlockMessage) {
-    bool hasValidCache; {
-        shared_lock lock(_completionCacheMutex);
-        hasValidCache = _completionCache.valid();
-    }
-    if (hasValidCache) {
+    if (_hasValidCache()) {
         _cancelCompletion();
         logger::log("Cancel completion");
         needBlockMessage = true;
@@ -125,16 +121,10 @@ void CompletionManager::interactionDeleteInput(const any&, bool&) {
                     logger::log("Delete backward. Send CompletionCancel due to cache miss");
                 }
             }
-        } else {
-            bool hasValidCache; {
-                shared_lock lock(_completionCacheMutex);
-                hasValidCache = _completionCache.valid();
-            }
-            if (hasValidCache) {
-                _isNewLine = true;
-                _cancelCompletion();
-                logger::log("Delete backward. Send CompletionCancel due to delete across line");
-            }
+        } else if (_hasValidCache()) {
+            _isNewLine = true;
+            _cancelCompletion();
+            logger::log("Delete backward. Send CompletionCancel due to delete across line");
         }
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid delayedDelete data: {}", e.what()));
@@ -145,11 +135,7 @@ void CompletionManager::interactionEnterInput(const any&, bool&) {
     _isJustAccepted.store(false);
     _isNewLine = true;
     // TODO: Support 1st level cache
-    bool hasValidCache; {
-        shared_lock lock(_completionCacheMutex);
-        hasValidCache = _completionCache.valid();
-    }
-    if (hasValidCache) {
+    if (_hasValidCache()) {
         _cancelCompletion();
         logger::log("Enter Input. Send CompletionCancel");
     }
@@ -183,10 +169,12 @@ void CompletionManager::interactionNavigateWithKey(const any& data, bool&) {
                 break;
             }
         }
-        _cancelCompletion();
-        logger::log("Navigate. Send CompletionCancel");
+        if (_hasValidCache()) {
+            _cancelCompletion();
+            logger::log("Navigate with key. Send CompletionCancel");
+        }
     } catch (const bad_any_cast& e) {
-        logger::log(format("Invalid interactionNavigate data: {}", e.what()));
+        logger::log(format("Invalid interactionNavigateWithKey data: {}", e.what()));
     }
 }
 
@@ -194,18 +182,21 @@ void CompletionManager::interactionNavigateWithMouse(const any& data, bool&) {
     // _isContinuousEnter.store(false);
     try {
         const auto [newCursorPosition, _] = any_cast<tuple<CaretPosition, CaretPosition>>(data); {
-            shared_lock lock(_componentsMutex);
+            shared_lock componentsLock(_componentsMutex);
             if (_components.caretPosition.line != newCursorPosition.line) {
                 _isNewLine = true;
             }
             if (_components.caretPosition != newCursorPosition) {
-                _cancelCompletion();
+                if (_hasValidCache()) {
+                    _cancelCompletion();
+                    logger::log("Navigate with mouse. Send CompletionCancel");
+                }
             }
         }
         unique_lock lock(_componentsMutex);
         _components.caretPosition = newCursorPosition;
     } catch (const bad_any_cast& e) {
-        logger::log(format("Invalid interactionCaretUpdate data: {}", e.what()));
+        logger::log(format("Invalid interactionNavigateWithMouse data: {}", e.what()));
     }
 }
 
@@ -258,28 +249,30 @@ void CompletionManager::interactionNormalInput(const any& data, bool&) {
     }
 }
 
-void CompletionManager::interactionSave(const any&, bool&) {
-    bool hasValidCache; {
-        shared_lock lock(_completionCacheMutex);
-        hasValidCache = _completionCache.valid();
+void CompletionManager::interactionPaste(const std::any&, bool&) {
+    if (_hasValidCache()) {
+        _cancelCompletion();
+        logger::log("Paste. Send CompletionCancel");
     }
-    if (hasValidCache) {
+    _isNewLine = true;
+    _needRetrieveCompletion.store(true);
+    _debounceRetrieveCompletionTime.store(chrono::high_resolution_clock::now());
+}
+
+void CompletionManager::interactionSave(const any&, bool&) {
+    if (_hasValidCache()) {
         _cancelCompletion();
         logger::log("Save. Send CompletionCancel");
     }
 }
 
-void CompletionManager::instantUndo(const any&) {
+void CompletionManager::interactionUndo(const any&, bool&) {
     // _isContinuousEnter.store(false);
     _isNewLine = true;
     if (_isJustAccepted.load()) {
         _isJustAccepted.store(false);
     } else {
-        bool hasValidCache; {
-            shared_lock lock(_completionCacheMutex);
-            hasValidCache = _completionCache.valid();
-        }
-        if (hasValidCache) {
+        if (_hasValidCache()) {
             _cancelCompletion();
             logger::log("Undo. Send CompletionCancel");
         } else {
@@ -351,6 +344,14 @@ void CompletionManager::_cancelCompletion() {
     WebsocketManager::GetInstance()->sendAction(WsAction::CompletionCancel);
     unique_lock lock(_completionCacheMutex);
     _completionCache.reset();
+}
+
+bool CompletionManager::_hasValidCache() const {
+    bool hasValidCache; {
+        shared_lock lock(_completionCacheMutex);
+        hasValidCache = _completionCache.valid();
+    }
+    return hasValidCache;
 }
 
 void CompletionManager::_sendCompletionGenerate() {

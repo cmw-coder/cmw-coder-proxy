@@ -30,7 +30,7 @@ namespace components {
 
         void interactionAcceptCompletion(const std::any&, bool& needBlockMessage);
 
-        void interactionCancelCompletion(const std::any&, bool&needBlockMessage);
+        void interactionCancelCompletion(const std::any&, bool& needBlockMessage);
 
         void interactionDeleteInput(const std::any&, bool&);
 
@@ -42,9 +42,11 @@ namespace components {
 
         void interactionNormalInput(const std::any& data, bool&);
 
+        void interactionPaste(const std::any&, bool&);
+
         void interactionSave(const std::any&, bool&);
 
-        void instantUndo(const std::any& = {});
+        void interactionUndo(const std::any&, bool&);
 
         void wsActionCompletionGenerate(const nlohmann::json& data);
 
@@ -68,6 +70,8 @@ namespace components {
         types::CompletionCache _completionCache;
 
         void _cancelCompletion();
+
+        bool _hasValidCache() const;
 
         void _sendCompletionGenerate();
 

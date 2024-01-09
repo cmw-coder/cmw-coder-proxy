@@ -120,6 +120,11 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
             //     &ModificationManager::interactionNormalInput
             // );
             InteractionMonitor::GetInstance()->registerInteraction(
+                Interaction::Paste,
+                CompletionManager::GetInstance(),
+                &CompletionManager::interactionPaste
+            );
+            InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::Save,
                 CompletionManager::GetInstance(),
                 &CompletionManager::interactionSave
@@ -139,6 +144,11 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
             //     ModificationManager::GetInstance(),
             //     &ModificationManager::interactionSelectionClear
             // );
+            InteractionMonitor::GetInstance()->registerInteraction(
+                Interaction::Undo,
+                CompletionManager::GetInstance(),
+                &CompletionManager::interactionUndo
+            );
 
             WebsocketManager::GetInstance()->registerAction(
                 WsAction::CompletionGenerate,
