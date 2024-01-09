@@ -117,19 +117,13 @@ tuple<int64_t, int64_t> InteractionMonitor::getCaretPixels(const uint32_t line) 
     const auto funcYPosFromLine = StdCallFunction<uint32_t(uint32_t, uint32_t)>(
         _baseAddress + _memoryAddress.window.funcYPosFromLine.base
     );
-    const auto yPos = funcYPosFromLine(_getWindowHandle(), line);
+    const auto windowHandle = _getWindowHandle();
+    const auto yPos = funcYPosFromLine(windowHandle, line);
 
-    uint32_t xPos, xPosBase;
+    uint32_t xPos;
     ReadProcessMemory(
         _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataXPos.base),
-        &xPosBase,
-        sizeof(xPosBase),
-        nullptr
-    );
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataXPos.offset1),
+        reinterpret_cast<LPCVOID>(windowHandle + _memoryAddress.window.dataXPos.offset1),
         &xPos,
         sizeof(xPos),
         nullptr
