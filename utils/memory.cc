@@ -29,6 +29,7 @@ namespace {
                             {0x1CD3DC, 0x1CD3E0},
                             {0x1BE0CC, 0x1C574C, 0x1E3B9C, 0x1E3BA4},
                             {0x000024},
+                            {0x1CCD3C},
                             {0x09180C, 0X1CCD48},
                             {0x108894},
                             {0x1007D7},

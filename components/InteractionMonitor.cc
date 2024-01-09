@@ -120,7 +120,7 @@ tuple<int64_t, int64_t> InteractionMonitor::getCaretPixels(const uint32_t line) 
     const auto windowHandle = _getWindowHandle();
     const auto yPos = funcYPosFromLine(windowHandle, line);
 
-    uint32_t xPos;
+    uint32_t xPos, yDim;
     ReadProcessMemory(
         _processHandle.get(),
         reinterpret_cast<LPCVOID>(windowHandle + _memoryAddress.window.dataXPos.offset1),
@@ -128,11 +128,21 @@ tuple<int64_t, int64_t> InteractionMonitor::getCaretPixels(const uint32_t line) 
         sizeof(xPos),
         nullptr
     );
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataYDim.base),
+        &yDim,
+        sizeof(yDim),
+        nullptr
+    );
 
-    logger::debug(format("Line {} Positions: Client ({}, {}), Caret ({}, {})", line, clientX, clientY, xPos, yPos));
+    logger::debug(format(
+        "Line {} Positions: Client ({}, {}), Caret ({}, {}, {})",
+        line, clientX, clientY, xPos, yPos, yDim
+    ));
     return {
-        clientX + static_cast<int64_t>(xPos),
-        clientY + static_cast<int64_t>(yPos)
+        clientX + xPos,
+        clientY + yPos + static_cast<int64_t>(round(0.625 * yDim - 21.125)),
     };
 }
 

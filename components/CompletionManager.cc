@@ -384,7 +384,7 @@ void CompletionManager::_sendCompletionGenerate() {
     try {
         shared_lock componentsLock(_componentsMutex);
         shared_lock editorInfoLock(_editorInfoMutex);
-        const auto [xPixel, yPixel] = InteractionMonitor::GetInstance()->getCaretPixels(
+        const auto [xPos, yPos] = InteractionMonitor::GetInstance()->getCaretPixels(
             _components.caretPosition.line
         );
         _needDiscardWsAction.store(false);
@@ -395,8 +395,8 @@ void CompletionManager::_sendCompletionGenerate() {
                     "caret", {
                         {"character", _components.caretPosition.character},
                         {"line", _components.caretPosition.line},
-                        {"xPixel", xPixel},
-                        {"yPixel", yPixel},
+                        {"xPixel", xPos},
+                        {"yPixel", yPos},
                     }
                 },
                 {"path", encode(_components.path, crypto::Encoding::Base64)},

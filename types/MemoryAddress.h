@@ -48,6 +48,10 @@ namespace types {
             } dataXPos;
 
             struct {
+                uint32_t base;
+            } dataYDim;
+
+            struct {
                 uint32_t base, param1Base;
             } funcSetBufSelText;
 
