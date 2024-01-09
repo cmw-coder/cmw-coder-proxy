@@ -71,6 +71,10 @@ namespace components {
 
         static long __stdcall _windowProcedureHook(int nCode, unsigned int wParam, long lParam);
 
+        uint32_t _getFileHandle() const;
+
+        uint32_t _getWindowHandle() const;
+
         void _handleKeycode(types::Keycode keycode) noexcept;
 
         bool _handleInteraction(types::Interaction interaction, const std::any& data = {}) const noexcept;

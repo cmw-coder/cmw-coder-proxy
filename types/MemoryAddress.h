@@ -5,61 +5,59 @@
 namespace types {
     struct MemoryAddress {
         struct {
-            struct {
-                struct {
-                    uint32_t pointer, offset1;
-                } x;
-
-                struct {
-                    uint32_t windowHandle;
-
-                    struct {
-                        uint32_t funcAddress;
-                    } funcYPosFromLine;
-                } y;
-            } dimension;
+            uint32_t handle;
 
             struct {
-                struct {
-                    uint32_t line, character;
-                } begin, current, end;
-            } position;
-        } caret;
-
-        struct {
-            uint32_t fileHandle;
-
-            struct {
-                uint32_t funcAddress;
+                uint32_t base;
             } funcDelBufLine;
 
             struct {
-                uint32_t funcAddress;
+                uint32_t base;
             } funcGetBufLine;
 
             struct {
-                uint32_t funcAddress, param1Offset1, param1Offset2;
+                uint32_t base, param1Base, param1Offset1;
             } funcGetBufName;
 
             struct {
-                uint32_t funcAddress;
+                uint32_t base;
             } funcInsBufLine;
 
             struct {
-                uint32_t funcAddress;
+                uint32_t base;
             } funcPutBufLine;
         } file;
 
         struct {
-            uint32_t windowHandle;
+            uint32_t handle;
 
             struct {
-                uint32_t funcAddress, param1;
+                struct {
+                    uint32_t base;
+                } line, character;
+            } dataCaret;
+
+            struct {
+                struct {
+                    uint32_t base;
+                } lineStart, characterStart, lineEnd, characterEnd;
+            } dataSelection;
+
+            struct {
+                uint32_t base, offset1;
+            } dataXPos;
+
+            struct {
+                uint32_t base, param1Base;
             } funcSetBufSelText;
 
             struct {
-                uint32_t funcAddress;
+                uint32_t base;
             } funcSetWndSel;
+
+            struct {
+                uint32_t base;
+            } funcYPosFromLine;
         } window;
     };
 }

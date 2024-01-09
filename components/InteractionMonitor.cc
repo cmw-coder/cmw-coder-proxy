@@ -27,9 +27,15 @@ using namespace types;
 using namespace utils;
 
 namespace {
-    constexpr auto convertPathSeperators = [](const string& input) {
+    string convertPathSeperators(const string& input) {
         return regex_replace(input, regex(R"(\\\\)"), "/");
-    };
+    }
+
+    void checkValidCodeWindow() {
+        if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
+            throw runtime_error("No valid code window");
+        }
+    }
 
     constexpr auto autoCompletionKey = "CMWCODER_autoCompletion";
     constexpr auto debugLogKey = "CMWCODER_debugLog";
@@ -99,78 +105,42 @@ InteractionMonitor::~InteractionMonitor() {
 }
 
 void InteractionMonitor::deleteLineContent(const uint32_t line) const {
-    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
-        throw runtime_error("No valid code window");
-    }
-
-    const auto functionDelBufLine = StdCallFunction<void(uint32_t, uint32_t, uint32_t)>(
-        _baseAddress + _memoryAddress.file.funcDelBufLine.funcAddress
+    const auto funcDelBufLine = StdCallFunction<void(uint32_t, uint32_t, uint32_t)>(
+        _baseAddress + _memoryAddress.file.funcDelBufLine.base
     );
 
-    uint32_t fileHandle;
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.fileHandle),
-        &fileHandle,
-        sizeof(fileHandle),
-        nullptr
-    );
-
-    if (fileHandle) {
-        functionDelBufLine(fileHandle, line, 1);
+    if (const auto fileHandle = _getFileHandle()) {
+        funcDelBufLine(fileHandle, line, 1);
     }
 }
 
 tuple<int64_t, int64_t> InteractionMonitor::getCaretPixels(const uint32_t line) const {
-    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
-        throw runtime_error("No valid code window");
-    }
-
-    const auto hwndAddress = _baseAddress + _memoryAddress.caret.dimension.y.windowHandle;
-    const auto functionYPosFromLine = StdCallFunction<uint32_t(uint32_t, uint32_t)>(
-        _baseAddress + _memoryAddress.caret.dimension.y.funcYPosFromLine.funcAddress
+    const auto [clientX, clientY] = WindowManager::GetInstance()->getCurrentPosition();
+    const auto funcYPosFromLine = StdCallFunction<uint32_t(uint32_t, uint32_t)>(
+        _baseAddress + _memoryAddress.window.funcYPosFromLine.base
     );
-    uint32_t hwnd, xPixel;
+    const auto yPos = funcYPosFromLine(_getWindowHandle(), line);
+
+    uint32_t xPos, xPosBase;
     ReadProcessMemory(
         _processHandle.get(),
-        reinterpret_cast<LPCVOID>(hwndAddress),
-        &hwnd,
-        sizeof(hwnd),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataXPos.base),
+        &xPosBase,
+        sizeof(xPosBase),
         nullptr
     );
-    while (!hwnd) {
-        this_thread::sleep_for(chrono::milliseconds(5));
-        ReadProcessMemory(
-            _processHandle.get(),
-            reinterpret_cast<LPCVOID>(hwndAddress),
-            &hwnd,
-            sizeof(hwnd),
-            nullptr
-        );
-    }
-    const auto yPixel = functionYPosFromLine(hwnd, line); {
-        uint32_t xPosPointer;
-        ReadProcessMemory(
-            _processHandle.get(),
-            reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.dimension.x.pointer),
-            &xPosPointer,
-            sizeof(xPosPointer),
-            nullptr
-        );
-        ReadProcessMemory(
-            _processHandle.get(),
-            reinterpret_cast<LPCVOID>(xPosPointer + _memoryAddress.caret.dimension.x.offset1),
-            &xPixel,
-            sizeof(xPixel),
-            nullptr
-        );
-    }
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataXPos.offset1),
+        &xPos,
+        sizeof(xPos),
+        nullptr
+    );
 
-    const auto [clientX, clientY] = WindowManager::GetInstance()->getCurrentPosition();
-    logger::debug(format("Line {} Positions: Client ({}, {}), Caret ({}, {})", line, clientX, clientY, xPixel, yPixel));
+    logger::debug(format("Line {} Positions: Client ({}, {}), Caret ({}, {})", line, clientX, clientY, xPos, yPos));
     return {
-        clientX + static_cast<int64_t>(xPixel),
-        clientY + static_cast<int64_t>(yPixel)
+        clientX + static_cast<int64_t>(xPos),
+        clientY + static_cast<int64_t>(yPos)
     };
 }
 
@@ -178,14 +148,14 @@ CaretPosition InteractionMonitor::getCaretPosition() const {
     CaretPosition cursorPosition{};
     ReadProcessMemory(
         _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.current.line),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataCaret.line.base),
         &cursorPosition.line,
         sizeof(cursorPosition.line),
         nullptr
     );
     ReadProcessMemory(
         _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.current.character),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataCaret.character.base),
         &cursorPosition.character,
         sizeof(cursorPosition.character),
         nullptr
@@ -194,32 +164,22 @@ CaretPosition InteractionMonitor::getCaretPosition() const {
 }
 
 string InteractionMonitor::getFileName() const {
-    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
-        throw runtime_error("No valid code window");
-    }
-
     uint32_t param1;
     const auto functionGetBufName = StdCallFunction<void(uint32_t, void*)>(
-        _baseAddress + _memoryAddress.file.funcGetBufName.funcAddress
+        _baseAddress + _memoryAddress.file.funcGetBufName.base
     ); {
-        uint32_t fileHandle, param1Offset1;
+        const auto fileHandle = _getFileHandle();
+        uint32_t param1Base;
         ReadProcessMemory(
             _processHandle.get(),
-            reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.fileHandle),
-            &fileHandle,
-            sizeof(fileHandle),
+            reinterpret_cast<LPCVOID>(fileHandle + _memoryAddress.file.funcGetBufName.param1Base),
+            &param1Base,
+            sizeof(param1Base),
             nullptr
         );
         ReadProcessMemory(
             _processHandle.get(),
-            reinterpret_cast<LPCVOID>(fileHandle + _memoryAddress.file.funcGetBufName.param1Offset1),
-            &param1Offset1,
-            sizeof(param1Offset1),
-            nullptr
-        );
-        ReadProcessMemory(
-            _processHandle.get(),
-            reinterpret_cast<LPCVOID>(param1Offset1 + _memoryAddress.file.funcGetBufName.param1Offset2),
+            reinterpret_cast<LPCVOID>(param1Base + _memoryAddress.file.funcGetBufName.param1Offset1),
             &param1,
             sizeof(param1),
             nullptr
@@ -236,24 +196,11 @@ string InteractionMonitor::getLineContent() const {
 }
 
 string InteractionMonitor::getLineContent(const uint32_t line) const {
-    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
-        throw runtime_error("No valid code window");
-    }
-
     const auto functionGetBufLine = StdCallFunction<void(uint32_t, uint32_t, void*)>(
-        _baseAddress + _memoryAddress.file.funcGetBufLine.funcAddress
+        _baseAddress + _memoryAddress.file.funcGetBufLine.base
     );
 
-    uint32_t fileHandle;
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.fileHandle),
-        &fileHandle,
-        sizeof(fileHandle),
-        nullptr
-    );
-
-    if (fileHandle) {
+    if (const auto fileHandle = _getFileHandle()) {
         CompactString payload;
         functionGetBufLine(fileHandle, line, payload.data());
         return payload.str();
@@ -262,87 +209,54 @@ string InteractionMonitor::getLineContent(const uint32_t line) const {
 }
 
 void InteractionMonitor::insertLineContent(const uint32_t line, const std::string& content) const {
-    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
-        throw runtime_error("No valid code window");
-    }
-
     const auto functionInsBufLine = StdCallFunction<void(uint32_t, uint32_t, void*)>(
-        _baseAddress + _memoryAddress.file.funcInsBufLine.funcAddress
+        _baseAddress + _memoryAddress.file.funcInsBufLine.base
     );
 
-    uint32_t fileHandle;
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.fileHandle),
-        &fileHandle,
-        sizeof(fileHandle),
-        nullptr
-    );
-
-    if (fileHandle) {
+    if (const auto fileHandle = _getFileHandle()) {
         CompactString payload(content);
         functionInsBufLine(fileHandle, line, payload.data());
     }
 }
 
 void InteractionMonitor::setCaretPosition(const CaretPosition& caretPosition) const {
-    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
-        throw runtime_error("No valid code window");
-    }
     const auto SetWndSel = StdCallFunction<void(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(
-        _baseAddress + _memoryAddress.window.funcSetWndSel.funcAddress
+        _baseAddress + _memoryAddress.window.funcSetWndSel.base
     );
 
-    uint32_t hwnd;
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.dimension.y.windowHandle),
-        &hwnd,
-        sizeof(hwnd),
-        nullptr
-    );
-    if (hwnd) {
-        SetWndSel(hwnd, caretPosition.line, caretPosition.character, caretPosition.line, caretPosition.character);
+    if (const auto windowHandle = _getWindowHandle()) {
+        SetWndSel(
+            windowHandle,
+            caretPosition.line,
+            caretPosition.character,
+            caretPosition.line,
+            caretPosition.character
+        );
     }
 }
 
 void InteractionMonitor::setLineContent(const uint32_t line, const string& content) const {
-    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
-        throw runtime_error("No valid code window");
-    }
-
     const auto functionPutBufLine = StdCallFunction<void(uint32_t, uint32_t, void*)>(
-        _baseAddress + _memoryAddress.file.funcPutBufLine.funcAddress
+        _baseAddress + _memoryAddress.file.funcPutBufLine.base
     );
 
-    uint32_t fileHandle;
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.fileHandle),
-        &fileHandle,
-        sizeof(fileHandle),
-        nullptr
-    );
-
-    if (fileHandle) {
+    if (const auto fileHandle = _getFileHandle()) {
         CompactString payload(content);
         functionPutBufLine(fileHandle, line, payload.data());
     }
 }
 
 void InteractionMonitor::setSelectedContent(const std::string& content) const {
-    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
-        throw runtime_error("No valid code window");
-    }
+    checkValidCodeWindow();
 
     const auto functionSetBufSelText = StdCallFunction<void(uint32_t, const char*)>(
-        _baseAddress + _memoryAddress.window.funcSetBufSelText.funcAddress
+        _baseAddress + _memoryAddress.window.funcSetBufSelText.base
     );
 
     uint32_t param1;
     ReadProcessMemory(
         _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.funcSetBufSelText.param1),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.funcSetBufSelText.param1Base),
         &param1,
         sizeof(param1),
         nullptr
@@ -368,6 +282,34 @@ long InteractionMonitor::_mouseProcedureHook(const int nCode, const unsigned wPa
 long InteractionMonitor::_windowProcedureHook(const int nCode, const unsigned int wParam, const long lParam) {
     GetInstance()->_processWindowMessage(lParam);
     return CallNextHookEx(nullptr, nCode, wParam, lParam);
+}
+
+uint32_t InteractionMonitor::_getFileHandle() const {
+    checkValidCodeWindow();
+
+    uint32_t fileHandle;
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.handle),
+        &fileHandle,
+        sizeof(fileHandle),
+        nullptr
+    );
+    return fileHandle;
+}
+
+uint32_t InteractionMonitor::_getWindowHandle() const {
+    checkValidCodeWindow();
+
+    uint32_t windowHandle;
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.handle),
+        &windowHandle,
+        sizeof(windowHandle),
+        nullptr
+    );
+    return windowHandle;
 }
 
 // ReSharper disable once CppDFAUnreachableFunctionCall
@@ -520,28 +462,28 @@ Range InteractionMonitor::_monitorCursorSelect() const {
     Range select{};
     ReadProcessMemory(
         _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.begin.line),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataSelection.lineStart.base),
         &select.start.line,
         sizeof(select.start.line),
         nullptr
     );
     ReadProcessMemory(
         _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.begin.character),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataSelection.characterStart.base),
         &select.start.character,
         sizeof(select.start.character),
         nullptr
     );
     ReadProcessMemory(
         _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.end.line),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataSelection.lineEnd.base),
         &select.end.line,
         sizeof(select.end.line),
         nullptr
     );
     ReadProcessMemory(
         _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.caret.position.end.character),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataSelection.characterEnd.base),
         &select.end.character,
         sizeof(select.end.character),
         nullptr
