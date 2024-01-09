@@ -65,6 +65,11 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
             //     &ModificationManager::interactionAcceptCompletion
             // );
             InteractionMonitor::GetInstance()->registerInteraction(
+                Interaction::CancelCompletion,
+                CompletionManager::GetInstance(),
+                &CompletionManager::interactionCancelCompletion
+            );
+            InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::DeleteInput,
                 CompletionManager::GetInstance(),
                 &CompletionManager::interactionDeleteInput

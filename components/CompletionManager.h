@@ -30,6 +30,8 @@ namespace components {
 
         void interactionAcceptCompletion(const std::any&, bool& needBlockMessage);
 
+        void interactionCancelCompletion(const std::any&, bool&needBlockMessage);
+
         void interactionDeleteInput(const std::any&, bool&);
 
         void interactionEnterInput(const std::any&, bool&);
