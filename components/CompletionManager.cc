@@ -97,7 +97,7 @@ void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockM
     }
 }
 
-void CompletionManager::interactionCompletionCancel(const std::any& data, bool& needBlockMessage) {
+void CompletionManager::interactionCompletionCancel(const any& data, bool& needBlockMessage) {
     if (_hasValidCache()) {
         _cancelCompletion();
         logger::log("Cancel completion, Send CompletionCancel");
@@ -264,7 +264,7 @@ void CompletionManager::interactionNormalInput(const any& data, bool&) {
     }
 }
 
-void CompletionManager::interactionPaste(const std::any&, bool&) {
+void CompletionManager::interactionPaste(const any&, bool&) {
     if (_hasValidCache()) {
         _cancelCompletion();
         logger::log("Paste. Send CompletionCancel");
@@ -428,7 +428,12 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     auto suffix = currentLine.substr(caretPosition.character);
                     if (_isNewLine) {
                         for (auto index = 1; index <= min(caretPosition.line, 30u); ++index) {
-                            prefix.insert(0, getContextLine(-index).append("\r\n"));
+                            auto tempLine = getContextLine(-index);
+                            prefix.insert(0, tempLine.append("\r\n"));
+                            if (regex_match(tempLine, regex(R"(^\/\/[.\W]*)")) ||
+                                regex_match(tempLine, regex(R"(^\/\*[.\W]*)"))) {
+                                break;
+                            }
                         }
                         for (auto index = 1; index <= 5; ++index) {
                             suffix.append("\r\n").append(getContextLine(index));
@@ -438,6 +443,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             _components.path = InteractionMonitor::GetInstance()->getFileName();
                             _components.prefix = move(prefix);
                             _components.suffix = move(suffix);
+                            _components.tabString = ModificationManager::GetInstance()->getModifingFiles();
                         }
                         _isNewLine = false;
                         logger::info("Retrieve completion with full prefix");

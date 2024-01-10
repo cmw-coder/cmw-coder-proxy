@@ -10,9 +10,11 @@
 namespace components {
     class ModificationManager : public SingletonDclp<ModificationManager> {
     public:
-        ModificationManager() = default;
+        ModificationManager();
 
-        ~ModificationManager() override = default;
+        ~ModificationManager() override;
+
+        std::string getModifingFiles() const;
 
         void interactionAcceptCompletion(const std::any&, bool&);
 
@@ -33,9 +35,13 @@ namespace components {
         void interactionSelectionSet(const std::any& data, bool&);
 
     private:
-        mutable std::shared_mutex _currentModificationMutex;
+        mutable std::shared_mutex _currentModificationMutex, _modifingFilesMutex;
+        std::atomic<bool> _isRunning{true};
         std::unordered_map<std::string, types::Modification> _modificationMap;
+        std::unordered_map<std::string, std::chrono::high_resolution_clock::time_point> _modifingFiles;
 
         types::Modification& _currentFile();
+
+        void _monitorCurrentFile();
     };
 }

@@ -7,7 +7,26 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
-void ModificationManager::interactionAcceptCompletion(const std::any&, bool&) {
+ModificationManager::ModificationManager() {
+    _monitorCurrentFile();
+}
+
+ModificationManager::~ModificationManager() {
+    _isRunning = false;
+}
+
+string ModificationManager::getModifingFiles() const {
+    string result;
+    shared_lock lock(_modifingFilesMutex);
+    for (const auto& [path, lastActiveTime]: _modifingFiles) {
+        if (chrono::high_resolution_clock::now() - lastActiveTime < chrono::minutes(60)) {
+            result.append(path);
+        }
+    }
+    return result;
+}
+
+void ModificationManager::interactionAcceptCompletion(const any&, bool&) {
     try {
         unique_lock lock(_currentModificationMutex);
         _currentFile().acceptCompletion();
@@ -65,7 +84,7 @@ void ModificationManager::interactionNormalInput(const any& data, bool&) {
     }
 }
 
-void ModificationManager::interactionSave(const std::any&, bool&) {
+void ModificationManager::interactionSave(const any&, bool&) {
     try {
         thread([this] {
             this_thread::sleep_for(chrono::milliseconds(100));
@@ -77,7 +96,7 @@ void ModificationManager::interactionSave(const std::any&, bool&) {
     }
 }
 
-void ModificationManager::interactionSelectionClear(const std::any&, bool&) {
+void ModificationManager::interactionSelectionClear(const any&, bool&) {
     try {
         unique_lock lock(_currentModificationMutex);
         _currentFile().selectionClear();
@@ -86,7 +105,7 @@ void ModificationManager::interactionSelectionClear(const std::any&, bool&) {
     }
 }
 
-void ModificationManager::interactionSelectionSet(const std::any& data, bool&) {
+void ModificationManager::interactionSelectionSet(const any& data, bool&) {
     try {
         const auto range = any_cast<Range>(data);
         unique_lock lock(_currentModificationMutex);
@@ -104,4 +123,28 @@ Modification& ModificationManager::_currentFile() {
         return _modificationMap.at(currentPath);
     }
     return _modificationMap.emplace(currentPath, currentPath).first->second;
+}
+
+void ModificationManager::_monitorCurrentFile() {
+    thread([this] {
+        while (_isRunning) {
+            try {
+                const auto currentPath = InteractionMonitor::GetInstance()->getFileName();
+                bool hasFile; {
+                    shared_lock lock(_modifingFilesMutex);
+                    hasFile = _modifingFiles.contains(currentPath);
+                }
+                if (hasFile) {
+                    shared_lock lock(_modifingFilesMutex);
+                    _modifingFiles.at(currentPath) = chrono::high_resolution_clock::now();
+                } else {
+                    unique_lock lock(_modifingFilesMutex);
+                    _modifingFiles.emplace(currentPath, chrono::high_resolution_clock::now());
+                }
+            } catch (const runtime_error& e) {
+                logger::warn(e.what());
+            }
+            this_thread::sleep_for(chrono::milliseconds(100));
+        }
+    }).detach();
 }
