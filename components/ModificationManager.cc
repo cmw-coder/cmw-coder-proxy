@@ -1,5 +1,6 @@
 #include <components/InteractionMonitor.h>
 #include <components/ModificationManager.h>
+#include <utils/fs.h>
 #include <utils/logger.h>
 
 using namespace components;
@@ -130,6 +131,11 @@ void ModificationManager::_monitorCurrentFile() {
         while (_isRunning) {
             try {
                 const auto currentPath = InteractionMonitor::GetInstance()->getFileName();
+                if (const auto extension = fs::getExtension(currentPath);
+                    extension != ".c" && extension != ".h") {
+                    this_thread::sleep_for(chrono::milliseconds(100));
+                    continue;
+                }
                 bool hasFile; {
                     shared_lock lock(_modifingFilesMutex);
                     hasFile = _modifingFiles.contains(currentPath);
@@ -141,9 +147,7 @@ void ModificationManager::_monitorCurrentFile() {
                     unique_lock lock(_modifingFilesMutex);
                     _modifingFiles.emplace(currentPath, chrono::high_resolution_clock::now());
                 }
-            } catch (const runtime_error& e) {
-                logger::warn(e.what());
-            }
+            } catch (const runtime_error&) {}
             this_thread::sleep_for(chrono::milliseconds(100));
         }
     }).detach();

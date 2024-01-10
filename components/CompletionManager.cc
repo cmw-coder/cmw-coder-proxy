@@ -426,45 +426,45 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     const auto currentLine = getContextLine();
                     auto prefix = currentLine.substr(0, caretPosition.character);
                     auto suffix = currentLine.substr(caretPosition.character);
-                    if (_isNewLine) {
-                        for (auto index = 1; index <= min(caretPosition.line, 30u); ++index) {
-                            auto tempLine = getContextLine(-index);
-                            prefix.insert(0, tempLine.append("\r\n"));
-                            if (regex_match(tempLine, regex(R"(^\/\/[.\W]*)")) ||
-                                regex_match(tempLine, regex(R"(^\/\*[.\W]*)"))) {
-                                break;
-                            }
+                    // if (_isNewLine) {
+                    for (auto index = 1; index <= min(caretPosition.line, 30u); ++index) {
+                        auto tempLine = getContextLine(-index);
+                        prefix.insert(0, tempLine.append("\r\n"));
+                        if (regex_match(tempLine, regex(R"(^\/\/[.\W]*)")) ||
+                            regex_match(tempLine, regex(R"(^\/\*[.\W]*)"))) {
+                            break;
                         }
-                        for (auto index = 1; index <= 5; ++index) {
-                            suffix.append("\r\n").append(getContextLine(index));
-                        } {
-                            unique_lock lock(_componentsMutex);
-                            _components.caretPosition = caretPosition;
-                            _components.path = InteractionMonitor::GetInstance()->getFileName();
-                            _components.prefix = move(prefix);
-                            _components.suffix = move(suffix);
-                            _components.tabString = ModificationManager::GetInstance()->getModifingFiles();
-                        }
-                        _isNewLine = false;
-                        logger::info("Retrieve completion with full prefix");
-                    } else {
+                    }
+                    for (auto index = 1; index <= 5; ++index) {
+                        suffix.append("\r\n").append(getContextLine(index));
+                    } {
                         unique_lock lock(_componentsMutex);
                         _components.caretPosition = caretPosition;
                         _components.path = InteractionMonitor::GetInstance()->getFileName();
-                        if (const auto lastNewLineIndex = _components.prefix.find_last_of('\n');
-                            lastNewLineIndex != string::npos) {
-                            _components.prefix = _components.prefix.substr(0, lastNewLineIndex).append(prefix);
-                        } else {
-                            _components.prefix = prefix;
-                        }
-                        if (const auto firstNewLineIndex = suffix.find_first_of('\n');
-                            firstNewLineIndex != string::npos) {
-                            _components.suffix = _components.suffix.substr(firstNewLineIndex + 1).insert(0, suffix);
-                        } else {
-                            _components.suffix = suffix;
-                        }
-                        logger::info("Retrieve completion with current line prefix");
+                        _components.prefix = move(prefix);
+                        _components.suffix = move(suffix);
+                        _components.tabString = ModificationManager::GetInstance()->getModifingFiles();
                     }
+                    _isNewLine = false;
+                    logger::info("Retrieve completion with full prefix");
+                    // } else {
+                    //     unique_lock lock(_componentsMutex);
+                    //     _components.caretPosition = caretPosition;
+                    //     _components.path = InteractionMonitor::GetInstance()->getFileName();
+                    //     if (const auto lastNewLineIndex = _components.prefix.find_last_of('\r');
+                    //         lastNewLineIndex != string::npos) {
+                    //         _components.prefix = _components.prefix.substr(0, lastNewLineIndex).append(prefix);
+                    //     } else {
+                    //         _components.prefix = prefix;
+                    //     }
+                    //     if (const auto firstNewLineIndex = suffix.find_first_of('\r');
+                    //         firstNewLineIndex != string::npos) {
+                    //         _components.suffix = _components.suffix.substr(firstNewLineIndex + 1).insert(0, suffix);
+                    //     } else {
+                    //         _components.suffix = suffix;
+                    //     }
+                    //     logger::info("Retrieve completion with current line prefix");
+                    // }
                     _sendCompletionGenerate();
                     _needRetrieveCompletion.store(false);
                     continue;
