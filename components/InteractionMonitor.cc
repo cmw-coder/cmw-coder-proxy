@@ -517,12 +517,10 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
         case VK_ESCAPE: {
             if (isKeyUp) {
                 needBlockMessage = true;
-            } else {
-                needBlockMessage = _handleInteraction(Interaction::CompletionCancel, false);
-                if (!needBlockMessage) {
-                    _isSelecting.store(false);
-                }
+            } else if (!WindowManager::GetInstance()->hasPopListWindow()) {
+                ignore = _handleInteraction(Interaction::CompletionCancel, false);
             }
+            _isSelecting.store(false);
             break;
         }
         case VK_TAB: {
@@ -589,13 +587,13 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
         switch (windowProcData->message) {
             case WM_KILLFOCUS: {
                 if (WindowManager::GetInstance()->checkNeedHideWhenLostFocus(windowProcData->wParam)) {
-                    // WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveHide);
+                    WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveHide);
                 }
                 break;
             }
             case WM_SETFOCUS: {
                 if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(currentWindow)) {
-                    // WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveShow);
+                    WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveShow);
                 }
                 break;
             }
