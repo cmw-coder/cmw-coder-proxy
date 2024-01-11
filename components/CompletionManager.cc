@@ -79,33 +79,39 @@ void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockM
     if (!content.empty()) {
         const auto interactionMonitor = InteractionMonitor::GetInstance();
         const auto currentLineIndex = interactionMonitor->getCaretPosition().line;
-        uint32_t insertedlineCount = 0;
+        uint32_t insertedlineCount{0}, lastLineLength{0};
         for (const auto lineRange: content.substr(index) | views::split("\r\n"sv)) {
+            auto lineContent = string{lineRange.begin(), lineRange.end()};
             if (insertedlineCount == 0) {
-                interactionMonitor->setSelectedContent({lineRange.begin(), lineRange.end()});
+                interactionMonitor->setSelectedContent(lineContent);
             } else {
+                lastLineLength = lineContent.size();
                 interactionMonitor->insertLineContent(
-                    currentLineIndex + insertedlineCount, {lineRange.begin(), lineRange.end()}
+                    currentLineIndex + insertedlineCount, lineContent
                 );
             }
             ++insertedlineCount;
         }
         WindowManager::GetInstance()->sendLeftThenRight();
+        if (insertedlineCount > 1) {
+            logger::debug(format("Goto: ({}, {})", currentLineIndex + insertedlineCount - 1, lastLineLength));
+            interactionMonitor->setCaretPosition(
+                {lastLineLength, currentLineIndex + insertedlineCount - 1}
+            );
+        }
         WebsocketManager::GetInstance()->sendAction(WsAction::CompletionAccept);
         logger::log(format("Accepted completion: {}", content));
         needBlockMessage = true;
     }
 }
 
-void CompletionManager::interactionCompletionCancel(const any& data, bool& needBlockMessage) {
-    if (_hasValidCache()) {
-        _cancelCompletion();
-        logger::log("Cancel completion, Send CompletionCancel");
-        needBlockMessage = true;
-    }
+void CompletionManager::interactionCompletionCancel(const any& data, bool&) {
+    _cancelCompletion();
+    logger::log("Cancel completion, Send CompletionCancel");
     try {
         if (any_cast<bool>(data)) {
             _requestRetrieveCompletion();
+            WindowManager::GetInstance()->sendLeftThenRight();
         }
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid interactionCompletionCancel data: {}", e.what()));
@@ -416,7 +422,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
     thread([this] {
         while (_isRunning) {
             if (const auto pastTime = chrono::high_resolution_clock::now() - _debounceRetrieveCompletionTime.load();
-                pastTime >= chrono::milliseconds(500) && _needRetrieveCompletion.load()) {
+                pastTime >= chrono::milliseconds(400) && _needRetrieveCompletion.load()) {
                 try {
                     const auto caretPosition = InteractionMonitor::GetInstance()->getCaretPosition();
                     const auto getContextLine = [&](const int offset = 0) {
