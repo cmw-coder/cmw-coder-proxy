@@ -351,6 +351,33 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                         ignore = _handleInteraction(Interaction::SelectionClear);
                         break;
                     }
+                    case Key::F12: {
+
+                        uint32_t Handle;//
+
+                        ReadProcessMemory(
+                            _processHandle.get(),
+                            reinterpret_cast<LPCVOID>(_baseAddress + 0x1C7C00),
+                            &Handle,
+                            sizeof(Handle),
+                            nullptr
+                        );
+                        logger::debug(format("Handle {}", Handle));
+                        char dir[4096];
+                        uint32_t dirhandle;
+
+                        ReadProcessMemory(
+                            _processHandle.get(),
+                            reinterpret_cast<LPCVOID>(Handle),
+                            &dirhandle,
+                            sizeof(dirhandle),
+                            nullptr
+                        );
+                        logger::debug(format("handle {}", dirhandle));
+                        memcpy(dir, (void*)(dirhandle+0x44), 400);
+                        logger::debug(format("dir {}", dir));
+
+                    }
                     default: {
                         // TODO: Support Key::Delete
                         break;
