@@ -308,6 +308,7 @@ void CompletionManager::interactionUndo(const any&, bool&) {
 void CompletionManager::wsActionCompletionGenerate(const nlohmann::json& data) {
     if (_needDiscardWsAction.load()) {
         logger::log("(WsAction::CompletionGenerate) Ignore due to debounce");
+        WebsocketManager::GetInstance()->sendAction(WsAction::CompletionCancel);
         return;
     }
     if (const auto result = data["result"].get<string>();
