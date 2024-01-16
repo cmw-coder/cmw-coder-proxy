@@ -1,12 +1,11 @@
-#include <thread>
+#include <magic_enum.hpp>
 #include <types/WsMessage.h>
-#include <utils/crypto.h>
 
 #include <windows.h>
 
+using namespace magic_enum;
 using namespace std;
 using namespace types;
-using namespace utils;
 
 WsMessage::WsMessage(const WsAction action): action(action) {}
 
@@ -15,17 +14,17 @@ WsMessage::WsMessage(const WsAction action, nlohmann::json&& data): action(actio
 string WsMessage::parse() const {
     if (_data.empty()) {
         return nlohmann::json{
-            {"action", action},
+            {"action", enum_name(action)},
         }.dump();
     }
     return nlohmann::json{
-        {"action", action},
+        {"action", enum_name(action)},
         {"data", _data}
     }.dump();
 }
 
 CompletionAcceptClientMessage::CompletionAcceptClientMessage(const string& completion)
-    : WsMessage(WsAction::CompletionAccept, encode(completion, crypto::Encoding::Base64)) {}
+    : WsMessage(WsAction::CompletionAccept, completion) {}
 
 CompletionCacheClientMessage::CompletionCacheClientMessage(bool isDelete)
     : WsMessage(WsAction::CompletionCache, isDelete) {}
@@ -48,32 +47,21 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
                 {"line", caret.line},
             }
         },
-        {"path", encode(path, crypto::Encoding::Base64)},
-        {"prefix", encode(prefix, crypto::Encoding::Base64)},
-        {"recentFiles", nlohmann::json::array()},
+        {"path", path},
+        {"prefix", prefix},
+        {"recentFiles", recentFiles},
         {"suffix", suffix},
         {"symbols", nlohmann::json::array()},
     }
 ) {
-    auto recentFilesList = thread([this, &recentFiles] {
-        for (const auto& recentFile: recentFiles) {
-            _data["recentFiles"].push_back(encode(recentFile, crypto::Encoding::Base64));
-        }
-    });
-
-    auto symbolsList = thread([this, &symbols] {
-        for (const auto& [name, path, startLine, endLine]: symbols) {
-            _data["symbols"].push_back({
-                {"name", encode(name, crypto::Encoding::Base64)},
-                {"path", encode(path, crypto::Encoding::Base64)},
-                {"startLine", startLine},
-                {"endLine", endLine},
-            });
-        }
-    });
-
-    recentFilesList.join();
-    symbolsList.join();
+    for (const auto& [name, path, startLine, endLine]: symbols) {
+        _data["symbols"].push_back({
+            {"name", name},
+            {"path", path},
+            {"startLine", startLine},
+            {"endLine", endLine},
+        });
+    }
 }
 
 CompletionSelectClientMessage::CompletionSelectClientMessage(
@@ -84,11 +72,12 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
     int64_t yPos
 ): WsMessage(
     WsAction::CompletionSelect, {
-        {"completion", encode(completion, crypto::Encoding::Base64)},
+        {"completion", completion},
         {
-            "count",
-            {"index", currentIndex},
-            {"total", totalCount}
+            "count", {
+                {"index", currentIndex},
+                {"total", totalCount}
+            }
         },
         {
             "position", {
@@ -102,8 +91,8 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
 DebugSyncClientMessage::DebugSyncClientMessage(const string& content, const string& path)
     : WsMessage(
         WsAction::DebugSync, {
-            {"content", encode(content, crypto::Encoding::Base64)},
-            {"path", encode(path, crypto::Encoding::Base64)}
+            {"content", content},
+            {"path", path}
         }
     ) {}
 
@@ -111,7 +100,7 @@ EditorFocusStateClientMessage::EditorFocusStateClientMessage(bool isFocused)
     : WsMessage(WsAction::EditorFocusState, isFocused) {}
 
 EditorSwitchProjectClientMessage::EditorSwitchProjectClientMessage(const string& path)
-    : WsMessage(WsAction::EditorSwitchProject, encode(path, crypto::Encoding::Base64)) {}
+    : WsMessage(WsAction::EditorSwitchProject, path) {}
 
 HandShakeClientMessage::HandShakeClientMessage(string&& version)
     : WsMessage(

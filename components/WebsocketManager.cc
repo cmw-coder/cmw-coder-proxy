@@ -1,10 +1,11 @@
 #include <ixwebsocket/IXNetSystem.h>
 #include <magic_enum.hpp>
 
+#include <components/Configurator.h>
 #include <components/WebsocketManager.h>
+#include <utils/crypto.h>
 #include <utils/logger.h>
 
-#include "Configurator.h"
 
 using namespace components;
 using namespace ix;
@@ -66,7 +67,7 @@ WebsocketManager::~WebsocketManager() {
 
 void WebsocketManager::send(const WsMessage& message) {
     logger::debug(format("Send websocket action: {}", enum_name(message.action)));
-    _client.send(message.parse());
+    _client.send(encode(message.parse(), crypto::Encoding::Base64));
 }
 
 // ReSharper disable once CppDFAUnreachableFunctionCall
