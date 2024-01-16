@@ -158,8 +158,8 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
 
             const auto mainThreadId = system::getMainThreadId();
             logger::log(std::format(
-                "siVersion: {}, PID: {}, currentTID: {}, mainTID: {}, mainModuleName: {}",
-                Configurator::GetInstance()->reportVersion(""),
+                "Version: {}, PID: {}, currentTID: {}, mainTID: {}, mainModuleName: {}",
+                VERSION_STRING + Configurator::GetInstance()->reportVersion(),
                 GetCurrentProcessId(),
                 GetCurrentThreadId(),
                 mainThreadId,
