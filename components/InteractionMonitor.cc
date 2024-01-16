@@ -11,8 +11,6 @@
 #include <types/common.h>
 #include <types/CompactString.h>
 #include <types/SiVersion.h>
-#include <utils/crypto.h>
-#include <utils/inputbox.h>
 #include <utils/logger.h>
 #include <utils/memory.h>
 #include <utils/system.h>
@@ -582,25 +580,4 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
             }
         }
     }
-}
-
-void InteractionMonitor::_retrieveProjectId(const string& project) const {
-    const auto projectListKey = _subKey + "\\Project List";
-    const auto projectHash = crypto::sha1(project);
-    string projectId;
-
-    if (const auto projectIdOpt = system::getRegValue(projectListKey, projectHash); projectIdOpt.has_value()) {
-        projectId = projectIdOpt.value();
-    }
-
-    while (projectId.empty()) {
-        projectId = InputBox("Please input current project's iSoft ID", "Input Project ID");
-        if (projectId.empty()) {
-            logger::error("Project ID is empty, please input a valid Project ID.");
-        } else {
-            system::setRegValue(projectListKey, projectHash, projectId);
-        }
-    }
-
-    CompletionManager::GetInstance()->setProjectId(projectId);
 }
