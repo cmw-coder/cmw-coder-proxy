@@ -85,8 +85,6 @@ namespace components {
 
         void _monitorDebugLog() const;
 
-        void _monitorEditorInfo() const;
-
         bool _processKeyMessage(unsigned wParam, unsigned lParam);
 
         void _processMouseMessage(unsigned wParam);
