@@ -1,3 +1,4 @@
+#include <thread>
 #include <types/WsMessage.h>
 #include <utils/crypto.h>
 
@@ -23,8 +24,8 @@ string WsMessage::parse() const {
     }.dump();
 }
 
-CompletionAcceptClientMessage::CompletionAcceptClientMessage(string&& completion)
-    : WsMessage(WsAction::CompletionAccept, move(completion)) {}
+CompletionAcceptClientMessage::CompletionAcceptClientMessage(const string& completion)
+    : WsMessage(WsAction::CompletionAccept, encode(completion, crypto::Encoding::Base64)) {}
 
 CompletionCacheClientMessage::CompletionCacheClientMessage(bool isDelete)
     : WsMessage(WsAction::CompletionCache, isDelete) {}
@@ -47,20 +48,32 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
                 {"line", caret.line},
             }
         },
-        {"path", path},
-        {"prefix", prefix},
-        {"recentFiles", recentFiles},
+        {"path", encode(path, crypto::Encoding::Base64)},
+        {"prefix", encode(prefix, crypto::Encoding::Base64)},
+        {"recentFiles", nlohmann::json::array()},
         {"suffix", suffix},
+        {"symbols", nlohmann::json::array()},
     }
 ) {
-    for (const auto& [name, path, startLine, endLine]: symbols) {
-        _data["symbols"].push_back({
-            {"name", name},
-            {"path", path},
-            {"startLine", startLine},
-            {"endLine", endLine},
-        });
-    }
+    auto recentFilesList = thread([this, &recentFiles] {
+        for (const auto& recentFile: recentFiles) {
+            _data["recentFiles"].push_back(encode(recentFile, crypto::Encoding::Base64));
+        }
+    });
+
+    auto symbolsList = thread([this, &symbols] {
+        for (const auto& [name, path, startLine, endLine]: symbols) {
+            _data["symbols"].push_back({
+                {"name", encode(name, crypto::Encoding::Base64)},
+                {"path", encode(path, crypto::Encoding::Base64)},
+                {"startLine", startLine},
+                {"endLine", endLine},
+            });
+        }
+    });
+
+    recentFilesList.join();
+    symbolsList.join();
 }
 
 CompletionSelectClientMessage::CompletionSelectClientMessage(
@@ -71,7 +84,7 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
     int64_t yPos
 ): WsMessage(
     WsAction::CompletionSelect, {
-        {"completion", completion},
+        {"completion", encode(completion, crypto::Encoding::Base64)},
         {
             "count",
             {"index", currentIndex},

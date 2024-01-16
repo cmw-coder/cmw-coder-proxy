@@ -36,7 +36,7 @@ namespace types {
 
     class CompletionAcceptClientMessage final : public WsMessage {
     public:
-        explicit CompletionAcceptClientMessage(std::string&& completion);
+        explicit CompletionAcceptClientMessage(const std::string& completion);
     };
 
     class CompletionCacheClientMessage final : public WsMessage {
