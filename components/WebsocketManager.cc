@@ -4,6 +4,8 @@
 #include <components/WebsocketManager.h>
 #include <utils/logger.h>
 
+#include "Configurator.h"
+
 using namespace components;
 using namespace ix;
 using namespace magic_enum;
@@ -23,6 +25,7 @@ WebsocketManager::WebsocketManager(string&& url, const chrono::seconds& pingInte
             }
             case WebSocketMessageType::Open: {
                 logger::info("Websocket connection established");
+                send(HandShakeClientMessage(Configurator::GetInstance()->reportVersion()));
                 break;
             }
             case WebSocketMessageType::Close: {
@@ -61,32 +64,19 @@ WebsocketManager::~WebsocketManager() {
     uninitNetSystem();
 }
 
-void WebsocketManager::sendAction(const WsAction action) {
-    logger::debug(format("Send websocket action: {}", enum_name(action)));
-    sendRaw(nlohmann::json{
-        {"action", enum_name(action)}
-    }.dump());
+void WebsocketManager::send(const WsMessage& message) {
+    logger::debug(format("Send websocket action: {}", enum_name(message.action)));
+    _client.send(message.parse());
 }
 
-void WebsocketManager::sendAction(const WsAction action, nlohmann::json&& data) {
-    logger::debug(format("Send websocket action: {}", enum_name(action)));
-    sendRaw(nlohmann::json{
-        {"action", enum_name(action)},
-        {"data", move(data)}
-    }.dump());
-}
-
-void WebsocketManager::sendRaw(const string& message) {
-    _client.send(message);
-}
-
+// ReSharper disable once CppDFAUnreachableFunctionCall
 void WebsocketManager::_handleEventMessage(const string& messageString) {
     try {
         if (auto message = nlohmann::json::parse(messageString);
             message.contains("action")) {
             if (const auto actionOpt = enum_cast<WsAction>(message["action"].get<string>());
                 actionOpt.has_value()) {
-                logger::debug(format("Receive websocket action: {}",message["action"].get<string>()));
+                logger::debug(format("Receive websocket action: {}", message["action"].get<string>()));
                 for (const auto& handlers: _handlerMap[actionOpt.value()]) {
                     handlers(message["data"]);
                 }
