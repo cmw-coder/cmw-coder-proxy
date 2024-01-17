@@ -13,7 +13,6 @@
 #include <helpers/HttpHelper.h>
 #include <types/IndentType.h>
 #include <types/Modification.h>
-#include <utils/crypto.h>
 #include <utils/fs.h>
 #include <utils/logger.h>
 
@@ -322,13 +321,7 @@ string Modification::_addRangeIndent(const Range& range) const {
 
 void Modification::_debugSync() const {
     thread([content = _content, path = path] {
-        WebsocketManager::GetInstance()->sendAction(
-            WsAction::DebugSync,
-            {
-                {"content", encode(content, crypto::Encoding::Base64)},
-                {"path", encode(path, crypto::Encoding::Base64)}
-            }
-        );
+        WebsocketManager::GetInstance()->send(DebugSyncClientMessage(content, path));
     }).detach();
 }
 

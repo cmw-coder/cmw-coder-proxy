@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <fstream>
 #include <regex>
 
@@ -6,7 +7,7 @@
 using namespace std;
 using namespace utils;
 
-string fs::readFile(const string&path) {
+string fs::readFile(const string& path) {
     constexpr auto read_size = size_t{4096};
     auto stream = ifstream{path.data()};
     stream.exceptions(ios_base::badbit);
@@ -20,4 +21,8 @@ string fs::readFile(const string&path) {
     // Remove \r using ranges::remove
     erase(out, '\r');
     return out;
+}
+
+std::string fs::getExtension(const std::string& path) {
+    return filesystem::path(path).extension().string();
 }

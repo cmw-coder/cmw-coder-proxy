@@ -32,6 +32,6 @@ SiVersion::Full Configurator::version() const {
     return _siVersion;
 }
 
-string Configurator::reportVersion(const string&version) const {
-    return version + _siVersionString;
+string Configurator::reportVersion() const {
+    return _siVersionString;
 }

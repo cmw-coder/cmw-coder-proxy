@@ -14,7 +14,7 @@ namespace components {
 
         ~ModificationManager() override;
 
-        std::string getModifingFiles() const;
+        std::vector<std::string> getRecentFiles(uint32_t limit = 5) const;
 
         void interactionAcceptCompletion(const std::any&, bool&);
 
@@ -38,7 +38,7 @@ namespace components {
         mutable std::shared_mutex _currentModificationMutex, _modifingFilesMutex;
         std::atomic<bool> _isRunning{true};
         std::unordered_map<std::string, types::Modification> _modificationMap;
-        std::unordered_map<std::string, std::chrono::high_resolution_clock::time_point> _modifingFiles;
+        std::unordered_map<std::string, std::chrono::high_resolution_clock::time_point> _recentFiles;
 
         types::Modification& _currentFile();
 
