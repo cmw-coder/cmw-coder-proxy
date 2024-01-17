@@ -16,7 +16,7 @@ namespace types {
         explicit StdCallFunction(const uint32_t address) : _address(address) {}
 
         TReturn operator()(TArgs... args) const {
-            return reinterpret_cast<TReturn(__stdcall *)(TArgs...)>(_address)(args...);
+            return reinterpret_cast<TReturn(__cdecl *)(TArgs...)>(_address)(args...);//__cdecl
         }
 
     private:

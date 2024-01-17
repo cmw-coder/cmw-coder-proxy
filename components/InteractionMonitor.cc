@@ -167,7 +167,7 @@ CaretPosition InteractionMonitor::getCaretPosition() const {
 
 string InteractionMonitor::getFileName() const {
     uint32_t param1;
-    const auto functionGetBufName = StdCallFunction<void(uint32_t, void*)>(
+    const auto functionGetBufName = StdCallFunction<void*(int, void*)>(
         _baseAddress + _memoryAddress.file.funcGetBufName.base
     ); {
         const auto fileHandle = _getFileHandle();
