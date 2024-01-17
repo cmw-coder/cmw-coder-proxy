@@ -379,6 +379,7 @@ void CompletionManager::_sendCompletionGenerate() {
             _components.caretPosition,
             _components.path,
             _components.prefix,
+            _components.project,
             _components.recentFiles,
             _components.suffix,
             {}
@@ -392,7 +393,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
     thread([this] {
         while (_isRunning) {
             if (const auto pastTime = chrono::high_resolution_clock::now() - _debounceRetrieveCompletionTime.load();
-                pastTime >= chrono::milliseconds(400) && _needRetrieveCompletion.load()) {
+                pastTime >= chrono::milliseconds(300) && _needRetrieveCompletion.load()) {
                 try {
                     const auto caretPosition = InteractionMonitor::GetInstance()->getCaretPosition();
                     const auto getContextLine = [&](const int offset = 0) {
@@ -422,6 +423,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                         _components.caretPosition = caretPosition;
                         _components.path = InteractionMonitor::GetInstance()->getFileName();
                         _components.prefix = move(prefix);
+                        _components.project = InteractionMonitor::GetInstance()->getProjectDirectory();
                         _components.recentFiles = ModificationManager::GetInstance()->getRecentFiles();
                         _components.suffix = move(suffix);
                     }
