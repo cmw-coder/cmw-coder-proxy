@@ -416,6 +416,7 @@ void InteractionMonitor::_monitorCaretPosition() {
                     _navigateWithMouse.store(nullopt);
                 }
             }
+            this_thread::sleep_for(chrono::milliseconds(10));
         }
     }).detach();
 }
@@ -462,7 +463,7 @@ void InteractionMonitor::_monitorDebugLog() const {
                 logger::debug(format("[SI] {}", regex_replace(debugStringOpt.value(), regex("\\n"), "\n")));
                 system::setEnvironmentVariable(debugLogKey);
             }
-            this_thread::sleep_for(chrono::milliseconds(1));
+            this_thread::sleep_for(chrono::milliseconds(5));
         }
     }).detach();
 }
