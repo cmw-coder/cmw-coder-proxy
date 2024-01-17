@@ -36,6 +36,8 @@ namespace components {
 
         [[nodiscard]] std::string getLineContent(uint32_t line) const;
 
+        [[nodiscard]] std::string getProjectDirectory() const;
+
         void insertLineContent(uint32_t line, const std::string& content) const;
 
         template<class T>
@@ -72,6 +74,8 @@ namespace components {
         static long __stdcall _windowProcedureHook(int nCode, unsigned int wParam, long lParam);
 
         uint32_t _getFileHandle() const;
+
+        uint32_t _getProjectHandle() const;
 
         uint32_t _getWindowHandle() const;
 

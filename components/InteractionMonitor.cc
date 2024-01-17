@@ -199,7 +199,31 @@ string InteractionMonitor::getLineContent(const uint32_t line) const {
     return {};
 }
 
-void InteractionMonitor::insertLineContent(const uint32_t line, const std::string& content) const {
+string InteractionMonitor::getProjectDirectory() const {
+    if (const auto projectHandle = _getProjectHandle()) {
+        char tempBuffer[256];
+        uint32_t offset1;
+
+        ReadProcessMemory(
+            _processHandle.get(),
+            reinterpret_cast<LPCVOID>(projectHandle + _memoryAddress.project.dataProjDir.offset1),
+            &offset1,
+            sizeof(offset1),
+            nullptr
+        );
+        ReadProcessMemory(
+            _processHandle.get(),
+            reinterpret_cast<LPCVOID>(offset1 + _memoryAddress.project.dataProjDir.offset2),
+            &tempBuffer,
+            sizeof(tempBuffer),
+            nullptr
+        );
+        return string{tempBuffer};
+    }
+    return {};
+}
+
+void InteractionMonitor::insertLineContent(const uint32_t line, const string& content) const {
     const auto functionInsBufLine = StdCallFunction<void(uint32_t, uint32_t, void*)>(
         _baseAddress + _memoryAddress.file.funcInsBufLine.base
     );
@@ -237,7 +261,7 @@ void InteractionMonitor::setLineContent(const uint32_t line, const string& conte
     }
 }
 
-void InteractionMonitor::setSelectedContent(const std::string& content) const {
+void InteractionMonitor::setSelectedContent(const string& content) const {
     checkValidCodeWindow();
 
     const auto functionSetBufSelText = StdCallFunction<void(uint32_t, const char*)>(
@@ -287,6 +311,20 @@ uint32_t InteractionMonitor::_getFileHandle() const {
         nullptr
     );
     return fileHandle;
+}
+
+uint32_t InteractionMonitor::_getProjectHandle() const {
+    checkValidCodeWindow();
+
+    uint32_t handle;
+    ReadProcessMemory(
+        _processHandle.get(),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.project.handle),
+        &handle,
+        sizeof(handle),
+        nullptr
+    );
+    return handle;
 }
 
 uint32_t InteractionMonitor::_getWindowHandle() const {
