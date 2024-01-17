@@ -131,7 +131,7 @@ tuple<int64_t, int64_t> InteractionMonitor::getCaretPixels(const uint32_t line) 
     ));
     return {
         clientX + xPos,
-        clientY + yPos + static_cast<int64_t>(round(0.625 * yDim - 21.125)),
+        clientY + yPos + static_cast<int64_t>(round(0.625 * yDim)),
     };
 }
 
