@@ -71,6 +71,8 @@ namespace components {
 
         void _requestRetrieveCompletion();
 
+        std::string _selectCompletion(uint32_t index = 0);
+
         void _sendCompletionGenerate();
 
         void _threadDebounceRetrieveCompletion();

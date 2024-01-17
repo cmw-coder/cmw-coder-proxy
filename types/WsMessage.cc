@@ -77,7 +77,8 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
     const int64_t yPos
 ): WsMessage(
     WsAction::CompletionSelect, {
-        {"completion", iconv::gbkToUtf8(completion)},
+        // UTF-8 to UTF8
+        {"completion", completion},
         {
             "count", {
                 {"index", currentIndex},
