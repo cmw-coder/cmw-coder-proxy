@@ -6,8 +6,9 @@
 
 #include <helpers/HttpHelper.h>
 #include <types/CaretPosition.h>
-#include <types/CompletionCache.h>
 #include <types/common.h>
+#include <types/CompletionCache.h>
+#include <types/SymbolInfo.h>
 
 namespace components {
     class CompletionManager : public SingletonDclp<CompletionManager> {
@@ -17,13 +18,8 @@ namespace components {
             std::string path;
             std::string prefix;
             std::string suffix;
-            std::string symbolString;
-            std::string tabString;
-        };
-
-        struct EditorInfo {
-            std::string projectId;
-            std::string version;
+            std::vector<std::string> recentFiles;
+            std::vector<types::SymbolInfo> symbols;
         };
 
         CompletionManager();
@@ -55,20 +51,15 @@ namespace components {
         // TODO: Remove old methods
 
         void setAutoCompletion(bool isAutoCompletion);
-
-        void setProjectId(const std::string& projectId);
-
-        void setVersion(const std::string& version);
-
     private:
-        mutable std::shared_mutex _completionCacheMutex, _componentsMutex, _editorInfoMutex;
+        mutable std::shared_mutex _completionCacheMutex, _completionListMutex, _componentsMutex;
         Components _components;
-        EditorInfo _editorInfo;
 
         // TODO: Check if _isJustAccepted is still needed
         std::atomic<bool> _isAutoCompletion{true}, _isContinuousEnter{false}, _isJustAccepted{false},
                 _isNewLine{true}, _isRunning{true}, _needDiscardWsAction{false}, _needRetrieveCompletion{false};
         std::atomic<types::Time> _debounceRetrieveCompletionTime;
+        std::vector<std::string> _completionList;
         types::CompletionCache _completionCache;
 
         void _cancelCompletion();

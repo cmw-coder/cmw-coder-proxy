@@ -6,7 +6,7 @@
 #include <nlohmann/json.hpp>
 #include <singleton_dclp.hpp>
 
-#include <types/WsAction.h>
+#include <types/WsMessage.h>
 
 namespace components {
     class WebsocketManager : public SingletonDclp<WebsocketManager> {
@@ -29,11 +29,7 @@ namespace components {
             _handlerMap[action].push_back(std::bind_front(memberFunction, other));
         }
 
-        void sendAction(types::WsAction action);
-
-        void sendAction(types::WsAction action, nlohmann::json&& data);
-
-        void sendRaw(const std::string& message);
+        void send(const types::WsMessage& message);
 
     private:
         ix::WebSocket _client;
