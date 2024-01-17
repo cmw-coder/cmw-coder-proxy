@@ -10,12 +10,11 @@
 #include <components/InteractionMonitor.h>
 #include <components/ModificationManager.h>
 #include <components/WebsocketManager.h>
+#include <components/WindowManager.h>
 #include <types/CaretPosition.h>
-#include <utils/crypto.h>
 #include <utils/logger.h>
 #include <utils/system.h>
 
-#include "WindowManager.h"
 
 using namespace components;
 using namespace helpers;
@@ -320,7 +319,7 @@ void CompletionManager::wsActionCompletionGenerate(const nlohmann::json& data) {
                 _completionList = completions.get<vector<string>>();
             } {
                 unique_lock completionCacheLock(_completionCacheMutex);
-                _completionCache.reset(decode(completions[0].get<string>(), crypto::Encoding::Base64));
+                _completionCache.reset(completions[0].get<string>());
             }
             const auto [xPos, yPos] = InteractionMonitor::GetInstance()->getCaretPixels(
                 InteractionMonitor::GetInstance()->getCaretPosition().line
@@ -449,11 +448,11 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     _sendCompletionGenerate();
                     _needRetrieveCompletion.store(false);
                     continue;
-                } catch (const exception& e) {
+                } catch (runtime_error&) {} catch (const exception& e) {
                     logger::warn(format("Exception when retrieving completion: {}", e.what()));
                 }
             }
-            this_thread::sleep_for(chrono::milliseconds(10));
+            this_thread::sleep_for(chrono::milliseconds(20));
         }
     }).detach();
 }
