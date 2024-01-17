@@ -290,8 +290,6 @@ uint32_t InteractionMonitor::_getFileHandle() const {
 }
 
 uint32_t InteractionMonitor::_getWindowHandle() const {
-    checkValidCodeWindow();
-
     uint32_t windowHandle;
     ReadProcessMemory(
         _processHandle.get(),
@@ -337,7 +335,7 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                     case Key::Down: {
                         _navigateWithKey.store(key);
                         _isSelecting.store(false);
-                        ignore = _handleInteraction(Interaction::SelectionClear);
+                        // ignore = _handleInteraction(Interaction::SelectionClear);
                         break;
                     }
                     default: {
@@ -510,9 +508,6 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
         default: {
             break;
         }
-    }
-    if (needBlockMessage) {
-        logger::debug("Block message");
     }
     return needBlockMessage;
 }
