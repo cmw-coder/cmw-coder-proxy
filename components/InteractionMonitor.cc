@@ -11,8 +11,6 @@
 #include <types/common.h>
 #include <types/CompactString.h>
 #include <types/SiVersion.h>
-#include <utils/crypto.h>
-#include <utils/inputbox.h>
 #include <utils/logger.h>
 #include <utils/memory.h>
 #include <utils/system.h>
@@ -27,10 +25,6 @@ using namespace types;
 using namespace utils;
 
 namespace {
-    string convertPathSeperators(const string& input) {
-        return regex_replace(input, regex(R"(\\\\)"), "/");
-    }
-
     void checkValidCodeWindow() {
         if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
             throw runtime_error("No valid code window");
@@ -38,10 +32,6 @@ namespace {
     }
 
     constexpr auto debugLogKey = "CMWCODER_debugLog";
-    constexpr auto projectKey = "CMWCODER_project";
-    constexpr auto symbolsKey = "CMWCODER_symbols";
-    constexpr auto tabsKey = "CMWCODER_tabs";
-    constexpr auto versionKey = "CMWCODER_version";
 }
 
 InteractionMonitor::InteractionMonitor()
@@ -95,7 +85,6 @@ InteractionMonitor::InteractionMonitor()
 
     _monitorCaretPosition();
     _monitorDebugLog();
-    _monitorEditorInfo();
 }
 
 InteractionMonitor::~InteractionMonitor() {
@@ -301,8 +290,6 @@ uint32_t InteractionMonitor::_getFileHandle() const {
 }
 
 uint32_t InteractionMonitor::_getWindowHandle() const {
-    checkValidCodeWindow();
-
     uint32_t windowHandle;
     ReadProcessMemory(
         _processHandle.get(),
@@ -348,7 +335,7 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                     case Key::Down: {
                         _navigateWithKey.store(key);
                         _isSelecting.store(false);
-                        ignore = _handleInteraction(Interaction::SelectionClear);
+                        // ignore = _handleInteraction(Interaction::SelectionClear);
                         break;
                     }
                     case Key::F12: {
@@ -456,6 +443,7 @@ void InteractionMonitor::_monitorCaretPosition() {
                     _navigateWithMouse.store(nullopt);
                 }
             }
+            this_thread::sleep_for(chrono::milliseconds(10));
         }
     }).detach();
 }
@@ -502,30 +490,7 @@ void InteractionMonitor::_monitorDebugLog() const {
                 logger::debug(format("[SI] {}", regex_replace(debugStringOpt.value(), regex("\\n"), "\n")));
                 system::setEnvironmentVariable(debugLogKey);
             }
-            this_thread::sleep_for(chrono::milliseconds(1));
-        }
-    }).detach();
-}
-
-void InteractionMonitor::_monitorEditorInfo() const {
-    thread([this] {
-        while (_isRunning.load()) {
-            const auto projectOpt = system::getEnvironmentVariable(projectKey);
-            const auto symbolStringOpt = system::getEnvironmentVariable(symbolsKey);
-            const auto tabStringOpt = system::getEnvironmentVariable(tabsKey);
-            if (const auto versionOpt = system::getEnvironmentVariable(versionKey);
-                projectOpt.has_value() &&
-                versionOpt.has_value()
-            ) {
-                system::setEnvironmentVariable(projectKey);
-                system::setEnvironmentVariable(symbolsKey);
-                system::setEnvironmentVariable(versionKey);
-                system::setEnvironmentVariable(tabsKey);
-
-                _retrieveProjectId(convertPathSeperators(projectOpt.value()));
-                CompletionManager::GetInstance()->setVersion(versionOpt.value());
-            }
-            this_thread::sleep_for(chrono::milliseconds(10));
+            this_thread::sleep_for(chrono::milliseconds(5));
         }
     }).detach();
 }
@@ -571,9 +536,6 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
         default: {
             break;
         }
-    }
-    if (needBlockMessage) {
-        logger::debug("Block message");
     }
     return needBlockMessage;
 }
@@ -622,13 +584,13 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
         switch (windowProcData->message) {
             case WM_KILLFOCUS: {
                 if (WindowManager::GetInstance()->checkNeedHideWhenLostFocus(windowProcData->wParam)) {
-                    WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveHide);
+                    WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(false));
                 }
                 break;
             }
             case WM_SETFOCUS: {
                 if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(currentWindow)) {
-                    WebsocketManager::GetInstance()->sendAction(WsAction::ImmersiveShow);
+                    WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(true));
                 }
                 break;
             }
@@ -641,25 +603,4 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
             }
         }
     }
-}
-
-void InteractionMonitor::_retrieveProjectId(const string& project) const {
-    const auto projectListKey = _subKey + "\\Project List";
-    const auto projectHash = crypto::sha1(project);
-    string projectId;
-
-    if (const auto projectIdOpt = system::getRegValue(projectListKey, projectHash); projectIdOpt.has_value()) {
-        projectId = projectIdOpt.value();
-    }
-
-    while (projectId.empty()) {
-        projectId = InputBox("Please input current project's iSoft ID", "Input Project ID");
-        if (projectId.empty()) {
-            logger::error("Project ID is empty, please input a valid Project ID.");
-        } else {
-            system::setRegValue(projectListKey, projectHash, projectId);
-        }
-    }
-
-    CompletionManager::GetInstance()->setProjectId(projectId);
 }
