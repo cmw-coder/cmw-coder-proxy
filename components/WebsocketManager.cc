@@ -3,7 +3,6 @@
 
 #include <components/Configurator.h>
 #include <components/WebsocketManager.h>
-#include <utils/crypto.h>
 #include <utils/logger.h>
 
 
@@ -67,7 +66,7 @@ WebsocketManager::~WebsocketManager() {
 
 void WebsocketManager::send(const WsMessage& message) {
     logger::debug(format("Send websocket action: {}", enum_name(message.action)));
-    _client.send(encode(message.parse(), crypto::Encoding::Base64));
+    _client.send(message.parse());
 }
 
 // ReSharper disable once CppDFAUnreachableFunctionCall
@@ -90,7 +89,8 @@ void WebsocketManager::_handleEventMessage(const string& messageString) {
     } catch (nlohmann::detail::parse_error& e) {
         logger::error(format(
             "Websocket message is not a valid JSON.\n"
-            "\tError: {}. Message: {}.",
+            "\tError: '{}'.\n"
+            "\tMessage: '{}'.",
             e.what(),
             messageString
         ));

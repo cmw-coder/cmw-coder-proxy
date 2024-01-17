@@ -1,32 +1,32 @@
 #include <magic_enum.hpp>
 #include <types/WsMessage.h>
+#include <utils/iconv.h>
 
 #include <windows.h>
 
 using namespace magic_enum;
 using namespace std;
 using namespace types;
+using namespace utils;
 
 WsMessage::WsMessage(const WsAction action): action(action) {}
 
 WsMessage::WsMessage(const WsAction action, nlohmann::json&& data): action(action), _data(move(data)) {}
 
 string WsMessage::parse() const {
-    if (_data.empty()) {
-        return nlohmann::json{
-            {"action", enum_name(action)},
-        }.dump();
+    nlohmann::json jsonMessage = {{"action", enum_name(action)}};
+
+    if (!_data.empty()) {
+        jsonMessage["data"] = _data;
     }
-    return nlohmann::json{
-        {"action", enum_name(action)},
-        {"data", _data}
-    }.dump();
+
+    return jsonMessage.dump();
 }
 
 CompletionAcceptClientMessage::CompletionAcceptClientMessage(const string& completion)
-    : WsMessage(WsAction::CompletionAccept, completion) {}
+    : WsMessage(WsAction::CompletionAccept, iconv::gbkToUtf8(completion)) {}
 
-CompletionCacheClientMessage::CompletionCacheClientMessage(bool isDelete)
+CompletionCacheClientMessage::CompletionCacheClientMessage(const bool isDelete)
     : WsMessage(WsAction::CompletionCache, isDelete) {}
 
 CompletionCancelClientMessage::CompletionCancelClientMessage()
@@ -47,17 +47,20 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
                 {"line", caret.line},
             }
         },
-        {"path", path},
-        {"prefix", prefix},
-        {"recentFiles", recentFiles},
-        {"suffix", suffix},
+        {"path", iconv::gbkToUtf8(path)},
+        {"prefix", iconv::gbkToUtf8(prefix)},
+        {"recentFiles", nlohmann::json::array()},
+        {"suffix", iconv::gbkToUtf8(suffix)},
         {"symbols", nlohmann::json::array()},
     }
 ) {
+    for (const auto& recentFile: recentFiles) {
+        _data["recentFiles"].push_back(iconv::gbkToUtf8(recentFile));
+    }
     for (const auto& [name, path, startLine, endLine]: symbols) {
         _data["symbols"].push_back({
-            {"name", name},
-            {"path", path},
+            {"name", iconv::gbkToUtf8(name)},
+            {"path", iconv::gbkToUtf8(path)},
             {"startLine", startLine},
             {"endLine", endLine},
         });
@@ -67,12 +70,12 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
 CompletionSelectClientMessage::CompletionSelectClientMessage(
     const string& completion,
     const uint32_t currentIndex,
-    uint32_t totalCount,
-    int64_t xPos,
-    int64_t yPos
+    const uint32_t totalCount,
+    const int64_t xPos,
+    const int64_t yPos
 ): WsMessage(
     WsAction::CompletionSelect, {
-        {"completion", completion},
+        {"completion", iconv::gbkToUtf8(completion)},
         {
             "count", {
                 {"index", currentIndex},
@@ -81,8 +84,8 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
         },
         {
             "position", {
-                "x", xPos,
-                "y", yPos
+                {"x", xPos},
+                {"y", yPos}
             }
         }
     }
@@ -91,16 +94,16 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
 DebugSyncClientMessage::DebugSyncClientMessage(const string& content, const string& path)
     : WsMessage(
         WsAction::DebugSync, {
-            {"content", content},
-            {"path", path}
+            {"content", iconv::gbkToUtf8(content)},
+            {"path", iconv::gbkToUtf8(path)}
         }
     ) {}
 
-EditorFocusStateClientMessage::EditorFocusStateClientMessage(bool isFocused)
+EditorFocusStateClientMessage::EditorFocusStateClientMessage(const bool isFocused)
     : WsMessage(WsAction::EditorFocusState, isFocused) {}
 
 EditorSwitchProjectClientMessage::EditorSwitchProjectClientMessage(const string& path)
-    : WsMessage(WsAction::EditorSwitchProject, path) {}
+    : WsMessage(WsAction::EditorSwitchProject, iconv::gbkToUtf8(path)) {}
 
 HandShakeClientMessage::HandShakeClientMessage(string&& version)
     : WsMessage(
