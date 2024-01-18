@@ -36,6 +36,7 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
     const CaretPosition& caret,
     const string& path,
     const string& prefix,
+    const string& project,
     const vector<string>& recentFiles,
     const string& suffix,
     const vector<SymbolInfo>& symbols
@@ -49,6 +50,7 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
         },
         {"path", iconv::gbkToUtf8(path)},
         {"prefix", iconv::gbkToUtf8(prefix)},
+        {"project", iconv::gbkToUtf8(project)},
         {"recentFiles", nlohmann::json::array()},
         {"suffix", iconv::gbkToUtf8(suffix)},
         {"symbols", nlohmann::json::array()},
@@ -75,7 +77,8 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
     const int64_t yPos
 ): WsMessage(
     WsAction::CompletionSelect, {
-        {"completion", iconv::gbkToUtf8(completion)},
+        // UTF-8 to UTF8
+        {"completion", completion},
         {
             "count", {
                 {"index", currentIndex},

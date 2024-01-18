@@ -25,6 +25,10 @@ namespace {
                             {0x08D474},
                         },
                         {
+                            0x1C7C00,
+                            {0x000000, 0x000044},
+                        },
+                        {
                             0x1CCD44,
                             {0x1BE0CC, 0x1C574C},
                             {0x1BE0CC, 0x1C574C, 0x1E3B9C, 0x1E3BA4},
