@@ -30,7 +30,6 @@ namespace {
                         },
                         {
                             0x1CCD44,
-                            {0x1CD3DC, 0x1CD3E0},
                             {0x1BE0CC, 0x1C574C, 0x1E3B9C, 0x1E3BA4},
                             {0x000024},
                             {0x1CCD3C},

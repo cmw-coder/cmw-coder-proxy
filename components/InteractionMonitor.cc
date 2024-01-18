@@ -139,14 +139,14 @@ CaretPosition InteractionMonitor::getCaretPosition() const {
     CaretPosition cursorPosition{};
     ReadProcessMemory(
         _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataCaret.line.base),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataSelection.lineStart.base),
         &cursorPosition.line,
         sizeof(cursorPosition.line),
         nullptr
     );
     ReadProcessMemory(
         _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataCaret.character.base),
+        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataSelection.characterStart.base),
         &cursorPosition.character,
         sizeof(cursorPosition.character),
         nullptr
