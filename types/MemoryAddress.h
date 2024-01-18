@@ -42,12 +42,6 @@ namespace types {
             struct {
                 struct {
                     uint32_t base;
-                } line, character;
-            } dataCaret;
-
-            struct {
-                struct {
-                    uint32_t base;
                 } lineStart, characterStart, lineEnd, characterEnd;
             } dataSelection;
 

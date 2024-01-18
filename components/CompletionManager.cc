@@ -407,25 +407,23 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
             if (const auto pastTime = chrono::high_resolution_clock::now() - _debounceRetrieveCompletionTime.load();
                 pastTime >= chrono::milliseconds(300) && _needRetrieveCompletion.load()) {
                 try {
-                    const auto caretPosition = InteractionMonitor::GetInstance()->getCaretPosition();
-                    const auto getContextLine = [&](const int offset = 0) {
-                        return InteractionMonitor::GetInstance()->
-                                getLineContent(caretPosition.line + offset);
-                    };
-                    const auto currentLine = getContextLine();
-                    auto prefix = currentLine.substr(0, caretPosition.character);
-                    auto suffix = currentLine.substr(caretPosition.character);
-                    // if (_isNewLine) {
-                    for (auto index = 1; index <= min(caretPosition.line, 30u); ++index) {
-                        auto tempLine = getContextLine(-index);
-                        prefix.insert(0, tempLine.append("\r\n"));
+                    const auto monitor = InteractionMonitor::GetInstance();
+                    const auto caretPosition = monitor->getCaretPosition();
+                    string prefix, suffix; {
+                        const auto currentLine = monitor->getLineContent(caretPosition.line);
+                        prefix = currentLine.substr(0, caretPosition.character);
+                        suffix = currentLine.substr(caretPosition.character);
+                    }
+                    for (uint32_t index = 1; index <= min(caretPosition.line, 30u); ++index) {
+                        const auto tempLine = monitor->getLineContent(caretPosition.line - index).append("\r\n");
+                        prefix.insert(0, tempLine);
                         if (regex_match(tempLine, regex(R"(^\/\/[.\W]*)")) ||
                             regex_match(tempLine, regex(R"(^\/\*[.\W]*)"))) {
                             break;
                         }
                     }
                     for (auto index = 1; index <= 5; ++index) {
-                        const auto tempLine = getContextLine(index);
+                        const auto tempLine = monitor->getLineContent(caretPosition.line + index);
                         suffix.append("\r\n").append(tempLine);
                         if (tempLine[0] == '}') {
                             break;
@@ -441,7 +439,6 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     }
                     _isNewLine = false;
                     logger::info("Retrieve completion with full prefix");
-                    // } else {
                     //     unique_lock lock(_componentsMutex);
                     //     _components.caretPosition = caretPosition;
                     //     _components.path = InteractionMonitor::GetInstance()->getFileName();
@@ -458,7 +455,6 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     //         _components.suffix = suffix;
                     //     }
                     //     logger::info("Retrieve completion with current line prefix");
-                    // }
                     _sendCompletionGenerate();
                     _needRetrieveCompletion.store(false);
                     continue;
@@ -466,7 +462,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     logger::warn(format("Exception when retrieving completion: {}", e.what()));
                 }
             }
-            this_thread::sleep_for(chrono::milliseconds(20));
+            this_thread::sleep_for(chrono::milliseconds(10));
         }
     }).detach();
 }
