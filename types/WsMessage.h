@@ -55,6 +55,7 @@ namespace types {
             const CaretPosition& caret,
             const std::string& path,
             const std::string& prefix,
+            const std::string& project,
             const std::vector<std::string>& recentFiles,
             const std::string& suffix,
             const std::vector<SymbolInfo>& symbols

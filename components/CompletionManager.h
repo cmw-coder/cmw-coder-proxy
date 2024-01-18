@@ -17,6 +17,7 @@ namespace components {
             types::CaretPosition caretPosition;
             std::string path;
             std::string prefix;
+            std::string project;
             std::string suffix;
             std::vector<std::string> recentFiles;
             std::vector<types::SymbolInfo> symbols;
@@ -69,6 +70,8 @@ namespace components {
         void _prolongRetrieveCompletion();
 
         void _requestRetrieveCompletion();
+
+        std::string _selectCompletion(uint32_t index = 0);
 
         void _sendCompletionGenerate();
 

@@ -12,6 +12,7 @@
 #include <components/WebsocketManager.h>
 #include <components/WindowManager.h>
 #include <types/CaretPosition.h>
+#include <utils/iconv.h>
 #include <utils/logger.h>
 #include <utils/system.h>
 
@@ -77,28 +78,30 @@ void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockM
     }
     if (!content.empty()) {
         const auto interactionMonitor = InteractionMonitor::GetInstance();
-        const auto currentLineIndex = interactionMonitor->getCaretPosition().line;
+        const auto currentPosition = interactionMonitor->getCaretPosition();
         uint32_t insertedlineCount{0}, lastLineLength{0};
         for (const auto lineRange: content.substr(index) | views::split("\r\n"sv)) {
             auto lineContent = string{lineRange.begin(), lineRange.end()};
             if (insertedlineCount == 0) {
+                lastLineLength = currentPosition.character + 1 + lineContent.size();
                 interactionMonitor->setSelectedContent(lineContent);
             } else {
                 lastLineLength = lineContent.size();
                 interactionMonitor->insertLineContent(
-                    currentLineIndex + insertedlineCount, lineContent
+                    currentPosition.line + insertedlineCount, lineContent
                 );
             }
             ++insertedlineCount;
         }
         WindowManager::GetInstance()->sendLeftThenRight();
-        if (insertedlineCount > 1) {
-            logger::debug(format("Goto: ({}, {})", currentLineIndex + insertedlineCount - 1, lastLineLength));
-            interactionMonitor->setCaretPosition(
-                {lastLineLength, currentLineIndex + insertedlineCount - 1}
-            );
-        }
-        logger::log(format("Accepted completion: {}", content));
+        interactionMonitor->setCaretPosition(
+            {lastLineLength, currentPosition.line + insertedlineCount - 1}
+        );
+        logger::log(format(
+            "Accepted completion: {}\n"
+            "\tInserted position: ({}, {})",
+            content, lastLineLength, currentPosition.line + insertedlineCount - 1
+        ));
         WebsocketManager::GetInstance()->send(CompletionAcceptClientMessage(content));
         needBlockMessage = true;
     }
@@ -317,16 +320,14 @@ void CompletionManager::wsActionCompletionGenerate(const nlohmann::json& data) {
             {
                 unique_lock lock(_completionListMutex);
                 _completionList = completions.get<vector<string>>();
-            } {
-                unique_lock completionCacheLock(_completionCacheMutex);
-                _completionCache.reset(completions[0].get<string>());
             }
+            const auto currentCompletion = _selectCompletion();
             const auto [xPos, yPos] = InteractionMonitor::GetInstance()->getCaretPixels(
                 InteractionMonitor::GetInstance()->getCaretPosition().line
             );
-            WebsocketManager::GetInstance()->send(
-                CompletionSelectClientMessage(completions[0].get<string>(), 0, completions.size(), xPos, yPos)
-            );
+            WebsocketManager::GetInstance()->send(CompletionSelectClientMessage(
+                currentCompletion, 0, completions.size(), xPos, yPos
+            ));
         } else {
             logger::log("(WsAction::CompletionGenerate) No completion");
         }
@@ -371,6 +372,17 @@ void CompletionManager::_requestRetrieveCompletion() {
     _needRetrieveCompletion.store(true);
 }
 
+string CompletionManager::_selectCompletion(const uint32_t index) {
+    string content; {
+        shared_lock lock(_completionListMutex);
+        content = _completionList[index];
+    } {
+        unique_lock lock(_completionCacheMutex);
+        _completionCache.reset(iconv::utf8ToGbk(content));
+    }
+    return content;
+}
+
 void CompletionManager::_sendCompletionGenerate() {
     try {
         shared_lock componentsLock(_componentsMutex);
@@ -379,6 +391,7 @@ void CompletionManager::_sendCompletionGenerate() {
             _components.caretPosition,
             _components.path,
             _components.prefix,
+            _components.project,
             _components.recentFiles,
             _components.suffix,
             {}
@@ -392,7 +405,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
     thread([this] {
         while (_isRunning) {
             if (const auto pastTime = chrono::high_resolution_clock::now() - _debounceRetrieveCompletionTime.load();
-                pastTime >= chrono::milliseconds(400) && _needRetrieveCompletion.load()) {
+                pastTime >= chrono::milliseconds(300) && _needRetrieveCompletion.load()) {
                 try {
                     const auto caretPosition = InteractionMonitor::GetInstance()->getCaretPosition();
                     const auto getContextLine = [&](const int offset = 0) {
@@ -422,6 +435,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                         _components.caretPosition = caretPosition;
                         _components.path = InteractionMonitor::GetInstance()->getFileName();
                         _components.prefix = move(prefix);
+                        _components.project = InteractionMonitor::GetInstance()->getProjectDirectory();
                         _components.recentFiles = ModificationManager::GetInstance()->getRecentFiles();
                         _components.suffix = move(suffix);
                     }
