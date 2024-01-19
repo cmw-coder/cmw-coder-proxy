@@ -351,6 +351,171 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                         ignore = _handleInteraction(Interaction::SelectionClear);
                         break;
                     }
+                    case Key::F12: {
+                        //------getSymbolLocationFromLn-----
+                        //param1: 当前文件句柄
+                        //param2: 行数
+                        //param3: 输出参数，自己创建的变量用于后续数据处理，保存的是地址
+                        //param4: 同3
+                        //param5: 0
+                        //description: 获取文件中指定行数的symbol数据，处理后保存到parma3和param4对应的地址中
+                        const auto getSymbolLocationFromLn = StdCallFunction<int(int, int, int, int, int)>(
+                            _baseAddress + 0x196A10
+                        );
+
+                        uint32_t fileHandle;
+                        ReadProcessMemory(
+                            _processHandle.get(),
+                            reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.handle),
+                            &fileHandle,
+                            sizeof(fileHandle),
+                            nullptr
+                        );
+                        if (fileHandle) {
+                            //创建变量用于保存数据
+                            int symbolHandle;
+                            int symbolSize;
+                            getSymbolLocationFromLn(fileHandle, 42, (int)&symbolHandle, (int)&symbolSize, 0);
+                            const auto getSymbolLocationFromLnProceAddress = _baseAddress + 0x19C5E0;
+                            char content[4096];
+                            __asm{
+                                    mov eax, symbolHandle
+                                    mov edx, symbolSize
+                                    mov ecx, [eax+14h]
+                                    mov ecx, [ecx+edx*4]
+                                    mov edx, [eax+28h]
+                                    lea ecx, [ecx+edx+4]
+                                    push ecx
+                                    push eax
+                                    lea ecx, content
+                                    call getSymbolLocationFromLnProceAddress
+                            }
+                            // getSymbolLocationFromLnProce(a, b);
+                            logger::info("11");
+                            //param1: getSymbolLocationFromLnDate的param3
+                            //param2: 输出参数，创建的变量
+                            //description: 将param1参数内容格式化,保存到param2中输出
+                            const auto getSymbolFormat = StdCallFunction<char*(char*, int)>(
+                                _baseAddress + 0x1215F0
+                            );
+                            CompactString payload;
+                            if (getSymbolFormat(content, (int)payload.data())) {
+                                logger::debug("1");
+                            }
+                            //---------------SymbolChildren----------------------------
+                            char y[4096];
+                            CompactString payload2;
+                            //param1: int* 这个第一个参数是为了symbol出错后能将出错信息传出"bad Symbol record values"
+                            //param2: 输出参数，创建的变量用于数据保存
+                            //param3: SymbolLocation获取到的
+                            //description: 解析格式化后的symbol数据， 返回值为0表示symbol为空，退出执行
+                            auto praseSymbolLocation = StdCallFunction<int(int*, int, int)>(
+                                _baseAddress + 0x127E90
+                            );
+                            const auto charlength = strlen(payload.data()->content);
+                            char str[4096];
+                            memcpy(str + 2, payload.data()->content, charlength);
+                            auto result = praseSymbolLocation((int*)payload2.data(), (int)y, (int)str);
+                            if (!result) {
+                                break;
+                            }
+                            //
+                            //description: creatSymList
+                            auto creatSymList = StdCallFunction<int*()>(
+                                _baseAddress + 0x172B90
+                            );
+                            auto symList = creatSymList();
+                            //
+                            char z[4096];
+                            //param1:输出参数, 创建的变量
+                            //description: 开辟空间，用来保存数据
+                            auto SymbolProce = StdCallFunction<int*(int*)>(
+                                _baseAddress + 0x173670
+                            );
+                            SymbolProce((int*)z);
+
+                            //param1:praseSymbolLocation的param2
+                            //param2:creatSymList的返回值,输出参数
+                            //param3: 0
+                            //param4: 0,
+                            //param5:SymbolProce的param1
+                            //description: 获取到childrenSymbol信息保存到symList中
+                            auto SymbolChildren = StdCallFunction<int(int, int, int, int, int*)>(
+                                _baseAddress + 0x175050
+                            );
+                            SymbolChildren((int)y, (int)symList, 0, 0, (int*)z);
+
+                            //param1:creatSymList的返回值的地址
+                            //description: 进一步处理symList内的信息或处理symList
+                            auto SymListProce = StdCallFunction<int(int)>(
+                                _baseAddress + 0x12D4E0
+                            );
+                            SymListProce((int)&symList);
+
+                            //---------------SymListCount----------------------------
+                            //symList的首地址保存了它的size
+                            auto cchild = *symList;
+
+                            //---------------SymListItem----------------------------
+
+                            //param1:symList地址  param2：symList的下标
+                            //返回值是Item的地址
+                            //description: 用于获取symList指定索引的地址
+                            // auto SymbolItem = StdCallFunction<int(int, int)>(
+                            //     _baseAddress + 0x1F9D
+                            // );
+                            //
+                            // auto item = SymbolItem((int)symList, 10);
+                            //
+                            // char v[4096];
+                            // //param1: (item+12)--是保存的内容起始地址
+                            // //param2: 输出参数，创建的变量
+                            // //description: 用于获取Item存储的信息，并保存到param2中输出
+                            // auto getSymbolItemInfo = StdCallFunction<int(int, int)>(
+                            //     _baseAddress + 0x810F7
+                            // );
+                            //
+                            // result = getSymbolItemInfo((int)(item + 12), (int)v);
+                            //
+                            // CompactString childPayload;
+                            // getSymbolFormat(v, (int)childPayload.data());
+
+                            //---------------SymbolDeclaredType------------------
+
+                            // char w[4096];
+                            //
+                            // const auto childPayloadlength = strlen(childPayload.data()->content);
+                            // char str1[4096];
+                            // memcpy(str1 + 2, childPayload.data()->content, childPayloadlength);
+                            // result = praseSymbolLocation((int*)payload2.data(), (int)w, (int)str1);
+                            //
+                            // if (!result) {
+                            //     break;
+                            // }
+                            //param1：praseSymbolLocation的输出参数
+                            //param2：0
+                            //param3：1
+                            //description: 获取自定义变量类型的声明，如果存在则返回1，不存在返回0.
+                            // auto Declared = StdCallFunction<int(int, int, int)>(
+                            //     _baseAddress + 0xDA83D
+                            // );
+                            // result = Declared((int)w, 0, 1);
+                            // if (!result) {
+                            //     break;
+                            // }
+                            // CompactString SymbolDeclaredPayload;
+                            // getSymbolFormat(w, (int)SymbolDeclaredPayload.data());
+                            // logger::debug(SymbolDeclaredPayload.data()->content);
+                            //---------------SymListFree------------------
+                            //param1: creatSymList的返回值
+                            //description: 将之前申请的内存释放
+                            // auto symListFree = StdCallFunction<int(int*)>(
+                            //     _baseAddress + 0xFB25F
+                            // );
+                            // symListFree(symList);
+                        }
+                        break;
+                    }
                     default: {
                         // TODO: Support Key::Delete
                         break;
