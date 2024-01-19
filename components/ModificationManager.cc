@@ -16,15 +16,27 @@ ModificationManager::~ModificationManager() {
     _isRunning = false;
 }
 
-string ModificationManager::getModifingFiles() const {
-    string result;
-    shared_lock lock(_modifingFilesMutex);
-    for (const auto& [path, lastActiveTime]: _modifingFiles) {
-        if (chrono::high_resolution_clock::now() - lastActiveTime < chrono::minutes(60)) {
-            result.append(path);
+vector<string> ModificationManager::getRecentFiles(const uint32_t limit) const {
+    using FileTime = pair<string, chrono::high_resolution_clock::time_point>;
+    vector<string> recentFiles;
+    priority_queue<FileTime, vector<FileTime>, decltype([](const auto& a, const auto& b) {
+        return a.second > b.second;
+    })> pq; {
+        shared_lock lock(_modifingFilesMutex);
+        for (const auto& file: _recentFiles) {
+            pq.emplace(file);
+            if (pq.size() > limit) {
+                pq.pop();
+            }
         }
     }
-    return result;
+
+    while (!pq.empty()) {
+        recentFiles.push_back(pq.top().first);
+        pq.pop();
+    }
+
+    return recentFiles;
 }
 
 void ModificationManager::interactionAcceptCompletion(const any&, bool&) {
@@ -132,23 +144,13 @@ void ModificationManager::_monitorCurrentFile() {
             try {
                 const auto currentPath = InteractionMonitor::GetInstance()->getFileName();
                 if (const auto extension = fs::getExtension(currentPath);
-                    extension != ".c" && extension != ".h") {
-                    this_thread::sleep_for(chrono::milliseconds(100));
-                    continue;
-                }
-                bool hasFile; {
-                    shared_lock lock(_modifingFilesMutex);
-                    hasFile = _modifingFiles.contains(currentPath);
-                }
-                if (hasFile) {
-                    shared_lock lock(_modifingFilesMutex);
-                    _modifingFiles.at(currentPath) = chrono::high_resolution_clock::now();
-                } else {
+                    extension == ".c" || extension == ".h") {
+                    // TODO: Check if this would cause performance issue
                     unique_lock lock(_modifingFilesMutex);
-                    _modifingFiles.emplace(currentPath, chrono::high_resolution_clock::now());
+                    _recentFiles.emplace(currentPath, chrono::high_resolution_clock::now());
                 }
             } catch (const runtime_error&) {}
-            this_thread::sleep_for(chrono::milliseconds(100));
+            this_thread::sleep_for(chrono::milliseconds(500));
         }
     }).detach();
 }

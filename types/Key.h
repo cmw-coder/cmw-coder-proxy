@@ -14,6 +14,7 @@ namespace types {
         F10,
         F11,
         F12,
+        F13,
         Home,
         End,
         PageDown,

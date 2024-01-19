@@ -32,10 +32,12 @@ namespace types {
             uint32_t handle;
 
             struct {
-                struct {
-                    uint32_t base;
-                } line, character;
-            } dataCaret;
+                uint32_t offset1, offset2;
+            } dataProjDir;
+        } project;
+
+        struct {
+            uint32_t handle;
 
             struct {
                 struct {

@@ -36,6 +36,8 @@ namespace components {
 
         [[nodiscard]] std::string getLineContent(uint32_t line) const;
 
+        [[nodiscard]] std::string getProjectDirectory() const;
+
         void insertLineContent(uint32_t line, const std::string& content) const;
 
         template<class T>
@@ -73,6 +75,8 @@ namespace components {
 
         uint32_t _getFileHandle() const;
 
+        uint32_t _getProjectHandle() const;
+
         uint32_t _getWindowHandle() const;
 
         void _handleKeycode(types::Keycode keycode) noexcept;
@@ -84,8 +88,6 @@ namespace components {
         types::Range _monitorCursorSelect() const;
 
         void _monitorDebugLog() const;
-
-        void _monitorEditorInfo() const;
 
         bool _processKeyMessage(unsigned wParam, unsigned lParam);
 
