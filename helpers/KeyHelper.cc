@@ -24,6 +24,7 @@ namespace {
                 {Key::F10, 0x1079},
                 {Key::F11, 0x107A},
                 {Key::F12, 0x107B},
+                {Key::F13, 0x107C},
                 {Key::Home, 0x8021},
                 {Key::End, 0x8022},
                 {Key::PageDown, 0x8023},
@@ -51,6 +52,7 @@ namespace {
                 {Key::F10, 0x100079},
                 {Key::F11, 0x10007A},
                 {Key::F12, 0x10007B},
+                {Key::F13, 0x10007C},
                 {Key::Home, 0x800021},
                 {Key::End, 0x800022},
                 {Key::PageDown, 0x800023},
@@ -90,8 +92,7 @@ namespace {
 
 KeyHelper::KeyHelper(const SiVersion::Major siVersion) noexcept: _keyMask(keyMasks.at(siVersion)),
                                                                  _keyMap(keyMaps.at(siVersion)),
-                                                                 _modifierMap(modifierMaps.at(siVersion)) {
-}
+                                                                 _modifierMap(modifierMaps.at(siVersion)) {}
 
 optional<KeyHelper::KeyCombination> KeyHelper::fromKeycode(const Keycode keycode) const noexcept {
     for (const auto& [key, keyValue]: _keyMap) {

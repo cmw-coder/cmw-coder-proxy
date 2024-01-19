@@ -61,14 +61,10 @@ void WindowManager::requestRetrieveInfo() {
     _needRetrieveInfo.store(true);
 }
 
-void WindowManager::sendLeftThenRight() const {
+void WindowManager::sendF13() const {
     window::sendKeycode(
         _codeWindowHandle,
-        _keyHelper.toKeycode(Key::Left)
-    );
-    window::sendKeycode(
-        _codeWindowHandle,
-        _keyHelper.toKeycode(Key::Right)
+        _keyHelper.toKeycode(Key::F13)
     );
 }
 

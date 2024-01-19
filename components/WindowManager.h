@@ -27,7 +27,7 @@ namespace components {
 
         void requestRetrieveInfo();
 
-        void sendLeftThenRight() const;
+        void sendF13() const;
 
         bool sendSave();
 
