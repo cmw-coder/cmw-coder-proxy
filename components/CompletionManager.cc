@@ -93,7 +93,7 @@ void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockM
             }
             ++insertedlineCount;
         }
-        WindowManager::GetInstance()->sendLeftThenRight();
+        WindowManager::GetInstance()->sendF13();
         interactionMonitor->setCaretPosition(
             {lastLineLength, currentPosition.line + insertedlineCount - 1}
         );
@@ -113,7 +113,7 @@ void CompletionManager::interactionCompletionCancel(const any& data, bool&) {
     try {
         if (any_cast<bool>(data)) {
             _requestRetrieveCompletion();
-            WindowManager::GetInstance()->sendLeftThenRight();
+            WindowManager::GetInstance()->sendF13();
         }
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid interactionCompletionCancel data: {}", e.what()));
@@ -407,6 +407,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
             if (const auto pastTime = chrono::high_resolution_clock::now() - _debounceRetrieveCompletionTime.load();
                 pastTime >= chrono::milliseconds(300) && _needRetrieveCompletion.load()) {
                 try {
+                    WindowManager::GetInstance()->sendF13();
                     const auto monitor = InteractionMonitor::GetInstance();
                     const auto caretPosition = monitor->getCaretPosition();
                     string prefix, suffix; {
