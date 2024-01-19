@@ -29,6 +29,8 @@ namespace components {
 
         void sendF13() const;
 
+        void sendLeftThenRight() const;
+
         bool sendSave();
 
         bool sendUndo();

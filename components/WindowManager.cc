@@ -68,6 +68,17 @@ void WindowManager::sendF13() const {
     );
 }
 
+void WindowManager::sendLeftThenRight() const {
+    window::sendKeycode(
+        _codeWindowHandle,
+        _keyHelper.toKeycode(Key::Left)
+    );
+    window::sendKeycode(
+        _codeWindowHandle,
+        _keyHelper.toKeycode(Key::Right)
+    );
+}
+
 bool WindowManager::sendSave() {
     _cancelRetrieveInfo();
     return window::postKeycode(
