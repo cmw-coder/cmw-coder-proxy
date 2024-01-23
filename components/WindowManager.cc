@@ -4,12 +4,19 @@
 #include <utils/logger.h>
 #include <utils/window.h>
 
+#include <windows.h>
+
 using namespace components;
 using namespace std;
 using namespace types;
 using namespace utils;
 
-WindowManager::WindowManager() : _keyHelper(Configurator::GetInstance()->version().first) {
+WindowManager::WindowManager()
+    : _keyHelper(Configurator::GetInstance()->version().first),
+      _mainWindowHandle(reinterpret_cast<int64_t>(GetActiveWindow())) {
+    const auto menuHandle = GetMenu(reinterpret_cast<HWND>(_mainWindowHandle.load()));
+    _menuItemIndex = GetMenuItemCount(menuHandle);
+    AppendMenu(menuHandle, MF_DISABLED, _menuItemIndex, format("Comware Coder v{}", VERSION_STRING).c_str());
     _threadDebounceRetrieveInfo();
 }
 

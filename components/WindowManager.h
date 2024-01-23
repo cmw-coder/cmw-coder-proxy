@@ -38,7 +38,7 @@ namespace components {
     private:
         helpers::KeyHelper _keyHelper;
         std::atomic<bool> _isRunning{true}, _needRetrieveInfo{false};
-        std::atomic<int64_t> _codeWindowHandle{-1}, _popListWindowHandle{-1};
+        std::atomic<int64_t> _codeWindowHandle{-1}, _mainWindowHandle, _menuItemIndex{-1}, _popListWindowHandle{-1};
         std::atomic<types::Time> _debounceRetrieveInfoTime;
 
         void _cancelRetrieveInfo();
