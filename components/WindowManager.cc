@@ -102,6 +102,22 @@ bool WindowManager::sendUndo() {
     );
 }
 
+void WindowManager::setMenuText(const string& text) const {
+    const auto menuHandle = GetMenu(reinterpret_cast<HWND>(_mainWindowHandle.load()));
+    ModifyMenu(menuHandle, _menuItemIndex, MF_DISABLED, _menuItemIndex, text.c_str());
+}
+
+void WindowManager::unsetMenuText() const {
+    const auto menuHandle = GetMenu(reinterpret_cast<HWND>(_mainWindowHandle.load()));
+    ModifyMenu(
+        menuHandle,
+        _menuItemIndex,
+        MF_DISABLED,
+        _menuItemIndex,
+        format("Comware Coder v{}", VERSION_STRING).c_str()
+    );
+}
+
 void WindowManager::_cancelRetrieveInfo() {
     _needRetrieveInfo.store(false);
 }

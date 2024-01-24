@@ -35,6 +35,10 @@ namespace components {
 
         bool sendUndo();
 
+        void setMenuText(const std::string& text) const;
+
+        void unsetMenuText() const;
+
     private:
         helpers::KeyHelper _keyHelper;
         std::atomic<bool> _isRunning{true}, _needRetrieveInfo{false};
