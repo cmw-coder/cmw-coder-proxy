@@ -93,7 +93,6 @@ void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockM
             }
             ++insertedlineCount;
         }
-        WindowManager::GetInstance()->sendF13();
         WindowManager::GetInstance()->sendLeftThenRight();
         interactionMonitor->setCaretPosition(
             {lastLineLength, currentPosition.line + insertedlineCount - 1}
