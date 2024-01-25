@@ -8,7 +8,7 @@
 #include <components/InteractionMonitor.h>
 #include <components/WebsocketManager.h>
 #include <components/WindowManager.h>
-#include <types/common.h>
+#include <types/AddressToFunction.h>
 #include <types/CompactString.h>
 #include <types/SiVersion.h>
 #include <utils/logger.h>
@@ -92,7 +92,7 @@ InteractionMonitor::~InteractionMonitor() {
 }
 
 void InteractionMonitor::deleteLineContent(const uint32_t line) const {
-    const auto funcDelBufLine = StdCallFunction<void(uint32_t, uint32_t, uint32_t)>(
+    const auto funcDelBufLine = AddressToFunction<void(uint32_t, uint32_t, uint32_t)>(
         _baseAddress + _memoryAddress.file.funcDelBufLine.base
     );
 
@@ -103,7 +103,7 @@ void InteractionMonitor::deleteLineContent(const uint32_t line) const {
 
 tuple<int64_t, int64_t> InteractionMonitor::getCaretPixels(const uint32_t line) const {
     const auto [clientX, clientY] = WindowManager::GetInstance()->getClientPosition();
-    const auto funcYPosFromLine = StdCallFunction<uint32_t(uint32_t, uint32_t)>(
+    const auto funcYPosFromLine = AddressToFunction<uint32_t(uint32_t, uint32_t)>(
         _baseAddress + _memoryAddress.window.funcYPosFromLine.base
     );
     const auto windowHandle = _getWindowHandle();
@@ -156,7 +156,7 @@ CaretPosition InteractionMonitor::getCaretPosition() const {
 
 string InteractionMonitor::getFileName() const {
     uint32_t param1;
-    const auto functionGetBufName = StdCallFunction<void(uint32_t, void*)>(
+    const auto functionGetBufName = AddressToFunction<void(uint32_t, void*)>(
         _baseAddress + _memoryAddress.file.funcGetBufName.base
     ); {
         const auto fileHandle = _getFileHandle();
@@ -187,7 +187,7 @@ string InteractionMonitor::getLineContent() const {
 }
 
 string InteractionMonitor::getLineContent(const uint32_t line) const {
-    const auto functionGetBufLine = StdCallFunction<void(uint32_t, uint32_t, void*)>(
+    const auto functionGetBufLine = AddressToFunction<void(uint32_t, uint32_t, void*)>(
         _baseAddress + _memoryAddress.file.funcGetBufLine.base
     );
 
@@ -224,7 +224,7 @@ string InteractionMonitor::getProjectDirectory() const {
 }
 
 void InteractionMonitor::insertLineContent(const uint32_t line, const string& content) const {
-    const auto functionInsBufLine = StdCallFunction<void(uint32_t, uint32_t, void*)>(
+    const auto functionInsBufLine = AddressToFunction<void(uint32_t, uint32_t, void*)>(
         _baseAddress + _memoryAddress.file.funcInsBufLine.base
     );
 
@@ -235,7 +235,7 @@ void InteractionMonitor::insertLineContent(const uint32_t line, const string& co
 }
 
 void InteractionMonitor::setCaretPosition(const CaretPosition& caretPosition) const {
-    const auto SetWndSel = StdCallFunction<void(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(
+    const auto SetWndSel = AddressToFunction<void(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(
         _baseAddress + _memoryAddress.window.funcSetWndSel.base
     );
 
@@ -251,7 +251,7 @@ void InteractionMonitor::setCaretPosition(const CaretPosition& caretPosition) co
 }
 
 void InteractionMonitor::setLineContent(const uint32_t line, const string& content) const {
-    const auto functionPutBufLine = StdCallFunction<void(uint32_t, uint32_t, void*)>(
+    const auto functionPutBufLine = AddressToFunction<void(uint32_t, uint32_t, void*)>(
         _baseAddress + _memoryAddress.file.funcPutBufLine.base
     );
 
@@ -264,7 +264,7 @@ void InteractionMonitor::setLineContent(const uint32_t line, const string& conte
 void InteractionMonitor::setSelectedContent(const string& content) const {
     checkValidCodeWindow();
 
-    const auto functionSetBufSelText = StdCallFunction<void(uint32_t, const char*)>(
+    const auto functionSetBufSelText = AddressToFunction<void(uint32_t, const char*)>(
         _baseAddress + _memoryAddress.window.funcSetBufSelText.base
     );
 
