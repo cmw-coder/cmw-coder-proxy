@@ -16,3 +16,7 @@ string SimpleString::str() const {
 SimpleString::Data* SimpleString::data() {
     return &_data;
 }
+
+SymbolLocation::Data* SymbolLocation::data() {
+    return &_data;
+}

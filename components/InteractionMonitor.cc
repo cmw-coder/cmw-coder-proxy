@@ -377,7 +377,7 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                         // ignore = _handleInteraction(Interaction::SelectionClear);
                         break;
                     }
-                    case Key::F12: {
+                    case Key::F13: {
                         //------getSymbolLocationFromLn-----
                         //param1: 当前文件句柄
                         //param2: 行数
@@ -385,29 +385,20 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                         //param4: 同3
                         //param5: 0
                         //description: 获取文件中指定行数的symbol数据，处理后保存到parma3和param4对应的地址中
-                        const auto getSymbolLocationFromLn = StdCallFunction<int(int, int, int, int, int)>(
-                            _baseAddress + 0x111123
-                        );
+                        const auto getSymbolLocationFromLn = AddressToFunction<
+                            void(uint32_t, uint32_t, int*, int*, int)
+                        >(_baseAddress + 0x111123);
 
-                        uint32_t fileHandle;
-                        ReadProcessMemory(
-                            _processHandle.get(),
-                            reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.handle),
-                            &fileHandle,
-                            sizeof(fileHandle),
-                            nullptr
-                        );
-                        if (fileHandle) {
-                            //创建变量用于保存数据
-                            int a;
-                            int b;
-                            getSymbolLocationFromLn(fileHandle, 60, (int)&a, (int)&b, 0);
+                        if (const auto fileHandle = _getFileHandle()) {
+                            // Intermediary variables
+                            int a{}, b{};
+                            getSymbolLocationFromLn(fileHandle, getCaretPosition().line, &a, &b, 0);
 
                             //param1: getSymbolLocationFromLn的parma3
-                            //param2: getSymbolLocationFromLn的parma3
+                            //param2: getSymbolLocationFromLn的parma4
                             //return: 相关数据的地址
                             //description: 处理SymbolLocation的信息
-                            const auto getSymbolLocationFromLnProce = StdCallFunction<int(int, int)>(
+                            const auto getSymbolLocationFromLnProce = AddressToFunction<int(int, int)>(
                                 _baseAddress + 0xB1D87
                             );
                             auto x = getSymbolLocationFromLnProce(a, b);
@@ -416,42 +407,43 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                             //param2: getSymbolLocationFromLnProce的返回值
                             //param3: 输出参数，创建变量
                             //description: SymbolLocation的信息保存到param3中输出
-                            const auto getSymbolLocationFromLnDate = StdCallFunction<int(int, int, char*)>(
+                            const auto getSymbolLocationFromLnDate = AddressToFunction<int(int, int, void*)>(
                                 _baseAddress + 0x115904
                             );
-                            char content[4096];
-                            getSymbolLocationFromLnDate(a, x, content);
+                            SymbolLocation symbolLocation;
+                            getSymbolLocationFromLnDate(a, x, symbolLocation.data());
 
                             //param1: getSymbolLocationFromLnDate的param3
                             //param2: 输出参数，创建的变量
                             //description: 将param1参数内容格式化,保存到param2中输出
-                            const auto getSymbolFormat = StdCallFunction<char*(char*, int)>(
+                            const auto getSymbolFormat = AddressToFunction<char*(void*, void*)>(
                                 _baseAddress + 0xC66C9
                             );
-                            CompactString payload;
-                            if (getSymbolFormat(content, (int)payload.data())) {
-                                logger::debug("1");
+                            SimpleString payload;
+                            const auto _temp = getSymbolFormat(symbolLocation.data(), payload.data());
+                            if (_temp) {
+                                logger::debug(payload.str());
                             }
                             //---------------SymbolChildren----------------------------
                             char y[4096];
-                            CompactString payload2;
+                            SimpleString payload2;
                             //param1: int* 这个第一个参数是为了symbol出错后能将出错信息传出"bad Symbol record values"
                             //param2: 输出参数，创建的变量用于数据保存
                             //param3: SymbolLocation获取到的
                             //description: 解析格式化后的symbol数据， 返回值为0表示symbol为空，退出执行
-                            auto praseSymbolLocation = StdCallFunction<int(int*, int, int)>(
+                            auto praseSymbolLocation = AddressToFunction<int(int*, int, int)>(
                                 _baseAddress + 0xC62ED
                             );
                             const auto charlength = strlen(payload.data()->content);
                             char str[4096];
                             memcpy(str + 2, payload.data()->content, charlength);
-                            auto result = praseSymbolLocation((int*)payload2.data(), (int)y, (int)str);
+                            auto result = praseSymbolLocation((int *) payload2.data(), (int) y, (int) str);
                             if (!result) {
                                 break;
                             }
 
                             //description: creatSymList
-                            auto creatSymList = StdCallFunction<int*()>(
+                            auto creatSymList = AddressToFunction<int*()>(
                                 _baseAddress + 0xFB214
                             );
                             auto symList = creatSymList();
@@ -459,10 +451,10 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                             char z[4096];
                             //param1:输出参数, 创建的变量
                             //description: 开辟空间，用来保存数据
-                            auto SymbolProce = StdCallFunction<int*(int*)>(
+                            auto SymbolProce = AddressToFunction<int*(int*)>(
                                 _baseAddress + 0xFB90B
                             );
-                            SymbolProce((int*)z);
+                            SymbolProce((int *) z);
 
                             //param1:praseSymbolLocation的param2
                             //param2:creatSymList的返回值,输出参数
@@ -470,17 +462,17 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                             //param4: 0,
                             //param5:SymbolProce的param1
                             //description: 获取到childrenSymbol信息保存到symList中
-                            auto SymbolChildren = StdCallFunction<int(int, int, int, int, int*)>(
+                            auto SymbolChildren = AddressToFunction<int(int, int, int, int, int*)>(
                                 _baseAddress + 0xFD8CF
                             );
-                            SymbolChildren((int)y, (int)symList, 0, 0, (int*)z);
+                            SymbolChildren((int) y, (int) symList, 0, 0, (int *) z);
 
                             //param1:creatSymList的返回值的地址
                             //description: 进一步处理symList内的信息或处理symList
-                            auto SymListProce = StdCallFunction<int(int)>(
+                            auto SymListProce = AddressToFunction<int(int)>(
                                 _baseAddress + 0xD26D5
                             );
-                            SymListProce((int)&symList);
+                            SymListProce((int) &symList);
 
                             //---------------SymListCount----------------------------
                             //symList的首地址保存了它的size
@@ -491,24 +483,24 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                             //param1:symList地址  param2：symList的下标
                             //返回值是Item的地址
                             //description: 用于获取symList指定索引的地址
-                            auto SymbolItem = StdCallFunction<int(int, int)>(
+                            auto SymbolItem = AddressToFunction<int(int, int)>(
                                 _baseAddress + 0x1F9D
                             );
 
-                            auto item = SymbolItem((int)symList, 10);
+                            auto item = SymbolItem((int) symList, 10);
 
                             char v[4096];
                             //param1: (item+12)--是保存的内容起始地址
                             //param2: 输出参数，创建的变量
                             //description: 用于获取Item存储的信息，并保存到param2中输出
-                            auto getSymbolItemInfo = StdCallFunction<int(int, int)>(
+                            auto getSymbolItemInfo = AddressToFunction<int(int, int)>(
                                 _baseAddress + 0x810F7
                             );
                             //
-                            result = getSymbolItemInfo((int)(item + 12), (int)v);
+                            result = getSymbolItemInfo((int) (item + 12), (int) v);
 
-                            CompactString childPayload;
-                            getSymbolFormat(v, (int)childPayload.data());
+                            SimpleString childPayload;
+                            getSymbolFormat(v, childPayload.data());
 
                             //---------------SymbolDeclaredType------------------
 
@@ -517,7 +509,7 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                             const auto childPayloadlength = strlen(childPayload.data()->content);
                             char str1[4096];
                             memcpy(str1 + 2, childPayload.data()->content, childPayloadlength);
-                            result = praseSymbolLocation((int*)payload2.data(), (int)w, (int)str1);
+                            result = praseSymbolLocation((int *) payload2.data(), (int) w, (int) str1);
 
                             if (!result) {
                                 break;
@@ -526,20 +518,20 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                             //param2：0
                             //param3：1
                             //description: 获取自定义变量类型的声明，如果存在则返回1，不存在返回0.
-                            auto Declared = StdCallFunction<int(int, int, int)>(
+                            auto Declared = AddressToFunction<int(int, int, int)>(
                                 _baseAddress + 0xDA83D
                             );
-                            result = Declared((int)w, 0, 1);
+                            result = Declared((int) w, 0, 1);
                             if (!result) {
                                 break;
                             }
-                            CompactString SymbolDeclaredPayload;
-                            getSymbolFormat(w, (int)SymbolDeclaredPayload.data());
+                            SimpleString SymbolDeclaredPayload;
+                            getSymbolFormat(w, SymbolDeclaredPayload.data());
                             logger::debug(SymbolDeclaredPayload.data()->content);
                             //---------------SymListFree------------------
                             //param1: creatSymList的返回值
                             //description: 将之前申请的内存释放
-                            auto symListFree = StdCallFunction<int(int*)>(
+                            auto symListFree = AddressToFunction<int(int*)>(
                                 _baseAddress + 0xFB25F
                             );
                             symListFree(symList);
