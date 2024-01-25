@@ -4,12 +4,19 @@
 #include <utils/logger.h>
 #include <utils/window.h>
 
+#include <windows.h>
+
 using namespace components;
 using namespace std;
 using namespace types;
 using namespace utils;
 
-WindowManager::WindowManager() : _keyHelper(Configurator::GetInstance()->version().first) {
+WindowManager::WindowManager()
+    : _keyHelper(Configurator::GetInstance()->version().first),
+      _mainWindowHandle(reinterpret_cast<int64_t>(GetActiveWindow())) {
+    const auto menuHandle = GetMenu(reinterpret_cast<HWND>(_mainWindowHandle.load()));
+    _menuItemIndex = GetMenuItemCount(menuHandle);
+    AppendMenu(menuHandle, MF_DISABLED, _menuItemIndex, format("Comware Coder v{}", VERSION_STRING).c_str());
     _threadDebounceRetrieveInfo();
 }
 
@@ -68,6 +75,17 @@ void WindowManager::sendF13() const {
     );
 }
 
+void WindowManager::sendLeftThenRight() const {
+    window::sendKeycode(
+        _codeWindowHandle,
+        _keyHelper.toKeycode(Key::Left)
+    );
+    window::sendKeycode(
+        _codeWindowHandle,
+        _keyHelper.toKeycode(Key::Right)
+    );
+}
+
 bool WindowManager::sendSave() {
     _cancelRetrieveInfo();
     return window::postKeycode(
@@ -81,6 +99,22 @@ bool WindowManager::sendUndo() {
     return window::postKeycode(
         _codeWindowHandle,
         _keyHelper.toKeycode(Key::Z, Modifier::Ctrl)
+    );
+}
+
+void WindowManager::setMenuText(const string& text) const {
+    const auto menuHandle = GetMenu(reinterpret_cast<HWND>(_mainWindowHandle.load()));
+    ModifyMenu(menuHandle, _menuItemIndex, MF_DISABLED, _menuItemIndex, text.c_str());
+}
+
+void WindowManager::unsetMenuText() const {
+    const auto menuHandle = GetMenu(reinterpret_cast<HWND>(_mainWindowHandle.load()));
+    ModifyMenu(
+        menuHandle,
+        _menuItemIndex,
+        MF_DISABLED,
+        _menuItemIndex,
+        format("Comware Coder v{}", VERSION_STRING).c_str()
     );
 }
 
