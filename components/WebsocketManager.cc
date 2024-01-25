@@ -5,8 +5,8 @@
 #include <components/WebsocketManager.h>
 #include <utils/logger.h>
 
-
 using namespace components;
+using namespace models;
 using namespace ix;
 using namespace magic_enum;
 using namespace std;

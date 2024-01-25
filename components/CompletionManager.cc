@@ -20,6 +20,7 @@
 using namespace components;
 using namespace helpers;
 using namespace magic_enum;
+using namespace models;
 using namespace std;
 using namespace types;
 using namespace utils;
@@ -440,6 +441,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     }
                     _isNewLine = false;
                     logger::info("Retrieve completion with full prefix");
+                    // TODO: Improve performance
                     //     unique_lock lock(_componentsMutex);
                     //     _components.caretPosition = caretPosition;
                     //     _components.path = InteractionMonitor::GetInstance()->getFileName();

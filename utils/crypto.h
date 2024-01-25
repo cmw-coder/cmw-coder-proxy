@@ -8,9 +8,9 @@ namespace utils::crypto {
         Hex
     };
 
-    std::string encode(const std::string&input, Encoding encoding);
+    std::string encode(const std::string& input, Encoding encoding);
 
-    std::string decode(const std::string&input, Encoding encoding);
+    std::string decode(const std::string& input, Encoding encoding);
 
-    std::string sha1(const std::string&input, Encoding encoding = Encoding::Hex);
+    std::string sha1(const std::string& input, Encoding encoding = Encoding::Hex);
 }

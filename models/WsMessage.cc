@@ -1,10 +1,11 @@
 #include <magic_enum.hpp>
-#include <types/WsMessage.h>
+#include <models/WsMessage.h>
 #include <utils/iconv.h>
 
 #include <windows.h>
 
 using namespace magic_enum;
+using namespace models;
 using namespace std;
 using namespace types;
 using namespace utils;

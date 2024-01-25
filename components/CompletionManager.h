@@ -5,10 +5,10 @@
 #include <singleton_dclp.hpp>
 
 #include <helpers/HttpHelper.h>
+#include <models/SymbolInfo.h>
 #include <types/CaretPosition.h>
 #include <types/common.h>
 #include <types/CompletionCache.h>
-#include <types/SymbolInfo.h>
 
 namespace components {
     class CompletionManager : public SingletonDclp<CompletionManager> {
@@ -20,7 +20,7 @@ namespace components {
             std::string project;
             std::string suffix;
             std::vector<std::string> recentFiles;
-            std::vector<types::SymbolInfo> symbols;
+            std::vector<models::SymbolInfo> symbols;
         };
 
         CompletionManager();
