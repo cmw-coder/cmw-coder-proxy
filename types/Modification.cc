@@ -18,6 +18,7 @@
 
 using namespace components;
 using namespace helpers;
+using namespace models;
 using namespace std;
 using namespace types;
 using namespace utils;
