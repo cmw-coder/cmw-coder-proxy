@@ -3,17 +3,17 @@
 #include <cstdint>
 #include <string>
 
-namespace types {
-    class CompactString {
+namespace models {
+    class SimpleString {
         struct Data {
             uint8_t lengthLow, lengthHigh;
             char content[4092];
         };
 
     public:
-        CompactString() = default;
+        SimpleString() = default;
 
-        explicit CompactString(std::string_view str);
+        explicit SimpleString(std::string_view str);
 
         [[nodiscard]] std::string str() const;
 

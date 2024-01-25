@@ -2,34 +2,23 @@
 
 #include <nlohmann/json.hpp>
 
+#include <models/SymbolInfo.h>
 #include <types/CaretPosition.h>
-#include <types/SymbolInfo.h>
+#include <types/WsAction.h>
 
-namespace types {
-    enum class WsAction {
-        CompletionAccept,
-        CompletionCache,
-        CompletionCancel,
-        CompletionGenerate,
-        CompletionSelect,
-        DebugSync,
-        EditorFocusState,
-        EditorSwitchProject,
-        HandShake
-    };
-
+namespace models {
     class WsMessage {
     public:
-        const WsAction action;
+        const types::WsAction action;
 
         [[nodiscard]] std::string parse() const;
 
     protected:
         nlohmann::json _data;
 
-        explicit WsMessage(WsAction action);
+        explicit WsMessage(types::WsAction action);
 
-        WsMessage(WsAction action, nlohmann::json&& data);
+        WsMessage(types::WsAction action, nlohmann::json&& data);
 
         virtual ~WsMessage() = default;
     };
@@ -52,7 +41,7 @@ namespace types {
     class CompletionGenerateClientMessage final : public WsMessage {
     public:
         CompletionGenerateClientMessage(
-            const CaretPosition& caret,
+            const types::CaretPosition& caret,
             const std::string& path,
             const std::string& prefix,
             const std::string& project,

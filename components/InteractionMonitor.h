@@ -8,10 +8,10 @@
 #include <singleton_dclp.hpp>
 
 #include <helpers/KeyHelper.h>
+#include <models/MemoryAddress.h>
 #include <types/common.h>
 #include <types/CaretPosition.h>
 #include <types/Interaction.h>
-#include <types/MemoryAddress.h>
 #include <types/Mouse.h>
 #include <types/Range.h>
 
@@ -59,13 +59,13 @@ namespace components {
         const std::string _subKey;
         const uint32_t _baseAddress;
         helpers::KeyHelper _keyHelper;
+        models::MemoryAddress _memoryAddress{};
         std::atomic<bool> _isRunning{true}, _isMouseLeftDown{false}, _isSelecting{false};
         std::atomic<types::CaretPosition> _currentCaretPosition, _downCursorPosition;
         std::atomic<std::optional<types::Key>> _navigateWithKey;
         std::atomic<std::optional<types::Mouse>> _navigateWithMouse;
         std::shared_ptr<void> _keyHookHandle, _mouseHookHandle, _processHandle, _windowHookHandle;
         std::unordered_map<types::Interaction, std::vector<InteractionCallBack>> _handlerMap;
-        types::MemoryAddress _memoryAddress{};
 
         static long __stdcall _keyProcedureHook(int nCode, unsigned int wParam, long lParam);
 

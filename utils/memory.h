@@ -3,11 +3,11 @@
 #include <string>
 #include <optional>
 
-#include <types/MemoryAddress.h>
+#include <models/MemoryAddress.h>
 #include <types/SiVersion.h>
 
 namespace utils::memory {
-    types::MemoryAddress getAddresses(types::SiVersion::Full version);
+    models::MemoryAddress getAddresses(types::SiVersion::Full version);
 
     uint64_t scanPattern(const std::string& pattern);
 

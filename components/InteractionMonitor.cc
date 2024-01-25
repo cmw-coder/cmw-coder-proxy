@@ -8,8 +8,8 @@
 #include <components/InteractionMonitor.h>
 #include <components/WebsocketManager.h>
 #include <components/WindowManager.h>
+#include <models/MemoryPayloads.h>
 #include <types/AddressToFunction.h>
-#include <types/CompactString.h>
 #include <types/SiVersion.h>
 #include <utils/logger.h>
 #include <utils/memory.h>
@@ -20,6 +20,7 @@
 
 using namespace components;
 using namespace magic_enum;
+using namespace models;
 using namespace std;
 using namespace types;
 using namespace utils;
@@ -177,7 +178,7 @@ string InteractionMonitor::getFileName() const {
         );
     }
 
-    CompactString payload;
+    SimpleString payload;
     functionGetBufName(param1, payload.data());
     return payload.str();
 }
@@ -192,7 +193,7 @@ string InteractionMonitor::getLineContent(const uint32_t line) const {
     );
 
     if (const auto fileHandle = _getFileHandle()) {
-        CompactString payload;
+        SimpleString payload;
         functionGetBufLine(fileHandle, line, payload.data());
         return payload.str();
     }
@@ -229,7 +230,7 @@ void InteractionMonitor::insertLineContent(const uint32_t line, const string& co
     );
 
     if (const auto fileHandle = _getFileHandle()) {
-        CompactString payload(content);
+        SimpleString payload(content);
         functionInsBufLine(fileHandle, line, payload.data());
     }
 }
@@ -256,7 +257,7 @@ void InteractionMonitor::setLineContent(const uint32_t line, const string& conte
     );
 
     if (const auto fileHandle = _getFileHandle()) {
-        CompactString payload(content);
+        SimpleString payload(content);
         functionPutBufLine(fileHandle, line, payload.data());
     }
 }

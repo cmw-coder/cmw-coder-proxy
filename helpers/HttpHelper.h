@@ -11,11 +11,9 @@ namespace helpers {
     public:
         class HttpError final : public std::runtime_error {
         public:
-            explicit HttpError(const char* message): runtime_error(message) {
-            }
+            explicit HttpError(const char* message): runtime_error(message) {}
 
-            explicit HttpError(const std::string& message): runtime_error(message) {
-            }
+            explicit HttpError(const std::string& message): runtime_error(message) {}
         };
 
         explicit HttpHelper(std::string&& host, const std::chrono::microseconds& timeout);

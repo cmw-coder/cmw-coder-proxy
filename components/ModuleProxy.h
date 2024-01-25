@@ -13,7 +13,7 @@ namespace components {
         ModuleProxy();
 
         template<typename T>
-        T* getFunction(const std::string&procName) {
+        T* getFunction(const std::string& procName) {
             return reinterpret_cast<T *>(GetProcAddress(
                 static_cast<HMODULE>(this->_hModule.get()),
                 procName.c_str()

@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace types {
+namespace models {
     struct MemoryAddress {
         struct {
             uint32_t handle;

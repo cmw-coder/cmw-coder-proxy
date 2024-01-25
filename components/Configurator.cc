@@ -18,8 +18,7 @@ Configurator::Configurator() {
             enum_cast<SiVersion::Minor>(build).value_or(SiVersion::Minor::Unknown)
         );
         _siVersionString = "_3.50." + format("{:0>{}}", build, 4);
-    }
-    else {
+    } else {
         _siVersion = make_pair(
             SiVersion::Major::V40,
             enum_cast<SiVersion::Minor>(build).value_or(SiVersion::Minor::Unknown)

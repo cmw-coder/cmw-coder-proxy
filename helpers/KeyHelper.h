@@ -21,7 +21,7 @@ namespace helpers {
 
         [[nodiscard]] types::Keycode toKeycode(types::Key key, types::Modifier modifier) const noexcept;
 
-        [[nodiscard]] types::Keycode toKeycode(types::Key key, const ModifierSet&modifiers = {}) const noexcept;
+        [[nodiscard]] types::Keycode toKeycode(types::Key key, const ModifierSet& modifiers = {}) const noexcept;
 
         [[nodiscard]] char toPrintable(types::Keycode keycode) const noexcept;
 

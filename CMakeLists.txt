@@ -61,12 +61,14 @@ target_include_directories(${PROXY_MODULE_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_D
 
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/components/ COMPONENTS)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/helpers/ HELPERS)
+aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/models/ MODELS)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/types/ TYPES)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/utils/ UTILS)
 
 target_sources(${PROXY_MODULE_NAME} PRIVATE
         ${COMPONENTS}
         ${HELPERS}
+        ${MODELS}
         ${TYPES}
         ${UTILS}
 )
