@@ -11,12 +11,22 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
+namespace {
+    const auto versionText = format("v{}", VERSION_STRING);
+}
+
 WindowManager::WindowManager()
-    : _keyHelper(Configurator::GetInstance()->version().first),
-      _mainWindowHandle(reinterpret_cast<int64_t>(GetActiveWindow())) {
-    const auto menuHandle = GetMenu(reinterpret_cast<HWND>(_mainWindowHandle.load()));
+    : _keyHelper(Configurator::GetInstance()->version().first) {
+    const auto menuHandle = GetMenu(GetActiveWindow());
+    _menuHandle.store(reinterpret_cast<int64_t>(menuHandle));
     _menuItemIndex = GetMenuItemCount(menuHandle);
-    AppendMenu(menuHandle, MF_DISABLED, _menuItemIndex, format("Comware Coder v{}", VERSION_STRING).c_str());
+    AppendMenu(
+        menuHandle,
+        MF_DISABLED,
+        _menuItemIndex,
+        (_menuBaseText + versionText).c_str()
+    );
+
     _threadDebounceRetrieveInfo();
 
     logger::info("WindowManager is initialized");
@@ -105,19 +115,17 @@ bool WindowManager::sendUndo() {
 }
 
 void WindowManager::setMenuText(const string& text) const {
-    const auto menuHandle = GetMenu(reinterpret_cast<HWND>(_mainWindowHandle.load()));
-    ModifyMenu(menuHandle, _menuItemIndex, MF_DISABLED, _menuItemIndex, text.c_str());
-}
-
-void WindowManager::unsetMenuText() const {
-    const auto menuHandle = GetMenu(reinterpret_cast<HWND>(_mainWindowHandle.load()));
     ModifyMenu(
-        menuHandle,
+        reinterpret_cast<HMENU>(_menuHandle.load()),
         _menuItemIndex,
         MF_DISABLED,
         _menuItemIndex,
-        format("Comware Coder v{}", VERSION_STRING).c_str()
+        (_menuBaseText + text).c_str()
     );
+}
+
+void WindowManager::unsetMenuText() const {
+    setMenuText(versionText);
 }
 
 void WindowManager::_cancelRetrieveInfo() {
