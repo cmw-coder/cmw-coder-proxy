@@ -15,7 +15,16 @@ namespace types::SiVersion {
         V0086 = 86,
         V0128 = 128,
     };
+}
 
+template<>
+struct magic_enum::customize::enum_range<types::SiVersion::Minor> {
+    static constexpr int min = 0;
+    static constexpr int max = 255;
+    // (max - min) must be less than UINT16_MAX.
+};
+
+namespace types::SiVersion {
     using Full = std::pair<Major, Minor>;
 
     template<class T>
