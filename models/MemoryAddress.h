@@ -4,6 +4,12 @@
 
 namespace models {
     struct MemoryAddress {
+        enum class HandleType {
+            File,
+            Project,
+            Window
+        };
+
         struct {
             uint32_t handle;
 
@@ -35,6 +41,24 @@ namespace models {
                 uint32_t offset1, offset2;
             } dataProjDir;
         } project;
+
+        struct {
+            struct {
+                uint32_t base;
+            } funcGetSymbolAddress;
+
+            struct {
+                uint32_t base;
+            } funcGetSymbolHandle;
+
+            struct {
+                uint32_t base;
+            } funcGetSymbolName;
+
+            struct {
+                uint32_t base;
+            } funcGetSymbolRecord;
+        } symbol;
 
         struct {
             uint32_t handle;
