@@ -3,6 +3,7 @@
 #include <magic_enum.hpp>
 
 #include <components/Configurator.h>
+#include <utils/logger.h>
 #include <utils/system.h>
 
 using namespace components;
@@ -25,6 +26,8 @@ Configurator::Configurator() {
         );
         _siVersionString = "_4.00." + format("{:0>{}}", build, 4);
     }
+
+    logger::info(format("Configurator is initialized with version: {}", _siVersionString));
 }
 
 SiVersion::Full Configurator::version() const {

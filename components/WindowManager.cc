@@ -18,6 +18,8 @@ WindowManager::WindowManager()
     _menuItemIndex = GetMenuItemCount(menuHandle);
     AppendMenu(menuHandle, MF_DISABLED, _menuItemIndex, format("Comware Coder v{}", VERSION_STRING).c_str());
     _threadDebounceRetrieveInfo();
+
+    logger::info("WindowManager is initialized");
 }
 
 WindowManager::~WindowManager() {

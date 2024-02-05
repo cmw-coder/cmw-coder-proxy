@@ -1,4 +1,5 @@
 #include <components/InteractionMonitor.h>
+#include <components/MemoryManipulator.h>
 #include <components/ModificationManager.h>
 #include <utils/fs.h>
 #include <utils/logger.h>
@@ -10,6 +11,8 @@ using namespace utils;
 
 ModificationManager::ModificationManager() {
     _monitorCurrentFile();
+
+    logger::info("ModificationManager is initialized");
 }
 
 ModificationManager::~ModificationManager() {
@@ -131,7 +134,7 @@ void ModificationManager::interactionSelectionSet(const any& data, bool&) {
 }
 
 Modification& ModificationManager::_currentFile() {
-    const auto currentPath = InteractionMonitor::GetInstance()->getFileName();
+    const auto currentPath = MemoryManipulator::GetInstance()->getFileName();
     if (_modificationMap.contains(currentPath)) {
         return _modificationMap.at(currentPath);
     }
@@ -142,7 +145,7 @@ void ModificationManager::_monitorCurrentFile() {
     thread([this] {
         while (_isRunning) {
             try {
-                const auto currentPath = InteractionMonitor::GetInstance()->getFileName();
+                const auto currentPath = MemoryManipulator::GetInstance()->getFileName();
                 if (const auto extension = fs::getExtension(currentPath);
                     extension == ".c" || extension == ".h") {
                     // TODO: Check if this would cause performance issue
