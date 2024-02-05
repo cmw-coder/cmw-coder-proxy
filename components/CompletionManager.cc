@@ -7,7 +7,7 @@
 
 #include <components/CompletionManager.h>
 #include <components/Configurator.h>
-#include <components/InteractionMonitor.h>
+#include <components/MemoryManipulator.h>
 #include <components/ModificationManager.h>
 #include <components/WebsocketManager.h>
 #include <components/WindowManager.h>
@@ -15,7 +15,6 @@
 #include <utils/iconv.h>
 #include <utils/logger.h>
 #include <utils/system.h>
-
 
 using namespace components;
 using namespace helpers;
@@ -29,9 +28,9 @@ namespace {
     const vector<string> keywords = {"class", "if", "for", "struct", "switch", "union", "while"};
 
     bool checkNeedRetrieveCompletion(const char character) {
-        const auto interactionMonitor = InteractionMonitor::GetInstance();
-        const auto currentCaretPosition = interactionMonitor->getCaretPosition();
-        const auto currentLineContent = interactionMonitor->getLineContent(currentCaretPosition.line);
+        const auto memoryManipulator = MemoryManipulator::GetInstance();
+        const auto currentCaretPosition = memoryManipulator->getCaretPosition();
+        const auto currentLineContent = memoryManipulator->getLineContent(currentCaretPosition.line);
         if (currentCaretPosition.character < currentLineContent.size()) {
             return false;
         }
@@ -63,6 +62,8 @@ namespace {
 
 CompletionManager::CompletionManager() {
     _threadDebounceRetrieveCompletion();
+
+    logger::info("CompletionManager is initialized");
 }
 
 CompletionManager::~CompletionManager() {
@@ -78,26 +79,22 @@ void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockM
         tie(content, index) = _completionCache.reset();
     }
     if (!content.empty()) {
-        const auto interactionMonitor = InteractionMonitor::GetInstance();
-        const auto currentPosition = interactionMonitor->getCaretPosition();
+        const auto memoryManipulator = MemoryManipulator::GetInstance();
+        const auto currentPosition = memoryManipulator->getCaretPosition();
         uint32_t insertedlineCount{0}, lastLineLength{0};
         for (const auto lineRange: content.substr(index) | views::split("\r\n"sv)) {
             auto lineContent = string{lineRange.begin(), lineRange.end()};
             if (insertedlineCount == 0) {
                 lastLineLength = currentPosition.character + 1 + lineContent.size();
-                interactionMonitor->setSelectedContent(lineContent);
+                memoryManipulator->setSelectionContent(lineContent);
             } else {
                 lastLineLength = lineContent.size();
-                interactionMonitor->insertLineContent(
-                    currentPosition.line + insertedlineCount, lineContent
-                );
+                memoryManipulator->setLineContent(currentPosition.line + insertedlineCount, lineContent, true);
             }
             ++insertedlineCount;
         }
         WindowManager::GetInstance()->sendLeftThenRight();
-        interactionMonitor->setCaretPosition(
-            {lastLineLength, currentPosition.line + insertedlineCount - 1}
-        );
+        memoryManipulator->setCaretPosition({lastLineLength, currentPosition.line + insertedlineCount - 1});
         logger::log(format(
             "Accepted completion: {}\n"
             "\tInserted position: ({}, {})",
@@ -323,11 +320,20 @@ void CompletionManager::wsActionCompletionGenerate(const nlohmann::json& data) {
                 _completionList = completions.get<vector<string>>();
             }
             const auto currentCompletion = _selectCompletion();
-            const auto [xPos, yPos] = InteractionMonitor::GetInstance()->getCaretPixels(
-                InteractionMonitor::GetInstance()->getCaretPosition().line
-            );
+            const auto [clientX, clientY] = WindowManager::GetInstance()->getClientPosition();
+            const auto [height, xPosition, yPosition] = MemoryManipulator::GetInstance()->getCaretDimension();
+
+            logger::debug(format(
+                "Pixels: Client (x: {}, y: {}), Caret (h: {}, x: {}, y: {})",
+                clientX, clientY, height, xPosition, yPosition
+            ));
+
             WebsocketManager::GetInstance()->send(CompletionSelectClientMessage(
-                currentCompletion, 0, completions.size(), xPos, yPos
+                currentCompletion,
+                0,
+                completions.size(),
+                clientX + xPosition,
+                clientY + yPosition + static_cast<int64_t>(round(0.625 * height))
             ));
         } else {
             logger::log("(WsAction::CompletionGenerate) No completion");
@@ -409,15 +415,16 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                 pastTime >= chrono::milliseconds(300) && _needRetrieveCompletion.load()) {
                 try {
                     WindowManager::GetInstance()->sendF13();
-                    const auto monitor = InteractionMonitor::GetInstance();
-                    const auto caretPosition = monitor->getCaretPosition();
+                    const auto memoryManipulator = MemoryManipulator::GetInstance();
+                    const auto caretPosition = memoryManipulator->getCaretPosition();
                     string prefix, suffix; {
-                        const auto currentLine = monitor->getLineContent(caretPosition.line);
+                        const auto currentLine = memoryManipulator->getLineContent(caretPosition.line);
                         prefix = currentLine.substr(0, caretPosition.character);
                         suffix = currentLine.substr(caretPosition.character);
                     }
                     for (uint32_t index = 1; index <= min(caretPosition.line, 30u); ++index) {
-                        const auto tempLine = monitor->getLineContent(caretPosition.line - index).append("\r\n");
+                        const auto tempLine = memoryManipulator->getLineContent(caretPosition.line - index).append(
+                            "\r\n");
                         prefix.insert(0, tempLine);
                         if (regex_match(tempLine, regex(R"(^\/\/[.\W]*)")) ||
                             regex_match(tempLine, regex(R"(^\/\*[.\W]*)"))) {
@@ -425,7 +432,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                         }
                     }
                     for (auto index = 1; index <= 5; ++index) {
-                        const auto tempLine = monitor->getLineContent(caretPosition.line + index);
+                        const auto tempLine = memoryManipulator->getLineContent(caretPosition.line + index);
                         suffix.append("\r\n").append(tempLine);
                         if (tempLine[0] == '}') {
                             break;
@@ -433,9 +440,9 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     } {
                         unique_lock lock(_componentsMutex);
                         _components.caretPosition = caretPosition;
-                        _components.path = InteractionMonitor::GetInstance()->getFileName();
+                        _components.path = memoryManipulator->getFileName();
                         _components.prefix = move(prefix);
-                        _components.project = InteractionMonitor::GetInstance()->getProjectDirectory();
+                        _components.project = memoryManipulator->getProjectDirectory();
                         _components.recentFiles = ModificationManager::GetInstance()->getRecentFiles();
                         _components.suffix = move(suffix);
                     }
