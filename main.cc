@@ -3,6 +3,7 @@
 #include <components/CompletionManager.h>
 #include <components/Configurator.h>
 #include <components/InteractionMonitor.h>
+#include <components/MemoryManipulator.h>
 #include <components/ModificationManager.h>
 #include <components/ModuleProxy.h>
 #include <components/WindowManager.h>
@@ -23,6 +24,7 @@ namespace {
 
         ModuleProxy::Construct();
         Configurator::Construct();
+        MemoryManipulator::Construct(Configurator::GetInstance()->version());
         WebsocketManager::Construct("ws://127.0.0.1:3000");
         ModificationManager::Construct();
         CompletionManager::Construct();
@@ -38,6 +40,7 @@ namespace {
         CompletionManager::Destruct();
         ModificationManager::Destruct();
         WebsocketManager::Destruct();
+        MemoryManipulator::Destruct();
         Configurator::Destruct();
         ModuleProxy::Destruct();
     }

@@ -1,17 +1,26 @@
 #pragma once
 
-#include <string>
-#include <optional>
-
-#include <models/MemoryAddress.h>
-#include <types/SiVersion.h>
-
 namespace utils::memory {
-    models::MemoryAddress getAddresses(types::SiVersion::Full version);
+    uint32_t offset(uint32_t offset);
 
-    uint64_t scanPattern(const std::string& pattern);
+    template<typename T>
+    void read(const uint32_t address, T& value) {
+        memcpy(&value, reinterpret_cast<void const *>(address), sizeof(T));
+    }
 
-    bool writeMemory(uint64_t address, const std::string& value);
+    template<typename T>
+    uint32_t search(const T& input, const uint32_t address = offset(0), const uint32_t maxSize = 100000) {
+        const auto baseAddress = reinterpret_cast<uint8_t *>(address);
+        for (uint32_t offset = 0; offset < maxSize; offset++) {
+            if (memcmp(baseAddress + offset, &input, sizeof(T)) == 0) {
+                return address + offset;
+            }
+        }
+        return {};
+    }
 
-    std::optional<uint32_t> readMemory32(uint64_t address, bool relative = true);
+    template<typename T>
+    void write(const uint32_t address, const T& value) {
+        memcpy(reinterpret_cast<void *>(address), &value, sizeof(T));
+    }
 }
