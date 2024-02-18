@@ -25,6 +25,8 @@ using namespace types;
 using namespace utils;
 
 namespace {
+    const auto needEncode = get<0>(system::getVersion()) == 3;
+
     const vector<string> keywords = {"class", "if", "for", "struct", "switch", "union", "while"};
 
     bool checkNeedRetrieveCompletion(const char character) {
@@ -385,7 +387,7 @@ string CompletionManager::_selectCompletion(const uint32_t index) {
         content = _completionList[index];
     } {
         unique_lock lock(_completionCacheMutex);
-        _completionCache.reset(iconv::utf8ToGbk(content));
+        _completionCache.reset(needEncode ? iconv::utf8ToGbk(content) : content);
     }
     return content;
 }

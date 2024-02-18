@@ -1,6 +1,7 @@
 #include <magic_enum.hpp>
 #include <models/WsMessage.h>
 #include <utils/iconv.h>
+#include <utils/system.h>
 
 #include <windows.h>
 
@@ -9,6 +10,10 @@ using namespace models;
 using namespace std;
 using namespace types;
 using namespace utils;
+
+namespace {
+    const auto needEncode = get<0>(system::getVersion()) == 3;
+}
 
 WsMessage::WsMessage(const WsAction action): action(action) {}
 
@@ -49,21 +54,21 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
                 {"line", caret.line},
             }
         },
-        {"path", iconv::gbkToUtf8(path)},
-        {"prefix", iconv::gbkToUtf8(prefix)},
-        {"project", iconv::gbkToUtf8(project)},
+        {"path", needEncode ? iconv::gbkToUtf8(path) : path},
+        {"prefix", needEncode ? iconv::gbkToUtf8(prefix) : prefix},
+        {"project", needEncode ? iconv::gbkToUtf8(project) : project},
         {"recentFiles", nlohmann::json::array()},
-        {"suffix", iconv::gbkToUtf8(suffix)},
+        {"suffix", needEncode ? iconv::gbkToUtf8(suffix) : suffix},
         {"symbols", nlohmann::json::array()},
     }
 ) {
     for (const auto& recentFile: recentFiles) {
-        _data["recentFiles"].push_back(iconv::gbkToUtf8(recentFile));
+        _data["recentFiles"].push_back(needEncode ? iconv::gbkToUtf8(recentFile) : recentFile);
     }
     for (const auto& [name, path, startLine, endLine]: symbols) {
         _data["symbols"].push_back({
-            {"name", iconv::gbkToUtf8(name)},
-            {"path", iconv::gbkToUtf8(path)},
+            {"name", needEncode ? iconv::gbkToUtf8(name) : name},
+            {"path", needEncode ? iconv::gbkToUtf8(path) : path},
             {"startLine", startLine},
             {"endLine", endLine},
         });
@@ -98,8 +103,8 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
 DebugSyncClientMessage::DebugSyncClientMessage(const string& content, const string& path)
     : WsMessage(
         WsAction::DebugSync, {
-            {"content", iconv::gbkToUtf8(content)},
-            {"path", iconv::gbkToUtf8(path)}
+            {"content", needEncode ? iconv::gbkToUtf8(content) : content},
+            {"path", needEncode ? iconv::gbkToUtf8(path) : path}
         }
     ) {}
 
@@ -107,7 +112,7 @@ EditorFocusStateClientMessage::EditorFocusStateClientMessage(const bool isFocuse
     : WsMessage(WsAction::EditorFocusState, isFocused) {}
 
 EditorSwitchProjectClientMessage::EditorSwitchProjectClientMessage(const string& path)
-    : WsMessage(WsAction::EditorSwitchProject, iconv::gbkToUtf8(path)) {}
+    : WsMessage(WsAction::EditorSwitchProject, needEncode ? iconv::gbkToUtf8(path) : path) {}
 
 HandShakeClientMessage::HandShakeClientMessage(string&& version)
     : WsMessage(

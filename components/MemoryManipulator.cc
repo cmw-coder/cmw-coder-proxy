@@ -1,3 +1,4 @@
+#include <components/Configurator.h>
 #include <components/MemoryManipulator.h>
 #include <components/WindowManager.h>
 #include <types/AddressToFunction.h>
@@ -176,8 +177,12 @@ string MemoryManipulator::getProjectDirectory() const {
     if (const auto projectHandle = _getHandle(MemoryAddress::HandleType::Project)) {
         char tempBuffer[256];
         uint32_t offset1{};
-        memory::read(projectHandle + _memoryAddress.project.dataProjDir.offset1, offset1);
-        memory::read(offset1 + _memoryAddress.project.dataProjDir.offset2, tempBuffer);
+        if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
+            memory::read(projectHandle + _memoryAddress.project.dataProjDir.offset1, offset1);
+            memory::read(offset1 + _memoryAddress.project.dataProjDir.offset2, tempBuffer);
+        } else {
+            memory::read(projectHandle + _memoryAddress.project.dataProjDir.offset2, tempBuffer);
+        }
         logger::info(format("Current Project: '{}'", tempBuffer));
         return {tempBuffer};
     }
