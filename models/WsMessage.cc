@@ -1,7 +1,6 @@
 #include <magic_enum.hpp>
 #include <models/WsMessage.h>
 #include <utils/iconv.h>
-#include <utils/system.h>
 
 #include <windows.h>
 
@@ -10,10 +9,6 @@ using namespace models;
 using namespace std;
 using namespace types;
 using namespace utils;
-
-namespace {
-    const auto needEncode = get<0>(system::getVersion()) == 3;
-}
 
 WsMessage::WsMessage(const WsAction action): action(action) {}
 
@@ -54,21 +49,21 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
                 {"line", caret.line},
             }
         },
-        {"path", needEncode ? iconv::gbkToUtf8(path) : path},
-        {"prefix", needEncode ? iconv::gbkToUtf8(prefix) : prefix},
-        {"project", needEncode ? iconv::gbkToUtf8(project) : project},
+        {"path", iconv::needEncode ? iconv::gbkToUtf8(path) : path},
+        {"prefix", iconv::needEncode ? iconv::gbkToUtf8(prefix) : prefix},
+        {"project", iconv::needEncode ? iconv::gbkToUtf8(project) : project},
         {"recentFiles", nlohmann::json::array()},
-        {"suffix", needEncode ? iconv::gbkToUtf8(suffix) : suffix},
+        {"suffix", iconv::needEncode ? iconv::gbkToUtf8(suffix) : suffix},
         {"symbols", nlohmann::json::array()},
     }
 ) {
     for (const auto& recentFile: recentFiles) {
-        _data["recentFiles"].push_back(needEncode ? iconv::gbkToUtf8(recentFile) : recentFile);
+        _data["recentFiles"].push_back(iconv::needEncode ? iconv::gbkToUtf8(recentFile) : recentFile);
     }
     for (const auto& [name, path, startLine, endLine]: symbols) {
         _data["symbols"].push_back({
-            {"name", needEncode ? iconv::gbkToUtf8(name) : name},
-            {"path", needEncode ? iconv::gbkToUtf8(path) : path},
+            {"name", iconv::needEncode ? iconv::gbkToUtf8(name) : name},
+            {"path", iconv::needEncode ? iconv::gbkToUtf8(path) : path},
             {"startLine", startLine},
             {"endLine", endLine},
         });
@@ -103,8 +98,8 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
 DebugSyncClientMessage::DebugSyncClientMessage(const string& content, const string& path)
     : WsMessage(
         WsAction::DebugSync, {
-            {"content", needEncode ? iconv::gbkToUtf8(content) : content},
-            {"path", needEncode ? iconv::gbkToUtf8(path) : path}
+            {"content", iconv::needEncode ? iconv::gbkToUtf8(content) : content},
+            {"path", iconv::needEncode ? iconv::gbkToUtf8(path) : path}
         }
     ) {}
 
@@ -112,7 +107,7 @@ EditorFocusStateClientMessage::EditorFocusStateClientMessage(const bool isFocuse
     : WsMessage(WsAction::EditorFocusState, isFocused) {}
 
 EditorSwitchProjectClientMessage::EditorSwitchProjectClientMessage(const string& path)
-    : WsMessage(WsAction::EditorSwitchProject, needEncode ? iconv::gbkToUtf8(path) : path) {}
+    : WsMessage(WsAction::EditorSwitchProject, iconv::needEncode ? iconv::gbkToUtf8(path) : path) {}
 
 HandShakeClientMessage::HandShakeClientMessage(string&& version)
     : WsMessage(
