@@ -159,13 +159,12 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 &CompletionManager::wsActionCompletionGenerate
             );
 
-            const auto mainThreadId = system::getMainThreadId();
             logger::log(std::format(
                 "Version: {}, PID: {}, currentTID: {}, mainTID: {}, mainModuleName: {}",
                 VERSION_STRING + Configurator::GetInstance()->reportVersion(),
                 GetCurrentProcessId(),
                 GetCurrentThreadId(),
-                mainThreadId,
+                system::getMainThreadId(),
                 system::getModuleFileName(reinterpret_cast<uint64_t>(GetModuleHandle(nullptr)))
             ));
 

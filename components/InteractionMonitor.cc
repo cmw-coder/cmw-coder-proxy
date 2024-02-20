@@ -27,6 +27,7 @@ using namespace utils;
 
 namespace {
     constexpr auto debugLogKey = "CMWCODER_debugLog";
+    const auto mainThreadId = system::getMainThreadId();
 }
 
 InteractionMonitor::InteractionMonitor()
@@ -36,7 +37,7 @@ InteractionMonitor::InteractionMonitor()
               WH_KEYBOARD,
               _keyProcedureHook,
               GetModuleHandle(nullptr),
-              GetCurrentThreadId()
+              mainThreadId
           ),
           UnhookWindowsHookEx
       ),
@@ -45,7 +46,7 @@ InteractionMonitor::InteractionMonitor()
               WH_MOUSE,
               _mouseProcedureHook,
               GetModuleHandle(nullptr),
-              GetCurrentThreadId()
+              mainThreadId
           ),
           UnhookWindowsHookEx
       ),
@@ -55,7 +56,7 @@ InteractionMonitor::InteractionMonitor()
               WH_CALLWNDPROC,
               _windowProcedureHook,
               GetModuleHandle(nullptr),
-              GetCurrentThreadId()
+              mainThreadId
           ),
           UnhookWindowsHookEx
       ) {
@@ -431,12 +432,14 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
         window::getWindowClassName(currentWindow) == "si_Sw") {
         switch (windowProcData->message) {
             case WM_KILLFOCUS: {
+                logger::debug("WM_KILLFOCUS");
                 if (WindowManager::GetInstance()->checkNeedHideWhenLostFocus(windowProcData->wParam)) {
                     WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(false));
                 }
                 break;
             }
             case WM_SETFOCUS: {
+                logger::debug("WM_SETFOCUS");
                 if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(currentWindow)) {
                     WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(true));
                 }
