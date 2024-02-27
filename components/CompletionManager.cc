@@ -423,21 +423,14 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                         prefix = currentLine.substr(0, caretPosition.character);
                         suffix = currentLine.substr(caretPosition.character);
                     }
-                    for (uint32_t index = 1; index <= min(caretPosition.line, 30u); ++index) {
+                    for (uint32_t index = 1; index <= min(caretPosition.line, 100u); ++index) {
                         const auto tempLine = memoryManipulator->getLineContent(caretPosition.line - index).append(
                             "\r\n");
                         prefix.insert(0, tempLine);
-                        if (regex_match(tempLine, regex(R"(^\/\/[.\W]*)")) ||
-                            regex_match(tempLine, regex(R"(^\/\*[.\W]*)"))) {
-                            break;
-                        }
                     }
-                    for (auto index = 1; index <= 5; ++index) {
+                    for (uint32_t index = 1; index <= 30u; ++index) {
                         const auto tempLine = memoryManipulator->getLineContent(caretPosition.line + index);
                         suffix.append("\r\n").append(tempLine);
-                        if (tempLine[0] == '}') {
-                            break;
-                        }
                     } {
                         unique_lock lock(_componentsMutex);
                         _components.caretPosition = caretPosition;
