@@ -13,11 +13,13 @@ using namespace utils;
 
 namespace {
     const auto versionText = format("v{}", VERSION_STRING);
+    HWND mainWindowHandle;
 }
 
 WindowManager::WindowManager()
     : _keyHelper(Configurator::GetInstance()->version().first) {
-    const auto menuHandle = GetMenu(GetActiveWindow());
+    mainWindowHandle = GetActiveWindow();
+    const auto menuHandle = GetMenu(mainWindowHandle);
     _menuHandle.store(reinterpret_cast<int64_t>(menuHandle));
     _menuItemIndex = GetMenuItemCount(menuHandle);
     AppendMenu(
@@ -122,6 +124,7 @@ void WindowManager::setMenuText(const string& text) const {
         _menuItemIndex,
         (_menuBaseText + text).c_str()
     );
+    DrawMenuBar(mainWindowHandle);
 }
 
 void WindowManager::unsetMenuText() const {

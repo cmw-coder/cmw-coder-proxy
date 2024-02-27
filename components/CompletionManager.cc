@@ -310,6 +310,7 @@ void CompletionManager::wsActionCompletionGenerate(const nlohmann::json& data) {
         WebsocketManager::GetInstance()->send(CompletionCancelClientMessage());
         return;
     }
+    WindowManager::GetInstance()->unsetMenuText();
     if (const auto result = data["result"].get<string>();
         result == "success") {
         if (const auto& completions = data["completions"];
@@ -412,6 +413,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
         while (_isRunning) {
             if (const auto pastTime = chrono::high_resolution_clock::now() - _debounceRetrieveCompletionTime.load();
                 pastTime >= chrono::milliseconds(300) && _needRetrieveCompletion.load()) {
+                WindowManager::GetInstance()->setMenuText("Generating...");
                 try {
                     WindowManager::GetInstance()->sendF13();
                     const auto memoryManipulator = MemoryManipulator::GetInstance();
