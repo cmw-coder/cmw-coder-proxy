@@ -52,6 +52,7 @@ namespace components {
         // TODO: Remove old methods
 
         void setAutoCompletion(bool isAutoCompletion);
+
     private:
         mutable std::shared_mutex _completionCacheMutex, _completionListMutex, _componentsMutex;
         Components _components;
@@ -69,7 +70,7 @@ namespace components {
 
         void _prolongRetrieveCompletion();
 
-        void _requestRetrieveCompletion();
+        void _updateNeedRetrieveCompletion(bool need = true, char character = 0);
 
         std::string _selectCompletion(uint32_t index = 0);
 

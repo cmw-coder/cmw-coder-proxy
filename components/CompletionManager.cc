@@ -109,7 +109,7 @@ void CompletionManager::interactionCompletionCancel(const any& data, bool&) {
     logger::log("Cancel completion, Send CompletionCancel");
     try {
         if (any_cast<bool>(data)) {
-            _requestRetrieveCompletion();
+            _updateNeedRetrieveCompletion();
             WindowManager::GetInstance()->sendF13();
         }
     } catch (const bad_any_cast& e) {
@@ -159,7 +159,7 @@ void CompletionManager::interactionEnterInput(const any&, bool&) {
         _cancelCompletion();
         logger::log("Enter Input. Send CompletionCancel");
     }
-    _requestRetrieveCompletion();
+    _updateNeedRetrieveCompletion(true, '\n');
     // if (_isContinuousEnter.load()) {
     //     _requestRetrieveCompletion();
     //     logger::log("Detect Continuous enter, retrieve use previous completion");
@@ -256,11 +256,7 @@ void CompletionManager::interactionNormalInput(const any& data, bool&) {
             needRetrieveCompletion = true;
         }
         if (needRetrieveCompletion) {
-            _prolongRetrieveCompletion();
-            _needDiscardWsAction.store(true);
-            if (checkNeedRetrieveCompletion(character)) {
-                _needRetrieveCompletion.store(true);
-            }
+            _updateNeedRetrieveCompletion(true, character);
         }
     } catch (const bad_any_cast& e) {
         logger::warn(format("Invalid interactionNormalInput data: {}", e.what()));
@@ -298,9 +294,7 @@ void CompletionManager::interactionUndo(const any&, bool&) {
         logger::log("Undo. Send CompletionCancel");
     } else {
         // Invalidate current retrieval
-        _prolongRetrieveCompletion();
-        _needDiscardWsAction.store(true);
-        _needRetrieveCompletion.store(false);
+        _updateNeedRetrieveCompletion(false);
     }
 }
 
@@ -373,10 +367,10 @@ void CompletionManager::_prolongRetrieveCompletion() {
     _debounceRetrieveCompletionTime.store(chrono::high_resolution_clock::now());
 }
 
-void CompletionManager::_requestRetrieveCompletion() {
+void CompletionManager::_updateNeedRetrieveCompletion(const bool need, const char character) {
     _prolongRetrieveCompletion();
     _needDiscardWsAction.store(true);
-    _needRetrieveCompletion.store(true);
+    _needRetrieveCompletion.store(need && (!character || checkNeedRetrieveCompletion(character)));
 }
 
 string CompletionManager::_selectCompletion(const uint32_t index) {
