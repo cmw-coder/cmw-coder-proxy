@@ -254,22 +254,35 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                     }
                 }
             } else {
-                if (modifiers.size() == 1 && modifiers.contains(Modifier::Ctrl)) {
-                    switch (key) {
-                        case Key::S: {
-                            ignore = _handleInteraction(Interaction::Save);
-                            break;
+                if (modifiers.size() == 1) {
+                    if (modifiers.contains(Modifier::Ctrl)) {
+                        switch (key) {
+                            case Key::S: {
+                                ignore = _handleInteraction(Interaction::Save);
+                                break;
+                            }
+                            case Key::V: {
+                                ignore = _handleInteraction(Interaction::Paste);
+                                break;
+                            }
+                            case Key::Z: {
+                                ignore = _handleInteraction(Interaction::Undo);
+                                break;
+                            }
+                            default: {
+                                break;
+                            }
                         }
-                        case Key::V: {
-                            ignore = _handleInteraction(Interaction::Paste);
-                            break;
-                        }
-                        case Key::Z: {
-                            ignore = _handleInteraction(Interaction::Undo);
-                            break;
-                        }
-                        default: {
-                            break;
+                    } else if (modifiers.contains(Modifier::Alt)) {
+                        switch (key) {
+                            case Key::Enter: {
+                                ignore = _handleInteraction(Interaction::EnterInput);
+                                _isSelecting.store(false);
+                                break;
+                            }
+                            default: {
+                                break;
+                            }
                         }
                     }
                 }
