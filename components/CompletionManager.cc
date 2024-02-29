@@ -30,7 +30,7 @@ namespace {
         const auto memoryManipulator = MemoryManipulator::GetInstance();
         const auto currentCaretPosition = memoryManipulator->getCaretPosition();
         const auto currentLineContent = memoryManipulator->getLineContent(currentCaretPosition.line);
-        if (currentCaretPosition.character < currentLineContent.size()) {
+        if (currentLineContent.empty() || currentCaretPosition.character < currentLineContent.size()) {
             return false;
         }
         switch (character) {
@@ -315,7 +315,18 @@ void CompletionManager::wsActionCompletionGenerate(const nlohmann::json& data) {
             }
             const auto currentCompletion = _selectCompletion();
             const auto [clientX, clientY] = WindowManager::GetInstance()->getClientPosition();
-            const auto [height, xPosition, yPosition] = MemoryManipulator::GetInstance()->getCaretDimension();
+
+            auto [height, xPosition, yPosition] = MemoryManipulator::GetInstance()->getCaretDimension();
+            while (!height) {
+                const auto [
+                    newHeight,
+                    newXPosition,
+                    newYPosition
+                ] = MemoryManipulator::GetInstance()->getCaretDimension();
+                height = newHeight;
+                xPosition = newXPosition;
+                yPosition = newYPosition;
+            }
 
             logger::debug(format(
                 "Pixels: Client (x: {}, y: {}), Caret (h: {}, x: {}, y: {})",
@@ -412,51 +423,54 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     WindowManager::GetInstance()->sendF13();
                     const auto memoryManipulator = MemoryManipulator::GetInstance();
                     const auto caretPosition = memoryManipulator->getCaretPosition();
-                    string prefix, suffix; {
-                        const auto currentLine = memoryManipulator->getLineContent(caretPosition.line);
-                        prefix = currentLine.substr(0, caretPosition.character);
-                        suffix = currentLine.substr(caretPosition.character);
+                    auto path = memoryManipulator->getFileName();
+                    if (auto project = memoryManipulator->getProjectDirectory();
+                        !path.empty() && !project.empty()) {
+                        string prefix, suffix; {
+                            const auto currentLine = memoryManipulator->getLineContent(caretPosition.line);
+                            prefix = currentLine.substr(0, caretPosition.character);
+                            suffix = currentLine.substr(caretPosition.character);
+                        }
+                        for (uint32_t index = 1; index <= min(caretPosition.line, 100u); ++index) {
+                            const auto tempLine = memoryManipulator->getLineContent(caretPosition.line - index).append(
+                                "\r\n");
+                            prefix.insert(0, tempLine);
+                        }
+                        for (uint32_t index = 1; index <= 30u; ++index) {
+                            const auto tempLine = memoryManipulator->getLineContent(caretPosition.line + index);
+                            suffix.append("\r\n").append(tempLine);
+                        } {
+                            unique_lock lock(_componentsMutex);
+                            _components.caretPosition = caretPosition;
+                            _components.path = move(path);
+                            _components.prefix = move(prefix);
+                            _components.project = move(project);
+                            _components.recentFiles = ModificationManager::GetInstance()->getRecentFiles();
+                            _components.suffix = move(suffix);
+                        }
+                        _isNewLine = false;
+                        logger::info("Retrieve completion with full prefix");
+                        // TODO: Improve performance
+                        //     unique_lock lock(_componentsMutex);
+                        //     _components.caretPosition = caretPosition;
+                        //     _components.path = InteractionMonitor::GetInstance()->getFileName();
+                        //     if (const auto lastNewLineIndex = _components.prefix.find_last_of('\r');
+                        //         lastNewLineIndex != string::npos) {
+                        //         _components.prefix = _components.prefix.substr(0, lastNewLineIndex).append(prefix);
+                        //     } else {
+                        //         _components.prefix = prefix;
+                        //     }
+                        //     if (const auto firstNewLineIndex = suffix.find_first_of('\r');
+                        //         firstNewLineIndex != string::npos) {
+                        //         _components.suffix = _components.suffix.substr(firstNewLineIndex + 1).insert(0, suffix);
+                        //     } else {
+                        //         _components.suffix = suffix;
+                        //     }
+                        //     logger::info("Retrieve completion with current line prefix");
+                        _sendCompletionGenerate();
+                        _needRetrieveCompletion.store(false);
                     }
-                    for (uint32_t index = 1; index <= min(caretPosition.line, 100u); ++index) {
-                        const auto tempLine = memoryManipulator->getLineContent(caretPosition.line - index).append(
-                            "\r\n");
-                        prefix.insert(0, tempLine);
-                    }
-                    for (uint32_t index = 1; index <= 30u; ++index) {
-                        const auto tempLine = memoryManipulator->getLineContent(caretPosition.line + index);
-                        suffix.append("\r\n").append(tempLine);
-                    } {
-                        unique_lock lock(_componentsMutex);
-                        _components.caretPosition = caretPosition;
-                        _components.path = memoryManipulator->getFileName();
-                        _components.prefix = move(prefix);
-                        _components.project = memoryManipulator->getProjectDirectory();
-                        _components.recentFiles = ModificationManager::GetInstance()->getRecentFiles();
-                        _components.suffix = move(suffix);
-                    }
-                    _isNewLine = false;
-                    logger::info("Retrieve completion with full prefix");
-                    // TODO: Improve performance
-                    //     unique_lock lock(_componentsMutex);
-                    //     _components.caretPosition = caretPosition;
-                    //     _components.path = InteractionMonitor::GetInstance()->getFileName();
-                    //     if (const auto lastNewLineIndex = _components.prefix.find_last_of('\r');
-                    //         lastNewLineIndex != string::npos) {
-                    //         _components.prefix = _components.prefix.substr(0, lastNewLineIndex).append(prefix);
-                    //     } else {
-                    //         _components.prefix = prefix;
-                    //     }
-                    //     if (const auto firstNewLineIndex = suffix.find_first_of('\r');
-                    //         firstNewLineIndex != string::npos) {
-                    //         _components.suffix = _components.suffix.substr(firstNewLineIndex + 1).insert(0, suffix);
-                    //     } else {
-                    //         _components.suffix = suffix;
-                    //     }
-                    //     logger::info("Retrieve completion with current line prefix");
-                    _sendCompletionGenerate();
-                    _needRetrieveCompletion.store(false);
-                    continue;
-                } catch (runtime_error&) {} catch (const exception& e) {
+                } catch (const exception& e) {
                     logger::warn(format("Exception when retrieving completion: {}", e.what()));
                 }
             }

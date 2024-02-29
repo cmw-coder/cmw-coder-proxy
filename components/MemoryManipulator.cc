@@ -123,7 +123,6 @@ CaretDimension MemoryManipulator::getCaretDimension() const {
 
 CaretDimension MemoryManipulator::getCaretDimension(const uint32_t line) const {
     CaretDimension caretDimension{};
-
     if (const auto windowHandle = _getHandle(MemoryAddress::HandleType::Window)) {
         caretDimension.yPosition = AddressToFunction<uint32_t(uint32_t, uint32_t)>(
             memory::offset(_memoryAddress.window.funcYPosFromLine.base)
@@ -156,10 +155,6 @@ string MemoryManipulator::getFileName() const {
         return payload.str();
     }
     return {};
-}
-
-string MemoryManipulator::getLineContent() const {
-    return getLineContent(getCaretPosition().line);
 }
 
 string MemoryManipulator::getLineContent(const uint32_t line) const {
@@ -259,10 +254,10 @@ void MemoryManipulator::setSelectionContent(const string& content) const {
 }
 
 uint32_t MemoryManipulator::_getHandle(const MemoryAddress::HandleType handleType) const {
-    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
-        throw runtime_error("No valid code window");
-    }
     uint32_t address{}, handle{};
+    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
+        return handle;
+    }
     switch (handleType) {
         case MemoryAddress::HandleType::File: {
             address = memory::offset(_memoryAddress.file.handle);

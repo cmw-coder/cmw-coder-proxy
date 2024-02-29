@@ -8,6 +8,9 @@ using namespace std;
 using namespace utils;
 
 string fs::readFile(const string& path) {
+    if (path.empty()) {
+        return {};
+    }
     constexpr auto read_size = size_t{4096};
     auto stream = ifstream{path.data()};
     stream.exceptions(ios_base::badbit);
@@ -23,6 +26,9 @@ string fs::readFile(const string& path) {
     return out;
 }
 
-std::string fs::getExtension(const std::string& path) {
+string fs::getExtension(const string& path) {
+    if (path.empty()) {
+        return {};
+    }
     return filesystem::path(path).extension().string();
 }

@@ -25,8 +25,6 @@ namespace components {
 
         [[nodiscard]] std::string getFileName() const;
 
-        [[nodiscard]] std::string getLineContent() const;
-
         [[nodiscard]] std::string getLineContent(uint32_t line) const;
 
         [[nodiscard]] std::string getProjectDirectory() const;

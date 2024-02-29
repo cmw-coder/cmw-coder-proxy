@@ -144,15 +144,13 @@ Modification& ModificationManager::_currentFile() {
 void ModificationManager::_monitorCurrentFile() {
     thread([this] {
         while (_isRunning) {
-            try {
-                const auto currentPath = MemoryManipulator::GetInstance()->getFileName();
-                if (const auto extension = fs::getExtension(currentPath);
-                    extension == ".c" || extension == ".h") {
-                    // TODO: Check if this would cause performance issue
-                    unique_lock lock(_modifingFilesMutex);
-                    _recentFiles.emplace(currentPath, chrono::high_resolution_clock::now());
-                }
-            } catch (const runtime_error&) {}
+            const auto currentPath = MemoryManipulator::GetInstance()->getFileName();
+            if (const auto extension = fs::getExtension(currentPath);
+                extension == ".c" || extension == ".h") {
+                // TODO: Check if this would cause performance issue
+                unique_lock lock(_modifingFilesMutex);
+                _recentFiles.emplace(currentPath, chrono::high_resolution_clock::now());
+            }
             this_thread::sleep_for(chrono::milliseconds(500));
         }
     }).detach();
