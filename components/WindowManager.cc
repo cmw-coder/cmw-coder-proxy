@@ -43,7 +43,6 @@ bool WindowManager::checkNeedHideWhenLostFocus(const int64_t windowHandle) {
         windowClass == "si_Poplist") {
         _popListWindowHandle.store(windowHandle);
     } else if (_codeWindowHandle >= 0) {
-        logger::debug("Lost focus");
         _codeWindowHandle.store(-1);
         return true;
     }
@@ -54,7 +53,6 @@ bool WindowManager::checkNeedShowWhenGainFocus(const int64_t windowHandle) {
     if (_popListWindowHandle > 0) {
         _popListWindowHandle.store(-1);
     } else if (_codeWindowHandle < 0) {
-        logger::debug("Gained focus");
         _codeWindowHandle.store(windowHandle);
         return true;
     }

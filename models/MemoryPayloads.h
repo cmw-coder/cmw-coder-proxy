@@ -48,7 +48,7 @@ namespace models {
     };
 
     struct SymbolListData {
-        uint32_t size;
+        uint32_t count;
         uint8_t data[4092];
     };
 
@@ -63,17 +63,23 @@ namespace models {
 
         explicit SimpleString(std::string_view str);
 
+        [[nodiscard]] uint32_t length() const;
+
         [[nodiscard]] std::string str() const;
     };
 
     using SymbolBuffer = PayloadBase<SymbolBufferData>;
 
-    using SymbolList = PayloadBase<SymbolListData>;
+    class SymbolList final : public PayloadBase<SymbolListData> {
+    public:
+        [[nodiscard]] uint32_t count() const;
+    };
 
     using SymbolListHandle = SymbolList *;
 
     class SymbolName final : public PayloadBase<SymbolNameData> {
     public:
+        [[nodiscard]] uint32_t depth() const;
         [[nodiscard]] std::string name() const;
     };
 

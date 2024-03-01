@@ -27,7 +27,7 @@ namespace {
                                     SiVersion::Minor::V0086, {
                                         {
                                             0x1C35A4,
-                                            {0x08DB9B},
+                                            {0x08DB9B, 0x000001},
                                             {0x08F533},
                                             {0x0C93D8, 0x000010, 0x000000},
                                             {0x08D530},
@@ -38,10 +38,19 @@ namespace {
                                             {0x000000, 0x000044},
                                         },
                                         {
+                                            {0x0FB214},
+                                            {0x0FB25F},
                                             {0x0B1D87},
-                                            {0x111123},
+                                            {0x0FD8CF, 0x000000, 0x000000},
+                                            {0x111123, 0x000000},
+                                            {0x001F9D},
+                                            {0x0810F7, 0x00000C},
                                             {0x115904},
+                                            {0x0C62ED},
                                             {0x0C66C9},
+                                            {0x0FB90B},
+                                            {0x0D26D5},
+                                            {0x0DA83D, 0x000000, 0x000001},
                                         },
                                         {
                                             0x1CCD44,
@@ -77,12 +86,7 @@ namespace {
                                             0x28C5C0,
                                             {0x000000, 0x000058},
                                         },
-                                        {
-                                            {},
-                                            {},
-                                            {},
-                                            {},
-                                        },
+                                        {},
                                         {
                                             0x288F30,
                                             {0x25A9B4, 0x28A0FC, 0x26DAE0, 0x26DAE8},
@@ -113,8 +117,14 @@ void MemoryManipulator::deleteLineContent(const uint32_t line) const {
     if (const auto fileHandle = _getHandle(MemoryAddress::HandleType::File)) {
         AddressToFunction<void(uint32_t, uint32_t, uint32_t)>(
             memory::offset(_memoryAddress.file.funcDelBufLine.base)
-        )(fileHandle, line, 1);
+        )(fileHandle, line, _memoryAddress.file.funcDelBufLine.param3);
     }
+}
+
+void MemoryManipulator::freeSymbolListHandle(SymbolList* const symbolListHandle) const {
+    AddressToFunction<int(SymbolListHandle)>(
+        memory::offset(_memoryAddress.symbol.funcDestroySymbolList.base)
+    )(symbolListHandle);
 }
 
 CaretDimension MemoryManipulator::getCaretDimension() const {
@@ -140,6 +150,33 @@ CaretPosition MemoryManipulator::getCaretPosition() const {
     memory::read(memory::offset(_memoryAddress.window.dataSelection.characterStart.base),
                  cursorPosition.character);
     return cursorPosition;
+}
+
+SymbolListHandle MemoryManipulator::getChildSymbolListHandle(SymbolName symbolName) const {
+    SymbolBuffer symbolBuffer;
+    auto symbolListHandle = AddressToFunction<SymbolListHandle()>(
+        memory::offset(_memoryAddress.symbol.funcCreateSymbolList.base)
+    )();
+
+    AddressToFunction<void(void*)>(
+        memory::offset(_memoryAddress.symbol.funcInitializeSymbolBuffer.base)
+    )(symbolBuffer.data());
+
+    AddressToFunction<void(const void*, SymbolListHandle, uint32_t, uint32_t, void*)>(
+        memory::offset(_memoryAddress.symbol.funcGetSymbolChildren.base)
+    )(
+        symbolName.data(),
+        symbolListHandle,
+        _memoryAddress.symbol.funcGetSymbolChildren.param3,
+        _memoryAddress.symbol.funcGetSymbolChildren.param4,
+        symbolBuffer.data()
+    );
+
+    AddressToFunction<void(SymbolListHandle*)>(
+        memory::offset(_memoryAddress.symbol.funcInitializeSymbolList.base)
+    )(&symbolListHandle);
+
+    return symbolListHandle;
 }
 
 string MemoryManipulator::getFileName() const {
@@ -196,13 +233,13 @@ optional<SymbolName> MemoryManipulator::getSymbolName(const uint32_t line) const
 
         AddressToFunction<void(uint32_t, uint32_t, uint32_t*, int32_t*, uint32_t)>(
             memory::offset(_memoryAddress.symbol.funcGetSymbolHandle.base)
-        )(fileHandle, line, &symbolHandle, &symbolIndex, 0);
+        )(fileHandle, line, &symbolHandle, &symbolIndex, _memoryAddress.symbol.funcGetSymbolHandle.param5);
         if (symbolIndex < 0) {
             return nullopt;
         }
 
         AddressToFunction<int(uint32_t, uint32_t, void*)>(
-            memory::offset(_memoryAddress.symbol.funcGetSymbolName.base)
+            memory::offset(_memoryAddress.symbol.funcGetSymbolNameByLine.base)
         )(
             symbolHandle,
             AddressToFunction<uint32_t(uint32_t, int32_t)>(
@@ -216,13 +253,59 @@ optional<SymbolName> MemoryManipulator::getSymbolName(const uint32_t line) const
     return nullopt;
 }
 
+optional<SymbolName> MemoryManipulator::getSymbolName(SymbolRecord symbolRecord) const {
+    SimpleString errorMessage;
+    SymbolName symbolName;
+
+    if (AddressToFunction<bool(void*, void*, const void*)>(
+        memory::offset(_memoryAddress.symbol.funcGetSymbolNameByRecord.base)
+    )(errorMessage.data(), symbolName.data(), symbolRecord.data())) {
+        return symbolName;
+    }
+    return nullopt;
+}
+
+optional<SymbolName> MemoryManipulator::getSymbolName(SymbolList* const symbolListHandle, uint32_t index) const {
+    if (index < symbolListHandle->size()) {
+        SymbolName symbolName{};
+
+        AddressToFunction<void(uint32_t, void*)>(
+            memory::offset(_memoryAddress.symbol.funcGetSymbolNameByAddress.base)
+        )(
+            AddressToFunction<uint32_t(SymbolListHandle, uint32_t)>(
+                memory::offset(_memoryAddress.symbol.funcGetSymbolListNameAddress.base)
+            )(symbolListHandle, index) + _memoryAddress.symbol.funcGetSymbolNameByAddress.param1Offset1,
+            symbolName.data()
+        );
+
+        return symbolName;
+    }
+
+    return nullopt;
+}
+
 optional<SymbolRecord> MemoryManipulator::getSymbolRecord(SymbolName symbolName) const {
     SymbolRecord symbolRecord;
-    if (const auto result = AddressToFunction<char*(void*, void*)>(
+    if (
+        const auto result = AddressToFunction<char*(void*, void*)>(
             memory::offset(_memoryAddress.symbol.funcGetSymbolRecord.base)
         )(symbolName.data(), symbolRecord.data());
-        stoi(result) >= 0) {
+        stoi(result) >= 0
+    ) {
         return symbolRecord;
+    }
+    return nullopt;
+}
+
+optional<SymbolRecord> MemoryManipulator::getSymbolRecordDeclared(SymbolName symbolName) const {
+    if (AddressToFunction<bool(void*, uint32_t, uint32_t)>(
+        memory::offset(_memoryAddress.symbol.funcTransformSymbolNameToDeclaredType.base)
+    )(
+        symbolName.data(),
+        _memoryAddress.symbol.funcTransformSymbolNameToDeclaredType.param2,
+        _memoryAddress.symbol.funcTransformSymbolNameToDeclaredType.param3
+    )) {
+        return getSymbolRecord(symbolName);
     }
     return nullopt;
 }

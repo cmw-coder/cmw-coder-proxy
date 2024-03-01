@@ -60,12 +60,13 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
     for (const auto& recentFile: recentFiles) {
         _data["recentFiles"].push_back(iconv::needEncode ? iconv::gbkToUtf8(recentFile) : recentFile);
     }
-    for (const auto& [name, path, startLine, endLine]: symbols) {
+    for (const auto& [name, path, type, startLine, endLine]: symbols) {
         _data["symbols"].push_back({
+            {"endLine", endLine},
             {"name", iconv::needEncode ? iconv::gbkToUtf8(name) : name},
             {"path", iconv::needEncode ? iconv::gbkToUtf8(path) : path},
             {"startLine", startLine},
-            {"endLine", endLine},
+            {"type", iconv::needEncode ? iconv::gbkToUtf8(type) : type},
         });
     }
 }

@@ -10,9 +10,7 @@
 #include <components/WebsocketManager.h>
 #include <components/WindowManager.h>
 #include <models/MemoryPayloads.h>
-#include <types/AddressToFunction.h>
 #include <utils/logger.h>
-#include <utils/memory.h>
 #include <utils/system.h>
 #include <utils/window.h>
 
@@ -131,121 +129,6 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                         _navigateWithKey.store(key);
                         _isSelecting.store(false);
                         // ignore = _handleInteraction(Interaction::SelectionClear);
-                        break;
-                    }
-                    case Key::F12: {
-                        const auto memoryManipulator = MemoryManipulator::GetInstance();
-                        if (const auto symbolNameOpt = memoryManipulator->getSymbolName();
-                            symbolNameOpt.has_value()) {
-                            const auto symbolName = symbolNameOpt.value();
-                            /**
-                             * ---------------SymbolChildren----------------------------
-                             */
-                            // SymbolName childrenSymbolName;
-                            // SimpleString errorMessage;
-                            // //param1: int* 这个第一个参数是为了symbol出错后能将出错信息传出"bad Symbol record values"
-                            // //param2: 输出参数，创建的变量用于数据保存
-                            // //param3: SymbolLocation获取到的
-                            // //description: 解析格式化后的symbol数据， 返回值为0表示symbol为空，退出执行
-                            // auto getSymbolNameFromSymbolRecord = AddressToFunction<bool(void*, void*, const void*)>(
-                            //     _baseAddress + 0xC62ED
-                            // );
-                            //
-                            // if (!getSymbolNameFromSymbolRecord(
-                            //     errorMessage.data(),
-                            //     childrenSymbolName.data(),
-                            //     symbolRecord.data()
-                            // )) {
-                            //     break;
-                            // }
-
-                            const auto creatSymList = AddressToFunction<SymbolListHandle()>(
-                                memory::offset(0xFB214)
-                            );
-                            auto symList = creatSymList();
-
-                            SymbolBuffer symbolBuffer;
-                            const auto bufferInitializer = AddressToFunction<void(void*)>(
-                                memory::offset(0xFB90B)
-                            );
-                            bufferInitializer(symbolBuffer.data());
-
-                            const auto SymbolChildren = AddressToFunction<
-                                int(const void*, SymbolListHandle, int, int, void*)
-                            >(memory::offset(0xFD8CF));
-                            const auto a = SymbolChildren(symbolName.data(), symList, 0, 0, symbolBuffer.data());
-
-                            //param1:creatSymList的返回值的地址
-                            //description: 进一步处理symList内的信息或处理symList
-                            auto SymListProce = AddressToFunction<int(SymbolListHandle*)>(
-                                memory::offset(0xD26D5)
-                            );
-                            const auto b = SymListProce(&symList);
-
-                            /**
-                             * ---------------SymListCount----------------------------
-                             */
-                            // //symList的首地址保存了它的size
-                            // auto cchild = *symList;
-                            //
-                            // //---------------SymListItem----------------------------
-                            //
-                            // //param1:symList地址  param2：symList的下标
-                            // //返回值是Item的地址
-                            // //description: 用于获取symList指定索引的地址
-                            // auto SymbolItem = AddressToFunction<int(int, int)>(
-                            //     _baseAddress + 0x1F9D
-                            // );
-                            //
-                            // auto item = SymbolItem((int) symList, 10);
-                            //
-                            // char v[4096];
-                            // //param1: (item+12)--是保存的内容起始地址
-                            // //param2: 输出参数，创建的变量
-                            // //description: 用于获取Item存储的信息，并保存到param2中输出
-                            // auto getSymbolItemInfo = AddressToFunction<int(int, int)>(
-                            //     _baseAddress + 0x810F7
-                            // );
-                            // //
-                            // result = getSymbolItemInfo((int) (item + 12), (int) v);
-                            //
-                            // SimpleString childPayload;
-                            // getSymbolRecord(v, childPayload.data());
-                            //
-                            // //---------------SymbolDeclaredType------------------
-                            //
-                            // char w[4096];
-                            //
-                            // const auto childPayloadlength = strlen(childPayload.data()->content);
-                            // char str1[4096];
-                            // memcpy(str1 + 2, childPayload.data()->content, childPayloadlength);
-                            // result = praseSymbolLocation((int *) payload2.data(), (int) w, (int) str1);
-                            //
-                            // if (!result) {
-                            //     break;
-                            // }
-                            // //param1：praseSymbolLocation的输出参数
-                            // //param2：0
-                            // //param3：1
-                            // //description: 获取自定义变量类型的声明，如果存在则返回1，不存在返回0.
-                            // auto Declared = AddressToFunction<int(int, int, int)>(
-                            //     _baseAddress + 0xDA83D
-                            // );
-                            // result = Declared((int) w, 0, 1);
-                            // if (!result) {
-                            //     break;
-                            // }
-                            // SimpleString SymbolDeclaredPayload;
-                            // getSymbolRecord(w, SymbolDeclaredPayload.data());
-                            // logger::debug(SymbolDeclaredPayload.data()->content);
-
-
-                            auto symListFree = AddressToFunction<int(SymbolListHandle)>(
-                                memory::offset(0xFB25F)
-                            );
-                            symListFree(symList);
-                            logger::debug("1");
-                        }
                         break;
                     }
                     default: {
@@ -445,14 +328,14 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
         window::getWindowClassName(currentWindow) == "si_Sw") {
         switch (windowProcData->message) {
             case WM_KILLFOCUS: {
-                logger::debug("WM_KILLFOCUS");
+                // logger::debug("WM_KILLFOCUS");
                 if (WindowManager::GetInstance()->checkNeedHideWhenLostFocus(windowProcData->wParam)) {
                     WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(false));
                 }
                 break;
             }
             case WM_SETFOCUS: {
-                logger::debug("WM_SETFOCUS");
+                // logger::debug("WM_SETFOCUS");
                 if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(currentWindow)) {
                     WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(true));
                 }

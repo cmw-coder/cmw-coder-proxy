@@ -57,6 +57,48 @@ namespace {
             }
         }
     }
+
+    vector<SymbolInfo> getDeclaredSymbolInfo(const uint32_t line) {
+        const auto memoryManipulator = MemoryManipulator::GetInstance();
+        vector<SymbolInfo> declaredSymbols;
+        const auto symbolNameOpt = memoryManipulator->getSymbolName(line);
+        if (!symbolNameOpt.has_value()) {
+            return {};
+        }
+        const auto childSymbolListHandle = memoryManipulator->getChildSymbolListHandle(symbolNameOpt.value());
+        for (uint32_t index = 0; index < childSymbolListHandle->count(); ++index) {
+            const auto childSymbolNameOpt = memoryManipulator->getSymbolName(childSymbolListHandle, index);
+            if (!childSymbolNameOpt.has_value() ||
+                !childSymbolNameOpt.value().depth() ||
+                childSymbolNameOpt.value().depth() > 255) {
+                continue;
+            }
+
+            const auto symbolRecordDeclaredOpt = memoryManipulator->getSymbolRecordDeclared(childSymbolNameOpt.value());
+            if (!symbolRecordDeclaredOpt.has_value()) {
+                continue;
+            }
+
+            const auto symbolDeclaredOpt = symbolRecordDeclaredOpt.value().parse();
+            if (!symbolDeclaredOpt.has_value()) {
+                continue;
+            }
+            const auto& [
+                file,
+                project,
+                symbol,
+                type,
+                namePosition,
+                instanceIndex,
+                lineEnd,
+                lineStart
+            ] = symbolDeclaredOpt.value();
+
+            declaredSymbols.emplace_back(symbol, file, type, lineStart, lineEnd - 1);
+        }
+        memoryManipulator->freeSymbolListHandle(childSymbolListHandle);
+        return declaredSymbols;
+    }
 }
 
 CompletionManager::CompletionManager() {
@@ -406,7 +448,7 @@ void CompletionManager::_sendCompletionGenerate() {
             _components.project,
             _components.recentFiles,
             _components.suffix,
-            {}
+            _components.symbols
         ));
     } catch (const runtime_error& e) {
         logger::warn(e.what());
@@ -447,6 +489,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             _components.project = move(project);
                             _components.recentFiles = ModificationManager::GetInstance()->getRecentFiles();
                             _components.suffix = move(suffix);
+                            _components.symbols = getDeclaredSymbolInfo(caretPosition.line);
                         }
                         _isNewLine = false;
                         logger::info("Retrieve completion with full prefix");

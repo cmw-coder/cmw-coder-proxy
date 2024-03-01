@@ -18,8 +18,8 @@ namespace components {
             std::string path;
             std::string prefix;
             std::string project;
-            std::string suffix;
             std::vector<std::string> recentFiles;
+            std::string suffix;
             std::vector<models::SymbolInfo> symbols;
         };
 

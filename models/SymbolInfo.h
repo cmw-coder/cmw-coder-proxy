@@ -10,7 +10,7 @@ namespace models {
             Variable,
         };
 
-        std::string name, path;
+        std::string name, path, type;
         uint32_t startLine, endLine;
     };
 }

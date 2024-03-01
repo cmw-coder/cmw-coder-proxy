@@ -17,11 +17,15 @@ namespace components {
 
         void deleteLineContent(uint32_t line) const;
 
+        void freeSymbolListHandle(models::SymbolListHandle symbolListHandle) const;
+
         [[nodiscard]] types::CaretDimension getCaretDimension() const;
 
         [[nodiscard]] types::CaretDimension getCaretDimension(uint32_t line) const;
 
         [[nodiscard]] types::CaretPosition getCaretPosition() const;
+
+        [[nodiscard]] models::SymbolListHandle getChildSymbolListHandle(models::SymbolName symbolName) const;
 
         [[nodiscard]] std::string getFileName() const;
 
@@ -33,7 +37,13 @@ namespace components {
 
         [[nodiscard]] std::optional<models::SymbolName> getSymbolName(uint32_t line) const;
 
+        [[nodiscard]] std::optional<models::SymbolName> getSymbolName(models::SymbolRecord symbolRecord) const;
+
+        [[nodiscard]] std::optional<models::SymbolName> getSymbolName(models::SymbolListHandle symbolListHandle, uint32_t index) const;
+
         [[nodiscard]] std::optional<models::SymbolRecord> getSymbolRecord(models::SymbolName symbolName) const;
+
+        [[nodiscard]] std::optional<models::SymbolRecord> getSymbolRecordDeclared(models::SymbolName symbolName) const;
 
         void setCaretPosition(const types::CaretPosition& caretPosition) const;
 

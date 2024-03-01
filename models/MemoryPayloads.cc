@@ -18,8 +18,20 @@ SimpleString::SimpleString(std::string_view str) {
     ranges::copy(str, _data.content);
 }
 
+uint32_t SimpleString::length() const {
+    return _data.lengthLow + static_cast<uint32_t>(_data.lengthHigh << 8);
+}
+
 string SimpleString::str() const {
-    return {_data.content, _data.lengthLow + static_cast<uint32_t>(_data.lengthHigh << 8)};
+    return {_data.content, length()};
+}
+
+uint32_t SymbolList::count() const {
+    return _data.count;
+}
+
+uint32_t SymbolName::depth() const {
+    return _data.nestingDepth;
 }
 
 string SymbolName::name() const {
