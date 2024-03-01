@@ -42,7 +42,7 @@ string crypto::encode(const string& input, const Encoding encoding) {
     }
 }
 
-std::string crypto::decode(const string& input, const Encoding encoding) {
+string crypto::decode(const string& input, const Encoding encoding) {
     switch (encoding) {
         case Encoding::Base64:
             return _decode<CryptoPP::Base64Decoder>(input);

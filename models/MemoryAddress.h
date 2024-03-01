@@ -4,11 +4,17 @@
 
 namespace models {
     struct MemoryAddress {
+        enum class HandleType {
+            File,
+            Project,
+            Window
+        };
+
         struct {
             uint32_t handle;
 
             struct {
-                uint32_t base;
+                uint32_t base, param3;
             } funcDelBufLine;
 
             struct {
@@ -35,6 +41,60 @@ namespace models {
                 uint32_t offset1, offset2;
             } dataProjDir;
         } project;
+
+        struct {
+            struct {
+                uint32_t base;
+            } funcCreateSymbolList;
+
+            struct {
+                uint32_t base;
+            } funcDestroySymbolList;
+
+            struct {
+                uint32_t base;
+            } funcGetSymbolAddress;
+
+            struct {
+                uint32_t base, param3, param4;
+            } funcGetSymbolChildren;
+
+            struct {
+                uint32_t base, param5;
+            } funcGetSymbolHandle;
+
+            struct {
+                uint32_t base;
+            } funcGetSymbolListNameAddress;
+
+            struct {
+                uint32_t base, param1Offset1;
+            } funcGetSymbolNameByAddress;
+
+            struct {
+                uint32_t base;
+            } funcGetSymbolNameByLine;
+
+            struct {
+                uint32_t base;
+            } funcGetSymbolNameByRecord;
+
+            struct {
+                uint32_t base;
+            } funcGetSymbolRecord;
+
+            struct {
+                uint32_t base;
+            } funcInitializeSymbolBuffer;
+
+            struct {
+                uint32_t base;
+            } funcInitializeSymbolList;
+
+            struct {
+                uint32_t base, param2, param3;
+            } funcTransformSymbolNameToDeclaredType;
+        } symbol;
 
         struct {
             uint32_t handle;

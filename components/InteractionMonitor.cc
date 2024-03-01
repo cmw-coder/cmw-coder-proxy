@@ -6,13 +6,11 @@
 #include <components/CompletionManager.h>
 #include <components/Configurator.h>
 #include <components/InteractionMonitor.h>
+#include <components/MemoryManipulator.h>
 #include <components/WebsocketManager.h>
 #include <components/WindowManager.h>
 #include <models/MemoryPayloads.h>
-#include <types/AddressToFunction.h>
-#include <types/SiVersion.h>
 #include <utils/logger.h>
-#include <utils/memory.h>
 #include <utils/system.h>
 #include <utils/window.h>
 
@@ -26,27 +24,18 @@ using namespace types;
 using namespace utils;
 
 namespace {
-    void checkValidCodeWindow() {
-        if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
-            throw runtime_error("No valid code window");
-        }
-    }
-
     constexpr auto debugLogKey = "CMWCODER_debugLog";
+    const auto mainThreadId = system::getMainThreadId();
 }
 
 InteractionMonitor::InteractionMonitor()
-    : _subKey(Configurator::GetInstance()->version().first == SiVersion::Major::V35
-                  ? R"(SOFTWARE\Source Dynamics\Source Insight\3.0)"
-                  : R"(SOFTWARE\Source Dynamics\Source Insight\4.0)"),
-      _baseAddress(reinterpret_cast<uint32_t>(GetModuleHandle(nullptr))),
-      _keyHelper(Configurator::GetInstance()->version().first),
+    : _keyHelper(Configurator::GetInstance()->version().first),
       _keyHookHandle(
           SetWindowsHookEx(
               WH_KEYBOARD,
               _keyProcedureHook,
               GetModuleHandle(nullptr),
-              GetCurrentThreadId()
+              mainThreadId
           ),
           UnhookWindowsHookEx
       ),
@@ -55,7 +44,7 @@ InteractionMonitor::InteractionMonitor()
               WH_MOUSE,
               _mouseProcedureHook,
               GetModuleHandle(nullptr),
-              GetCurrentThreadId()
+              mainThreadId
           ),
           UnhookWindowsHookEx
       ),
@@ -65,7 +54,7 @@ InteractionMonitor::InteractionMonitor()
               WH_CALLWNDPROC,
               _windowProcedureHook,
               GetModuleHandle(nullptr),
-              GetCurrentThreadId()
+              mainThreadId
           ),
           UnhookWindowsHookEx
       ) {
@@ -77,210 +66,15 @@ InteractionMonitor::InteractionMonitor()
         logger::error("Failed to set window hook.");
         abort();
     }
-    try {
-        _memoryAddress = memory::getAddresses(Configurator::GetInstance()->version());
-    } catch (runtime_error& e) {
-        logger::error(e.what());
-        abort();
-    }
 
     _monitorCaretPosition();
     _monitorDebugLog();
+
+    logger::info("InteractionMonitor is initialized.");
 }
 
 InteractionMonitor::~InteractionMonitor() {
     _isRunning.store(false);
-}
-
-void InteractionMonitor::deleteLineContent(const uint32_t line) const {
-    const auto funcDelBufLine = AddressToFunction<void(uint32_t, uint32_t, uint32_t)>(
-        _baseAddress + _memoryAddress.file.funcDelBufLine.base
-    );
-
-    if (const auto fileHandle = _getFileHandle()) {
-        funcDelBufLine(fileHandle, line, 1);
-    }
-}
-
-tuple<int64_t, int64_t> InteractionMonitor::getCaretPixels(const uint32_t line) const {
-    const auto [clientX, clientY] = WindowManager::GetInstance()->getClientPosition();
-    const auto funcYPosFromLine = AddressToFunction<uint32_t(uint32_t, uint32_t)>(
-        _baseAddress + _memoryAddress.window.funcYPosFromLine.base
-    );
-    const auto windowHandle = _getWindowHandle();
-    const auto yPos = funcYPosFromLine(windowHandle, line);
-
-    uint32_t xPos, yDim;
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(windowHandle + _memoryAddress.window.dataXPos.offset1),
-        &xPos,
-        sizeof(xPos),
-        nullptr
-    );
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataYDim.base),
-        &yDim,
-        sizeof(yDim),
-        nullptr
-    );
-
-    logger::debug(format(
-        "Line {} Positions: Client ({}, {}), Caret ({}, {}, {})",
-        line, clientX, clientY, xPos, yPos, yDim
-    ));
-    return {
-        clientX + xPos,
-        clientY + yPos + static_cast<int64_t>(round(0.625 * yDim)),
-    };
-}
-
-CaretPosition InteractionMonitor::getCaretPosition() const {
-    CaretPosition cursorPosition{};
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataSelection.lineStart.base),
-        &cursorPosition.line,
-        sizeof(cursorPosition.line),
-        nullptr
-    );
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataSelection.characterStart.base),
-        &cursorPosition.character,
-        sizeof(cursorPosition.character),
-        nullptr
-    );
-    return cursorPosition;
-}
-
-string InteractionMonitor::getFileName() const {
-    uint32_t param1;
-    const auto functionGetBufName = AddressToFunction<void(uint32_t, void*)>(
-        _baseAddress + _memoryAddress.file.funcGetBufName.base
-    ); {
-        const auto fileHandle = _getFileHandle();
-        uint32_t param1Base;
-        ReadProcessMemory(
-            _processHandle.get(),
-            reinterpret_cast<LPCVOID>(fileHandle + _memoryAddress.file.funcGetBufName.param1Base),
-            &param1Base,
-            sizeof(param1Base),
-            nullptr
-        );
-        ReadProcessMemory(
-            _processHandle.get(),
-            reinterpret_cast<LPCVOID>(param1Base + _memoryAddress.file.funcGetBufName.param1Offset1),
-            &param1,
-            sizeof(param1),
-            nullptr
-        );
-    }
-
-    SimpleString payload;
-    functionGetBufName(param1, payload.data());
-    return payload.str();
-}
-
-string InteractionMonitor::getLineContent() const {
-    return getLineContent(getCaretPosition().line);
-}
-
-string InteractionMonitor::getLineContent(const uint32_t line) const {
-    const auto functionGetBufLine = AddressToFunction<void(uint32_t, uint32_t, void*)>(
-        _baseAddress + _memoryAddress.file.funcGetBufLine.base
-    );
-
-    if (const auto fileHandle = _getFileHandle()) {
-        SimpleString payload;
-        functionGetBufLine(fileHandle, line, payload.data());
-        return payload.str();
-    }
-    return {};
-}
-
-string InteractionMonitor::getProjectDirectory() const {
-    if (const auto projectHandle = _getProjectHandle()) {
-        char tempBuffer[256];
-        uint32_t offset1;
-
-        ReadProcessMemory(
-            _processHandle.get(),
-            reinterpret_cast<LPCVOID>(projectHandle + _memoryAddress.project.dataProjDir.offset1),
-            &offset1,
-            sizeof(offset1),
-            nullptr
-        );
-        ReadProcessMemory(
-            _processHandle.get(),
-            reinterpret_cast<LPCVOID>(offset1 + _memoryAddress.project.dataProjDir.offset2),
-            &tempBuffer,
-            sizeof(tempBuffer),
-            nullptr
-        );
-        return string{tempBuffer};
-    }
-    return {};
-}
-
-void InteractionMonitor::insertLineContent(const uint32_t line, const string& content) const {
-    const auto functionInsBufLine = AddressToFunction<void(uint32_t, uint32_t, void*)>(
-        _baseAddress + _memoryAddress.file.funcInsBufLine.base
-    );
-
-    if (const auto fileHandle = _getFileHandle()) {
-        SimpleString payload(content);
-        functionInsBufLine(fileHandle, line, payload.data());
-    }
-}
-
-void InteractionMonitor::setCaretPosition(const CaretPosition& caretPosition) const {
-    const auto SetWndSel = AddressToFunction<void(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(
-        _baseAddress + _memoryAddress.window.funcSetWndSel.base
-    );
-
-    if (const auto windowHandle = _getWindowHandle()) {
-        SetWndSel(
-            windowHandle,
-            caretPosition.line,
-            caretPosition.character,
-            caretPosition.line,
-            caretPosition.character
-        );
-    }
-}
-
-void InteractionMonitor::setLineContent(const uint32_t line, const string& content) const {
-    const auto functionPutBufLine = AddressToFunction<void(uint32_t, uint32_t, void*)>(
-        _baseAddress + _memoryAddress.file.funcPutBufLine.base
-    );
-
-    if (const auto fileHandle = _getFileHandle()) {
-        SimpleString payload(content);
-        functionPutBufLine(fileHandle, line, payload.data());
-    }
-}
-
-void InteractionMonitor::setSelectedContent(const string& content) const {
-    checkValidCodeWindow();
-
-    const auto functionSetBufSelText = AddressToFunction<void(uint32_t, const char*)>(
-        _baseAddress + _memoryAddress.window.funcSetBufSelText.base
-    );
-
-    uint32_t param1;
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.funcSetBufSelText.param1Base),
-        &param1,
-        sizeof(param1),
-        nullptr
-    );
-
-    if (param1) {
-        functionSetBufSelText(param1, content.c_str());
-    }
 }
 
 long InteractionMonitor::_keyProcedureHook(const int nCode, const unsigned wParam, const long lParam) {
@@ -298,46 +92,6 @@ long InteractionMonitor::_mouseProcedureHook(const int nCode, const unsigned wPa
 long InteractionMonitor::_windowProcedureHook(const int nCode, const unsigned int wParam, const long lParam) {
     GetInstance()->_processWindowMessage(lParam);
     return CallNextHookEx(nullptr, nCode, wParam, lParam);
-}
-
-uint32_t InteractionMonitor::_getFileHandle() const {
-    checkValidCodeWindow();
-
-    uint32_t fileHandle;
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.file.handle),
-        &fileHandle,
-        sizeof(fileHandle),
-        nullptr
-    );
-    return fileHandle;
-}
-
-uint32_t InteractionMonitor::_getProjectHandle() const {
-    checkValidCodeWindow();
-
-    uint32_t handle;
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.project.handle),
-        &handle,
-        sizeof(handle),
-        nullptr
-    );
-    return handle;
-}
-
-uint32_t InteractionMonitor::_getWindowHandle() const {
-    uint32_t windowHandle;
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.handle),
-        &windowHandle,
-        sizeof(windowHandle),
-        nullptr
-    );
-    return windowHandle;
 }
 
 // ReSharper disable once CppDFAUnreachableFunctionCall
@@ -383,22 +137,35 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                     }
                 }
             } else {
-                if (modifiers.size() == 1 && modifiers.contains(Modifier::Ctrl)) {
-                    switch (key) {
-                        case Key::S: {
-                            ignore = _handleInteraction(Interaction::Save);
-                            break;
+                if (modifiers.size() == 1) {
+                    if (modifiers.contains(Modifier::Ctrl)) {
+                        switch (key) {
+                            case Key::S: {
+                                ignore = _handleInteraction(Interaction::Save);
+                                break;
+                            }
+                            case Key::V: {
+                                ignore = _handleInteraction(Interaction::Paste);
+                                break;
+                            }
+                            case Key::Z: {
+                                ignore = _handleInteraction(Interaction::Undo);
+                                break;
+                            }
+                            default: {
+                                break;
+                            }
                         }
-                        case Key::V: {
-                            ignore = _handleInteraction(Interaction::Paste);
-                            break;
-                        }
-                        case Key::Z: {
-                            ignore = _handleInteraction(Interaction::Undo);
-                            break;
-                        }
-                        default: {
-                            break;
+                    } else if (modifiers.contains(Modifier::Alt)) {
+                        switch (key) {
+                            case Key::Enter: {
+                                ignore = _handleInteraction(Interaction::EnterInput);
+                                _isSelecting.store(false);
+                                break;
+                            }
+                            default: {
+                                break;
+                            }
                         }
                     }
                 }
@@ -443,7 +210,7 @@ void InteractionMonitor::_monitorCaretPosition() {
                 continue;
             }
 
-            auto newCursorPosition = getCaretPosition();
+            auto newCursorPosition = MemoryManipulator::GetInstance()->getCaretPosition();
             newCursorPosition.maxCharacter = newCursorPosition.character;
             if (const auto oldCursorPosition = _currentCaretPosition.load();
                 oldCursorPosition != newCursorPosition) {
@@ -458,40 +225,6 @@ void InteractionMonitor::_monitorCaretPosition() {
             this_thread::sleep_for(chrono::milliseconds(10));
         }
     }).detach();
-}
-
-// ReSharper disable once CppDFAUnreachableFunctionCall
-Range InteractionMonitor::_monitorCursorSelect() const {
-    Range select{};
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataSelection.lineStart.base),
-        &select.start.line,
-        sizeof(select.start.line),
-        nullptr
-    );
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataSelection.characterStart.base),
-        &select.start.character,
-        sizeof(select.start.character),
-        nullptr
-    );
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataSelection.lineEnd.base),
-        &select.end.line,
-        sizeof(select.end.line),
-        nullptr
-    );
-    ReadProcessMemory(
-        _processHandle.get(),
-        reinterpret_cast<LPCVOID>(_baseAddress + _memoryAddress.window.dataSelection.characterEnd.base),
-        &select.end.character,
-        sizeof(select.end.character),
-        nullptr
-    );
-    return select;
 }
 
 void InteractionMonitor::_monitorDebugLog() const {
@@ -595,12 +328,14 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
         window::getWindowClassName(currentWindow) == "si_Sw") {
         switch (windowProcData->message) {
             case WM_KILLFOCUS: {
+                // logger::debug("WM_KILLFOCUS");
                 if (WindowManager::GetInstance()->checkNeedHideWhenLostFocus(windowProcData->wParam)) {
                     WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(false));
                 }
                 break;
             }
             case WM_SETFOCUS: {
+                // logger::debug("WM_SETFOCUS");
                 if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(currentWindow)) {
                     WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(true));
                 }

@@ -2,7 +2,15 @@
 
 namespace models {
     struct SymbolInfo {
-        std::string name, path;
+        enum class Type {
+            Constant,
+            Function,
+            Structure,
+            Unknown,
+            Variable,
+        };
+
+        std::string name, path, type;
         uint32_t startLine, endLine;
     };
 }

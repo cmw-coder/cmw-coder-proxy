@@ -49,23 +49,24 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
                 {"line", caret.line},
             }
         },
-        {"path", iconv::gbkToUtf8(path)},
-        {"prefix", iconv::gbkToUtf8(prefix)},
-        {"project", iconv::gbkToUtf8(project)},
+        {"path", iconv::needEncode ? iconv::gbkToUtf8(path) : path},
+        {"prefix", iconv::needEncode ? iconv::gbkToUtf8(prefix) : prefix},
+        {"project", iconv::needEncode ? iconv::gbkToUtf8(project) : project},
         {"recentFiles", nlohmann::json::array()},
-        {"suffix", iconv::gbkToUtf8(suffix)},
+        {"suffix", iconv::needEncode ? iconv::gbkToUtf8(suffix) : suffix},
         {"symbols", nlohmann::json::array()},
     }
 ) {
     for (const auto& recentFile: recentFiles) {
-        _data["recentFiles"].push_back(iconv::gbkToUtf8(recentFile));
+        _data["recentFiles"].push_back(iconv::needEncode ? iconv::gbkToUtf8(recentFile) : recentFile);
     }
-    for (const auto& [name, path, startLine, endLine]: symbols) {
+    for (const auto& [name, path, type, startLine, endLine]: symbols) {
         _data["symbols"].push_back({
-            {"name", iconv::gbkToUtf8(name)},
-            {"path", iconv::gbkToUtf8(path)},
-            {"startLine", startLine},
             {"endLine", endLine},
+            {"name", iconv::needEncode ? iconv::gbkToUtf8(name) : name},
+            {"path", iconv::needEncode ? iconv::gbkToUtf8(path) : path},
+            {"startLine", startLine},
+            {"type", iconv::needEncode ? iconv::gbkToUtf8(type) : type},
         });
     }
 }
@@ -78,7 +79,6 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
     const int64_t yPos
 ): WsMessage(
     WsAction::CompletionSelect, {
-        // UTF-8 to UTF8
         {"completion", completion},
         {
             "count", {
@@ -98,8 +98,8 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
 DebugSyncClientMessage::DebugSyncClientMessage(const string& content, const string& path)
     : WsMessage(
         WsAction::DebugSync, {
-            {"content", iconv::gbkToUtf8(content)},
-            {"path", iconv::gbkToUtf8(path)}
+            {"content", iconv::needEncode ? iconv::gbkToUtf8(content) : content},
+            {"path", iconv::needEncode ? iconv::gbkToUtf8(path) : path}
         }
     ) {}
 
@@ -107,7 +107,7 @@ EditorFocusStateClientMessage::EditorFocusStateClientMessage(const bool isFocuse
     : WsMessage(WsAction::EditorFocusState, isFocused) {}
 
 EditorSwitchProjectClientMessage::EditorSwitchProjectClientMessage(const string& path)
-    : WsMessage(WsAction::EditorSwitchProject, iconv::gbkToUtf8(path)) {}
+    : WsMessage(WsAction::EditorSwitchProject, iconv::needEncode ? iconv::gbkToUtf8(path) : path) {}
 
 HandShakeClientMessage::HandShakeClientMessage(string&& version)
     : WsMessage(

@@ -57,6 +57,8 @@ WebsocketManager::WebsocketManager(string&& url, const chrono::seconds& pingInte
         }
     });
     _client.start();
+
+    logger::info(format("WebsocketManager is initialized with url: {}", url));
 }
 
 WebsocketManager::~WebsocketManager() {

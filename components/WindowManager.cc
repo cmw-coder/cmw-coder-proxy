@@ -11,13 +11,27 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
+namespace {
+    const auto versionText = format("v{}", VERSION_STRING);
+    HWND mainWindowHandle;
+}
+
 WindowManager::WindowManager()
-    : _keyHelper(Configurator::GetInstance()->version().first),
-      _mainWindowHandle(reinterpret_cast<int64_t>(GetActiveWindow())) {
-    const auto menuHandle = GetMenu(reinterpret_cast<HWND>(_mainWindowHandle.load()));
+    : _keyHelper(Configurator::GetInstance()->version().first) {
+    mainWindowHandle = GetActiveWindow();
+    const auto menuHandle = GetMenu(mainWindowHandle);
+    _menuHandle.store(reinterpret_cast<int64_t>(menuHandle));
     _menuItemIndex = GetMenuItemCount(menuHandle);
-    AppendMenu(menuHandle, MF_DISABLED, _menuItemIndex, format("Comware Coder v{}", VERSION_STRING).c_str());
+    AppendMenu(
+        menuHandle,
+        MF_DISABLED,
+        _menuItemIndex,
+        (_menuBaseText + versionText).c_str()
+    );
+
     _threadDebounceRetrieveInfo();
+
+    logger::info("WindowManager is initialized");
 }
 
 WindowManager::~WindowManager() {
@@ -29,7 +43,6 @@ bool WindowManager::checkNeedHideWhenLostFocus(const int64_t windowHandle) {
         windowClass == "si_Poplist") {
         _popListWindowHandle.store(windowHandle);
     } else if (_codeWindowHandle >= 0) {
-        logger::debug("Lost focus");
         _codeWindowHandle.store(-1);
         return true;
     }
@@ -40,7 +53,6 @@ bool WindowManager::checkNeedShowWhenGainFocus(const int64_t windowHandle) {
     if (_popListWindowHandle > 0) {
         _popListWindowHandle.store(-1);
     } else if (_codeWindowHandle < 0) {
-        logger::debug("Gained focus");
         _codeWindowHandle.store(windowHandle);
         return true;
     }
@@ -103,19 +115,18 @@ bool WindowManager::sendUndo() {
 }
 
 void WindowManager::setMenuText(const string& text) const {
-    const auto menuHandle = GetMenu(reinterpret_cast<HWND>(_mainWindowHandle.load()));
-    ModifyMenu(menuHandle, _menuItemIndex, MF_DISABLED, _menuItemIndex, text.c_str());
-}
-
-void WindowManager::unsetMenuText() const {
-    const auto menuHandle = GetMenu(reinterpret_cast<HWND>(_mainWindowHandle.load()));
     ModifyMenu(
-        menuHandle,
+        reinterpret_cast<HMENU>(_menuHandle.load()),
         _menuItemIndex,
         MF_DISABLED,
         _menuItemIndex,
-        format("Comware Coder v{}", VERSION_STRING).c_str()
+        (_menuBaseText + text).c_str()
     );
+    DrawMenuBar(mainWindowHandle);
+}
+
+void WindowManager::unsetMenuText() const {
+    setMenuText(versionText);
 }
 
 void WindowManager::_cancelRetrieveInfo() {

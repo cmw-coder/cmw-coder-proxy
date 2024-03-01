@@ -9,9 +9,15 @@
     "documentation": "https://github.com/ParticleG/cmw-coder-proxy/blob/main/README.md",
     "license": "MIT",
     "dependencies": [
-        "cpp-httplib",
+        {
+            "name": "cpp-httplib",
+            "default-features": false
+        },
         "cryptopp",
-        "ixwebsocket",
+        {
+            "name": "ixwebsocket",
+            "default-features": false
+        },
         "magic-enum",
         "nlohmann-json"
     ]
