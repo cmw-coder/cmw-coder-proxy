@@ -69,8 +69,7 @@ namespace {
         for (uint32_t index = 0; index < childSymbolListHandle->count(); ++index) {
             const auto childSymbolNameOpt = memoryManipulator->getSymbolName(childSymbolListHandle, index);
             if (!childSymbolNameOpt.has_value() ||
-                !childSymbolNameOpt.value().depth() ||
-                childSymbolNameOpt.value().depth() > 255) {
+                !memoryManipulator->getSymbolRecord(childSymbolNameOpt.value()).has_value()) {
                 continue;
             }
 
@@ -489,9 +488,9 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             _components.project = move(project);
                             _components.recentFiles = ModificationManager::GetInstance()->getRecentFiles();
                             _components.suffix = move(suffix);
-                            if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
-                                _components.symbols = getDeclaredSymbolInfo(caretPosition.line);
-                            }
+                            // if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
+                            //     _components.symbols = getDeclaredSymbolInfo(caretPosition.line);
+                            // }
                         }
                         _isNewLine = false;
                         logger::info("Retrieve completion with full prefix");

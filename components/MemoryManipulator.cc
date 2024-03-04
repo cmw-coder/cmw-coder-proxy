@@ -265,7 +265,7 @@ optional<SymbolName> MemoryManipulator::getSymbolName(SymbolRecord symbolRecord)
     return nullopt;
 }
 
-optional<SymbolName> MemoryManipulator::getSymbolName(SymbolList* const symbolListHandle, uint32_t index) const {
+optional<SymbolName> MemoryManipulator::getSymbolName(SymbolList* const symbolListHandle, const uint32_t index) const {
     if (index < symbolListHandle->size()) {
         SymbolName symbolName{};
 
@@ -286,14 +286,19 @@ optional<SymbolName> MemoryManipulator::getSymbolName(SymbolList* const symbolLi
 
 optional<SymbolRecord> MemoryManipulator::getSymbolRecord(SymbolName symbolName) const {
     SymbolRecord symbolRecord;
-    if (
-        const auto result = AddressToFunction<char*(void*, void*)>(
-            memory::offset(_memoryAddress.symbol.funcGetSymbolRecord.base)
-        )(symbolName.data(), symbolRecord.data());
-        stoi(result) >= 0
-    ) {
-        return symbolRecord;
+    if (!symbolName.depth() || symbolName.depth() > 127) {
+        return nullopt;
     }
+    try {
+        if (
+            const auto result = AddressToFunction<char*(void*, void*)>(
+                memory::offset(_memoryAddress.symbol.funcGetSymbolRecord.base)
+            )(symbolName.data(), symbolRecord.data());
+            stoi(result) >= 0
+        ) {
+            return symbolRecord;
+        }
+    } catch (invalid_argument&) {}
     return nullopt;
 }
 

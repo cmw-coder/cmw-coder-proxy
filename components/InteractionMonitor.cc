@@ -9,7 +9,6 @@
 #include <components/MemoryManipulator.h>
 #include <components/WebsocketManager.h>
 #include <components/WindowManager.h>
-#include <models/MemoryPayloads.h>
 #include <utils/logger.h>
 #include <utils/system.h>
 #include <utils/window.h>
@@ -328,14 +327,14 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
         window::getWindowClassName(currentWindow) == "si_Sw") {
         switch (windowProcData->message) {
             case WM_KILLFOCUS: {
-                // logger::debug("WM_KILLFOCUS");
+                logger::debug("WM_KILLFOCUS");
                 if (WindowManager::GetInstance()->checkNeedHideWhenLostFocus(windowProcData->wParam)) {
                     WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(false));
                 }
                 break;
             }
             case WM_SETFOCUS: {
-                // logger::debug("WM_SETFOCUS");
+                logger::debug("WM_SETFOCUS");
                 if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(currentWindow)) {
                     WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(true));
                 }
