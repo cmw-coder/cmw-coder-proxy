@@ -35,11 +35,7 @@ namespace models {
         } file;
 
         struct {
-            uint32_t handle;
-
-            struct {
-                uint32_t offset1, offset2;
-            } dataProjDir;
+            uint32_t handle, projectPath;
         } project;
 
         struct {

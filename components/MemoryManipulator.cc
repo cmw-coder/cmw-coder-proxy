@@ -3,6 +3,7 @@
 #include <components/WindowManager.h>
 #include <types/AddressToFunction.h>
 #include <types/ConstMap.h>
+#include <utils/fs.h>
 #include <utils/logger.h>
 #include <utils/memory.h>
 
@@ -34,8 +35,7 @@ namespace {
                                             {0x08D474},
                                         },
                                         {
-                                            0x1C7C00,
-                                            {0x000000, 0x000044},
+                                            0x1C7C00, 0x1C9740,
                                         },
                                         {
                                             {0x0FB214},
@@ -83,8 +83,7 @@ namespace {
                                             {0x0C4FB0},
                                         },
                                         {
-                                            0x28C5C0,
-                                            {0x000000, 0x000058},
+                                            0x28C5C0, 0x000058,
                                         },
                                         {},
                                         {
@@ -208,15 +207,14 @@ string MemoryManipulator::getLineContent(const uint32_t line) const {
 string MemoryManipulator::getProjectDirectory() const {
     if (const auto projectHandle = _getHandle(MemoryAddress::HandleType::Project)) {
         char tempBuffer[256];
-        uint32_t offset1{};
         if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
-            memory::read(projectHandle + _memoryAddress.project.dataProjDir.offset1, offset1);
-            memory::read(offset1 + _memoryAddress.project.dataProjDir.offset2, tempBuffer);
+            memory::read(memory::offset(_memoryAddress.project.projectPath), tempBuffer);
         } else {
-            memory::read(projectHandle + _memoryAddress.project.dataProjDir.offset2, tempBuffer);
+            memory::read(projectHandle + _memoryAddress.project.projectPath, tempBuffer);
         }
-        logger::info(format("Current Project: '{}'", tempBuffer));
-        return {tempBuffer};
+        const auto directory = fs::getDirectory(string(tempBuffer));
+        logger::info(format("Current Project: '{}'", directory));
+        return directory;
     }
     return {};
 }
