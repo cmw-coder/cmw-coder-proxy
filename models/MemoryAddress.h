@@ -6,7 +6,7 @@ namespace models {
     struct MemoryAddress {
         enum class HandleType {
             File,
-            Project,
+            // Project,
             Window
         };
 

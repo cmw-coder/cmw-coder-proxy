@@ -1,4 +1,3 @@
-#include <components/Configurator.h>
 #include <components/MemoryManipulator.h>
 #include <components/WindowManager.h>
 #include <types/AddressToFunction.h>
@@ -340,10 +339,6 @@ uint32_t MemoryManipulator::_getHandle(const MemoryAddress::HandleType handleTyp
     switch (handleType) {
         case MemoryAddress::HandleType::File: {
             address = memory::offset(_memoryAddress.file.handle);
-            break;
-        }
-        case MemoryAddress::HandleType::Project: {
-            address = memory::offset(_memoryAddress.project.handle);
             break;
         }
         case MemoryAddress::HandleType::Window: {
