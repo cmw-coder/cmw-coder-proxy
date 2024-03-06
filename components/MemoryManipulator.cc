@@ -83,7 +83,7 @@ namespace {
                                             {0x0C4FB0},
                                         },
                                         {
-                                            0x28C5C0, 0x000058,
+                                            0x28C5C0, 0x28A920,
                                         },
                                         {},
                                         {
@@ -205,18 +205,11 @@ string MemoryManipulator::getLineContent(const uint32_t line) const {
 }
 
 string MemoryManipulator::getProjectDirectory() const {
-    if (const auto projectHandle = _getHandle(MemoryAddress::HandleType::Project)) {
-        char tempBuffer[256];
-        if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
-            memory::read(memory::offset(_memoryAddress.project.projectPath), tempBuffer);
-        } else {
-            memory::read(projectHandle + _memoryAddress.project.projectPath, tempBuffer);
-        }
-        const auto directory = fs::getDirectory(string(tempBuffer));
-        logger::info(format("Current Project: '{}'", directory));
-        return directory;
-    }
-    return {};
+    char tempBuffer[256];
+    memory::read(memory::offset(_memoryAddress.project.projectPath), tempBuffer);
+    const auto directory = fs::getDirectory(string(tempBuffer));
+    logger::info(format("Current Project: '{}'", directory));
+    return directory;
 }
 
 optional<SymbolName> MemoryManipulator::getSymbolName() const {
