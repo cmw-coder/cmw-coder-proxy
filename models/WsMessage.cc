@@ -24,14 +24,24 @@ string WsMessage::parse() const {
     return jsonMessage.dump();
 }
 
-CompletionAcceptClientMessage::CompletionAcceptClientMessage(const string& completion)
-    : WsMessage(WsAction::CompletionAccept, iconv::gbkToUtf8(completion)) {}
+CompletionAcceptClientMessage::CompletionAcceptClientMessage(const string& actionId, uint32_t index)
+    : WsMessage(
+        WsAction::CompletionAccept, {
+            {"actionId", actionId},
+            {"index", index},
+        }
+    ) {}
 
 CompletionCacheClientMessage::CompletionCacheClientMessage(const bool isDelete)
     : WsMessage(WsAction::CompletionCache, isDelete) {}
 
-CompletionCancelClientMessage::CompletionCancelClientMessage()
-    : WsMessage(WsAction::CompletionCancel) {}
+CompletionCancelClientMessage::CompletionCancelClientMessage(const string& actionId, bool isExplicit)
+    : WsMessage(
+        WsAction::CompletionCancel, {
+            {"actionId", actionId},
+            {"explicit", isExplicit}
+        }
+    ) {}
 
 CompletionGenerateClientMessage::CompletionGenerateClientMessage(
     const CaretPosition& caret,
@@ -71,21 +81,37 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
     }
 }
 
+CompletionGenerateServerMessage::CompletionGenerateServerMessage(nlohmann::json&& data)
+    : WsMessage(WsAction::CompletionGenerate, move(data)),
+      result(_data["result"].get<string>()),
+      type(enum_cast<CompletionType>(_data["completions"]["type"].get<string>()).value_or(CompletionType::Snippet)) {
+    if (result == "success") {
+        _completionsOpt.emplace(
+            _data["actionId"].get<string>(),
+            _data["completions"]["candidates"].get<vector<string>>()
+        );
+    } else if (_data.contains("message")) {
+        _message = _data["message"].get<string>();
+    }
+}
+
+string CompletionGenerateServerMessage::message() const {
+    return _message;
+}
+
+optional<Completions> CompletionGenerateServerMessage::completions() const {
+    return _completionsOpt;
+}
+
 CompletionSelectClientMessage::CompletionSelectClientMessage(
-    const string& completion,
-    const uint32_t currentIndex,
-    const uint32_t totalCount,
-    const int64_t xPos,
-    const int64_t yPos
+    const string& actionId,
+    uint32_t index,
+    int64_t xPos,
+    int64_t yPos
 ): WsMessage(
     WsAction::CompletionSelect, {
-        {"completion", completion},
-        {
-            "count", {
-                {"index", currentIndex},
-                {"total", totalCount}
-            }
-        },
+        {"actionId", actionId},
+        {"index", index},
         {
             "position", {
                 {"x", xPos},

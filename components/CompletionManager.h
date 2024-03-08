@@ -8,6 +8,7 @@
 #include <models/SymbolInfo.h>
 #include <types/CaretPosition.h>
 #include <types/common.h>
+#include <types/Completions.h>
 #include <types/CompletionCache.h>
 
 namespace components {
@@ -47,21 +48,19 @@ namespace components {
 
         void interactionUndo(const std::any&, bool&);
 
-        void wsActionCompletionGenerate(const nlohmann::json& data);
+        void wsActionCompletionGenerate(nlohmann::json&& data);
 
         // TODO: Remove old methods
 
         void setAutoCompletion(bool isAutoCompletion);
 
     private:
-        mutable std::shared_mutex _completionCacheMutex, _completionListMutex, _componentsMutex;
+        mutable std::shared_mutex _completionsMutex, _completionCacheMutex, _componentsMutex;
         Components _components;
-
-        // TODO: Check if _isJustAccepted is still needed
-        std::atomic<bool> _isAutoCompletion{true}, _isContinuousEnter{false}, _isJustAccepted{false},
-                _isNewLine{true}, _isRunning{true}, _needDiscardWsAction{false}, _needRetrieveCompletion{false};
+        std::atomic<bool> _isAutoCompletion{true}, _isNewLine{true}, _isRunning{true},
+                _needDiscardWsAction{false}, _needRetrieveCompletion{false};
         std::atomic<types::Time> _debounceRetrieveCompletionTime;
-        std::vector<std::string> _completionList;
+        std::optional<types::Completions> _completionsOpt;
         types::CompletionCache _completionCache;
 
         void _cancelCompletion();
@@ -71,8 +70,6 @@ namespace components {
         void _prolongRetrieveCompletion();
 
         void _updateNeedRetrieveCompletion(bool need = true, char character = 0);
-
-        std::string _selectCompletion(uint32_t index = 0);
 
         void _sendCompletionGenerate();
 

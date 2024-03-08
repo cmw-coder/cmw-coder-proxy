@@ -11,7 +11,7 @@
 namespace components {
     class WebsocketManager : public SingletonDclp<WebsocketManager> {
     public:
-        using CallBack = std::function<void(const nlohmann::json&)>;
+        using CallBack = std::function<void(nlohmann::json&&)>;
 
         explicit WebsocketManager(
             std::string&& url,
@@ -24,7 +24,7 @@ namespace components {
         void registerAction(
             const types::WsAction action,
             T* const other,
-            void (T::* const memberFunction)(const nlohmann::json&)
+            void (T::* const memberFunction)(nlohmann::json&&)
         ) {
             _handlerMap[action].push_back(std::bind_front(memberFunction, other));
         }

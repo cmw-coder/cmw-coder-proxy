@@ -4,6 +4,7 @@
 
 #include <models/SymbolInfo.h>
 #include <types/CaretPosition.h>
+#include <types/Completions.h>
 #include <types/WsAction.h>
 
 namespace models {
@@ -25,7 +26,7 @@ namespace models {
 
     class CompletionAcceptClientMessage final : public WsMessage {
     public:
-        explicit CompletionAcceptClientMessage(const std::string& completion);
+        explicit CompletionAcceptClientMessage(const std::string& actionId, uint32_t index);
     };
 
     class CompletionCacheClientMessage final : public WsMessage {
@@ -35,7 +36,7 @@ namespace models {
 
     class CompletionCancelClientMessage final : public WsMessage {
     public:
-        CompletionCancelClientMessage();
+        explicit CompletionCancelClientMessage(const std::string& actionId, bool isExplicit);
     };
 
     class CompletionGenerateClientMessage final : public WsMessage {
@@ -51,12 +52,33 @@ namespace models {
         );
     };
 
+    class CompletionGenerateServerMessage final : public WsMessage {
+    public:
+        enum class CompletionType {
+            Function,
+            Line,
+            Snippet,
+        };
+
+        const std::string result;
+        const CompletionType type;
+
+        explicit CompletionGenerateServerMessage(nlohmann::json&& data);
+
+        [[nodiscard]] std::string message() const;
+
+        [[nodiscard]] std::optional<types::Completions> completions() const;
+
+    private:
+        std::string _message;
+        std::optional<types::Completions> _completionsOpt{};
+    };
+
     class CompletionSelectClientMessage final : public WsMessage {
     public:
         explicit CompletionSelectClientMessage(
-            const std::string& completion,
-            uint32_t currentIndex,
-            uint32_t totalCount,
+            const std::string& actionId,
+            uint32_t index,
             int64_t xPos,
             int64_t yPos
         );

@@ -80,7 +80,7 @@ void WebsocketManager::_handleEventMessage(const string& messageString) {
                 actionOpt.has_value()) {
                 logger::debug(format("Receive websocket action: {}", message["action"].get<string>()));
                 for (const auto& handlers: _handlerMap[actionOpt.value()]) {
-                    handlers(message["data"]);
+                    handlers(nlohmann::json(message["data"]));
                 }
             } else {
                 logger::info(format("Invalid websocket message action: {}.", message["action"].get<string>()));

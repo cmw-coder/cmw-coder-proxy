@@ -12,7 +12,7 @@ namespace types {
 
         std::pair<std::string, int64_t> reset(std::string content = {});
 
-        bool valid() const;
+        [[nodiscard]] bool valid() const;
 
     private:
         std::string _content;
