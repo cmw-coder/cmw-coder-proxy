@@ -14,6 +14,26 @@
 namespace components {
     class CompletionManager : public SingletonDclp<CompletionManager> {
     public:
+        class AcceptedCompletion {
+        public:
+            std::string actionId;
+            types::Time acceptedTime = std::chrono::high_resolution_clock::now();
+
+            AcceptedCompletion(std::string actionId, std::string content, uint32_t line);
+
+            [[nodiscard]] bool canReport() const;
+
+            void addLine(uint32_t line);
+
+            void removeLine(uint32_t line);
+
+            [[nodiscard]] uint32_t getKeptLineCount() const;
+
+        private:
+            std::string _content;
+            std::vector<uint32_t> _references;
+        };
+
         struct Components {
             types::CaretPosition caretPosition;
             std::string path;
@@ -55,12 +75,13 @@ namespace components {
         void setAutoCompletion(bool isAutoCompletion);
 
     private:
-        mutable std::shared_mutex _completionsMutex, _completionCacheMutex, _componentsMutex;
+        mutable std::shared_mutex _acceptedCompletionsMutex, _completionsMutex, _completionCacheMutex, _componentsMutex;
         Components _components;
         std::atomic<bool> _isAutoCompletion{true}, _isNewLine{true}, _isRunning{true},
                 _needDiscardWsAction{false}, _needRetrieveCompletion{false};
         std::atomic<types::Time> _debounceRetrieveCompletionTime;
         std::optional<types::Completions> _completionsOpt;
+        std::vector<AcceptedCompletion> _acceptedCompletions;
         types::CompletionCache _completionCache;
 
         void _cancelCompletion();
@@ -72,6 +93,8 @@ namespace components {
         void _updateNeedRetrieveCompletion(bool need = true, char character = 0);
 
         void _sendCompletionGenerate();
+
+        void _threadCheckAcceptedCompletions();
 
         void _threadDebounceRetrieveCompletion();
     };

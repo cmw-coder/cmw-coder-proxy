@@ -23,9 +23,9 @@ namespace types {
         }
 
     private:
-        static inline Type _callingConvention = get<0>(utils::system::getVersion()) == 4
-                                                    ? Type::Cdecl
-                                                    : Type::StdCall;
+        static inline const Type _callingConvention = get<0>(utils::system::getVersion()) == 4
+                                                          ? Type::Cdecl
+                                                          : Type::StdCall;
         uint32_t _address;
     };
 }

@@ -74,6 +74,21 @@ namespace models {
         std::optional<types::Completions> _completionsOpt{};
     };
 
+    class CompletionKeptClientMessage final : public WsMessage {
+    public:
+        enum class Ratio {
+            All,
+            Most,
+            Few,
+        };
+
+        explicit CompletionKeptClientMessage(
+            const std::string& actionId,
+            uint32_t count,
+            Ratio ratio
+        );
+    };
+
     class CompletionSelectClientMessage final : public WsMessage {
     public:
         explicit CompletionSelectClientMessage(

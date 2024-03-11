@@ -6,6 +6,7 @@ namespace types {
         CompletionCache,
         CompletionCancel,
         CompletionGenerate,
+        CompletionKept,
         CompletionSelect,
         DebugSync,
         EditorFocusState,

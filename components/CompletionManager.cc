@@ -126,7 +126,54 @@ namespace {
     }
 }
 
+CompletionManager::AcceptedCompletion::AcceptedCompletion(string actionId, string content, uint32_t line)
+    : actionId(move(actionId)), _content(move(content)) {
+    for (const auto _: _content | views::split("\r\n"sv)) {
+        if (_references.empty()) {
+            _references.emplace_back(line);
+        } else {
+            _references.emplace_back(_references.back() + 1);
+        }
+    }
+}
+
+bool CompletionManager::AcceptedCompletion::canReport() const {
+    return chrono::high_resolution_clock::now() - acceptedTime >= chrono::seconds(10);
+}
+
+void CompletionManager::AcceptedCompletion::addLine(const uint32_t line) {
+    for (auto& reference: _references) {
+        if (line < reference) {
+            ++reference;
+        }
+    }
+}
+
+void CompletionManager::AcceptedCompletion::removeLine(const uint32_t line) {
+    for (auto& reference: _references) {
+        if (line <= reference) {
+            --reference;
+        }
+    }
+}
+
+uint32_t CompletionManager::AcceptedCompletion::getKeptLineCount() const {
+    const auto memoryManipulator = MemoryManipulator::GetInstance();
+    auto reference = _references.begin();
+    uint32_t result{};
+    for (const auto originalRange: _content | views::split("\r\n"sv)) {
+        const auto originalLine = string{originalRange.begin(), originalRange.end()};
+        if (const auto currentLine = memoryManipulator->getLineContent(*reference);
+            currentLine.contains(originalLine)) {
+            ++result;
+        }
+        ++reference;
+    }
+    return result;
+}
+
 CompletionManager::CompletionManager() {
+    _threadCheckAcceptedCompletions();
     _threadDebounceRetrieveCompletion();
     logger::info("CompletionManager is initialized");
 }
@@ -136,14 +183,21 @@ CompletionManager::~CompletionManager() {
 }
 
 void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockMessage) {
-    string content;
+    string actionId, content;
     int64_t cacheIndex; {
         unique_lock lock(_completionCacheMutex);
         tie(content, cacheIndex) = _completionCache.reset();
+    } {
+        shared_lock lock(_completionsMutex);
+        actionId = _completionsOpt.value().actionId;
     }
     if (!content.empty()) {
         const auto memoryManipulator = MemoryManipulator::GetInstance();
-        const auto currentPosition = memoryManipulator->getCaretPosition();
+        const auto currentPosition = memoryManipulator->getCaretPosition(); {
+            unique_lock lock(_acceptedCompletionsMutex);
+            _acceptedCompletions.emplace_back(actionId, content, currentPosition.line);
+        }
+
         uint32_t insertedlineCount{0}, lastLineLength{0};
         for (const auto lineRange: content.substr(cacheIndex) | views::split("\r\n"sv)) {
             auto lineContent = string{lineRange.begin(), lineRange.end()};
@@ -187,12 +241,9 @@ void CompletionManager::interactionCompletionCancel(const any& data, bool&) {
 }
 
 void CompletionManager::interactionDeleteInput(const any&, bool&) {
-    uint32_t chatacter; {
-        shared_lock lock(_componentsMutex);
-        chatacter = _components.caretPosition.character;
-    }
+    const auto [character, line, _] = MemoryManipulator::GetInstance()->getCaretPosition();
     try {
-        if (chatacter != 0) {
+        if (character != 0) {
             optional<pair<char, optional<string>>> previousCacheOpt; {
                 unique_lock lock(_completionCacheMutex);
                 previousCacheOpt = _completionCache.previous();
@@ -208,10 +259,16 @@ void CompletionManager::interactionDeleteInput(const any&, bool&) {
                     logger::log("Delete backward. Send CompletionCancel due to cache miss");
                 }
             }
-        } else if (_hasValidCache()) {
-            _isNewLine = true;
-            _cancelCompletion();
-            logger::log("Delete backward. Send CompletionCancel due to delete across line");
+        } else {
+            if (_hasValidCache()) {
+                _isNewLine = true;
+                _cancelCompletion();
+                logger::log("Delete backward. Send CompletionCancel due to delete across line");
+            }
+            unique_lock lock(_acceptedCompletionsMutex);
+            for (auto& acceptedCompletion: _acceptedCompletions) {
+                acceptedCompletion.removeLine(line);
+            }
         }
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid delayedDelete data: {}", e.what()));
@@ -226,6 +283,15 @@ void CompletionManager::interactionEnterInput(const any&, bool&) {
         logger::log("Enter Input. Send CompletionCancel");
     }
     _updateNeedRetrieveCompletion(true, '\n');
+    uint32_t line; {
+        shared_lock lock(_componentsMutex);
+        line = _components.caretPosition.line;
+    } {
+        unique_lock lock(_acceptedCompletionsMutex);
+        for (auto& acceptedCompletion: _acceptedCompletions) {
+            acceptedCompletion.addLine(line);
+        }
+    }
 }
 
 void CompletionManager::interactionNavigateWithKey(const any& data, bool&) {
@@ -368,8 +434,6 @@ void CompletionManager::wsActionCompletionGenerate(nlohmann::json&& data) {
         WindowManager::GetInstance()->unsetMenuText();
 
         const auto [xPosition, yPosition] = getCaretDimensions();
-
-
         WebsocketManager::GetInstance()->send(
             CompletionSelectClientMessage(completions.actionId, index, xPosition, yPosition)
         );
@@ -378,7 +442,7 @@ void CompletionManager::wsActionCompletionGenerate(nlohmann::json&& data) {
             "(WsAction::CompletionGenerate) Result: {}\n"
             "\tMessage: {}",
             serverMessage.result,
-            serverMessage.message
+            serverMessage.message()
         ));
     }
 }
@@ -437,6 +501,33 @@ void CompletionManager::_sendCompletionGenerate() {
     } catch (const runtime_error& e) {
         logger::warn(e.what());
     }
+}
+
+void CompletionManager::_threadCheckAcceptedCompletions() {
+    thread([this] {
+        while (_isRunning) {
+            int32_t needRemoveCount{}; {
+                shared_lock lock(_acceptedCompletionsMutex);
+                for (auto& acceptedCompletion: _acceptedCompletions) {
+                    if (acceptedCompletion.canReport()) {
+                        ++needRemoveCount;
+                        WebsocketManager::GetInstance()->send(CompletionKeptClientMessage(
+                            acceptedCompletion.actionId,
+                            acceptedCompletion.getKeptLineCount(),
+                            CompletionKeptClientMessage::Ratio::All
+                        ));
+                    }
+                }
+            } {
+                unique_lock lock(_acceptedCompletionsMutex);
+                _acceptedCompletions.erase(
+                    _acceptedCompletions.begin(),
+                    _acceptedCompletions.begin() + needRemoveCount
+                );
+            }
+            this_thread::sleep_for(chrono::seconds(1));
+        }
+    }).detach();
 }
 
 void CompletionManager::_threadDebounceRetrieveCompletion() {
