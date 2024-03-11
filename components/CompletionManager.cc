@@ -161,10 +161,14 @@ uint32_t CompletionManager::AcceptedCompletion::getKeptLineCount() const {
     const auto memoryManipulator = MemoryManipulator::GetInstance();
     auto reference = _references.begin();
     uint32_t result{};
+
+    WindowManager::GetInstance()->sendF13();
     for (const auto originalRange: _content | views::split("\r\n"sv)) {
         const auto originalLine = string{originalRange.begin(), originalRange.end()};
-        if (const auto currentLine = memoryManipulator->getLineContent(*reference);
-            currentLine.contains(originalLine)) {
+        const auto currentLine = memoryManipulator->getLineContent(*reference);
+        logger::debug(format("Generated at line {}: {}", *reference, originalLine));
+        logger::debug(format("  Current at line {}: {}", *reference, currentLine));
+        if (currentLine.contains(originalLine)) {
             ++result;
         }
         ++reference;
