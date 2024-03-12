@@ -58,7 +58,9 @@ namespace {
         }
     }
 
-    pair<int64_t, int64_t> getCaretDimensions() {
+    struct {
+        int64_t height, x, y;
+    } getCaretDimensions() {
         const auto [clientX, clientY] = WindowManager::GetInstance()->getClientPosition();
 
         auto [height, xPosition, yPosition] = MemoryManipulator::GetInstance()->getCaretDimension();
@@ -79,8 +81,9 @@ namespace {
         ));
 
         return {
+            height,
             clientX + xPosition,
-            clientY + yPosition + static_cast<int64_t>(round(0.625 * height))
+            clientY + yPosition - 1,
         };
     }
 
@@ -437,9 +440,9 @@ void CompletionManager::wsActionCompletionGenerate(nlohmann::json&& data) {
 
         WindowManager::GetInstance()->unsetMenuText();
 
-        const auto [xPosition, yPosition] = getCaretDimensions();
+        const auto [height, x, y] = getCaretDimensions();
         WebsocketManager::GetInstance()->send(
-            CompletionSelectClientMessage(completions.actionId, index, xPosition, yPosition)
+            CompletionSelectClientMessage(completions.actionId, index, height, x, y)
         );
     } else {
         logger::warn(format(

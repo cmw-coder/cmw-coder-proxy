@@ -94,8 +94,9 @@ namespace models {
         explicit CompletionSelectClientMessage(
             const std::string& actionId,
             uint32_t index,
-            int64_t xPos,
-            int64_t yPos
+            int64_t height,
+            int64_t x,
+            int64_t y
         );
     };
 

@@ -118,16 +118,18 @@ CompletionKeptClientMessage::CompletionKeptClientMessage(
 CompletionSelectClientMessage::CompletionSelectClientMessage(
     const string& actionId,
     uint32_t index,
-    int64_t xPos,
-    int64_t yPos
+    const int64_t height,
+    const int64_t x,
+    const int64_t y
 ): WsMessage(
     WsAction::CompletionSelect, {
         {"actionId", actionId},
         {"index", index},
         {
-            "position", {
-                {"x", xPos},
-                {"y", yPos}
+            "dimensions", {
+                {"height", height},
+                {"x", x},
+                {"y", y},
             }
         }
     }
