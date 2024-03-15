@@ -5,6 +5,8 @@
 #include <types/common.h>
 
 namespace utils::window {
+    uint32_t getMainWindowHandle(uint32_t processId);
+
     std::string getWindowClassName(int64_t hwnd);
 
     std::tuple<int64_t, int64_t> getClientPosition(int64_t hwnd);

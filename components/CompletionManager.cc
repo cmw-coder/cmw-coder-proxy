@@ -29,7 +29,8 @@ namespace {
     bool checkNeedRetrieveCompletion(const char character) {
         const auto memoryManipulator = MemoryManipulator::GetInstance();
         const auto currentCaretPosition = memoryManipulator->getCaretPosition();
-        const auto currentLineContent = memoryManipulator->getLineContent(currentCaretPosition.line);
+        const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
+        const auto currentLineContent = memoryManipulator->getLineContent(currentFileHandle, currentCaretPosition.line);
         if (currentLineContent.empty() || currentCaretPosition.character < currentLineContent.size()) {
             return false;
         }
@@ -90,16 +91,21 @@ namespace {
     [[maybe_unused]] vector<SymbolInfo> getDeclaredSymbolInfo(const uint32_t line) {
         const auto memoryManipulator = MemoryManipulator::GetInstance();
         vector<SymbolInfo> declaredSymbols;
+
+        WindowManager::GetInstance()->sendF13();
         const auto symbolNameOpt = memoryManipulator->getSymbolName(line);
-        if (!symbolNameOpt.has_value()) {
+        if (!symbolNameOpt.has_value() ||
+            !memoryManipulator->getSymbolRecord(symbolNameOpt.value()).has_value()) {
             return {};
         }
+
+        WindowManager::GetInstance()->sendF13();
         const auto childSymbolListHandle = memoryManipulator->getChildSymbolListHandle(symbolNameOpt.value());
-        for (uint32_t index = 0; index < childSymbolListHandle->count(); ++index) {
+        for (uint32_t index = 0; index < min(childSymbolListHandle->count(), 100u); ++index) {
             const auto childSymbolNameOpt = memoryManipulator->getSymbolName(childSymbolListHandle, index);
             if (!childSymbolNameOpt.has_value() ||
                 !memoryManipulator->getSymbolRecord(childSymbolNameOpt.value()).has_value()) {
-                continue;
+                break;
             }
 
             const auto symbolRecordDeclaredOpt = memoryManipulator->getSymbolRecordDeclared(childSymbolNameOpt.value());
@@ -129,9 +135,13 @@ namespace {
     }
 }
 
-CompletionManager::AcceptedCompletion::AcceptedCompletion(string actionId, string content, uint32_t line)
-    : actionId(move(actionId)), _content(move(content)) {
-    for (const auto _: _content | views::split("\r\n"sv)) {
+CompletionManager::AcceptedCompletion::AcceptedCompletion(
+    string actionId,
+    const uint32_t windowHandle,
+    string content,
+    const uint32_t line
+) : actionId(move(actionId)), _windowHandle(windowHandle), _content(move(content)) {
+    for ([[maybe_unused]] const auto _: _content | views::split("\r\n"sv)) {
         if (_references.empty()) {
             _references.emplace_back(line);
         } else {
@@ -160,23 +170,33 @@ void CompletionManager::AcceptedCompletion::removeLine(const uint32_t line) {
     }
 }
 
-uint32_t CompletionManager::AcceptedCompletion::getKeptLineCount() const {
+tuple<string, uint32_t> CompletionManager::AcceptedCompletion::getEditedLines() const {
     const auto memoryManipulator = MemoryManipulator::GetInstance();
     auto reference = _references.begin();
-    uint32_t result{};
+    string editedContent;
+    uint32_t keptLineCount{};
 
     WindowManager::GetInstance()->sendF13();
-    for (const auto originalRange: _content | views::split("\r\n"sv)) {
-        const auto originalLine = string{originalRange.begin(), originalRange.end()};
-        const auto currentLine = memoryManipulator->getLineContent(*reference);
-        logger::debug(format("Generated at line {}: {}", *reference, originalLine));
-        logger::debug(format("  Current at line {}: {}", *reference, currentLine));
-        if (currentLine.contains(originalLine)) {
-            ++result;
+    if (const auto fileHandleOpt = WindowManager::GetInstance()->getAssosiatedFileHandle(_windowHandle);
+        fileHandleOpt.has_value()) {
+        for (const auto originalRange: _content | views::split("\r\n"sv)) {
+            const auto originalLine = string{originalRange.begin(), originalRange.end()};
+            const auto currentLine = memoryManipulator->getLineContent(fileHandleOpt.value(), *reference);
+            logger::debug(format("Generated at line {}: {}", *reference, originalLine));
+            logger::debug(format("  Current at line {}: {}", *reference, currentLine));
+            editedContent.append(currentLine).append("\r\n");
+            if (currentLine.contains(originalLine)) {
+                ++keptLineCount;
+            }
+            ++reference;
         }
-        ++reference;
+    } else {
+        // TODO: Use file read method
+        logger::info(format(
+            "Window handle {:#x} is invalid, skip calculate kept line count ", _windowHandle
+        ));
     }
-    return result;
+    return {editedContent, keptLineCount};
 }
 
 CompletionManager::CompletionManager() {
@@ -200,9 +220,18 @@ void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockM
     }
     if (!content.empty()) {
         const auto memoryManipulator = MemoryManipulator::GetInstance();
-        const auto currentPosition = memoryManipulator->getCaretPosition(); {
+        const auto currentPosition = memoryManipulator->getCaretPosition();
+        if (const auto currentWindowHandleOpt = WindowManager::GetInstance()->getCurrentWindowHandle();
+            currentWindowHandleOpt.has_value()) {
             unique_lock lock(_acceptedCompletionsMutex);
-            _acceptedCompletions.emplace_back(actionId, content, currentPosition.line);
+            _acceptedCompletions.emplace_back(
+                actionId,
+                currentWindowHandleOpt.value(),
+                content,
+                currentPosition.line
+            );
+        } else {
+            return;
         }
 
         uint32_t insertedlineCount{0}, lastLineLength{0};
@@ -218,12 +247,7 @@ void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockM
             ++insertedlineCount;
         }
         WindowManager::GetInstance()->sendLeftThenRight();
-        memoryManipulator->setCaretPosition({lastLineLength, currentPosition.line + insertedlineCount - 1});
-        logger::log(format(
-            "Accepted completion: {}\n"
-            "\tInserted position: ({}, {})",
-            content, lastLineLength, currentPosition.line + insertedlineCount - 1
-        )); {
+        memoryManipulator->setCaretPosition({lastLineLength, currentPosition.line + insertedlineCount - 1}); {
             shared_lock lock(_completionsMutex);
             WebsocketManager::GetInstance()->send(CompletionAcceptClientMessage(
                 _completionsOpt.value().actionId,
@@ -243,7 +267,7 @@ void CompletionManager::interactionCompletionCancel(const any& data, bool&) {
             WindowManager::GetInstance()->sendF13();
         }
     } catch (const bad_any_cast& e) {
-        logger::log(format("Invalid interactionCompletionCancel data: {}", e.what()));
+        logger::warn(format("Invalid interactionCompletionCancel data: {}", e.what()));
     }
 }
 
@@ -518,9 +542,11 @@ void CompletionManager::_threadCheckAcceptedCompletions() {
                 for (auto& acceptedCompletion: _acceptedCompletions) {
                     if (acceptedCompletion.canReport()) {
                         ++needRemoveCount;
+                        const auto [editedContent, keptLineCount] = acceptedCompletion.getEditedLines();
                         WebsocketManager::GetInstance()->send(CompletionKeptClientMessage(
                             acceptedCompletion.actionId,
-                            acceptedCompletion.getKeptLineCount(),
+                            editedContent,
+                            keptLineCount,
                             CompletionKeptClientMessage::Ratio::All
                         ));
                     }
@@ -548,20 +574,25 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     const auto memoryManipulator = MemoryManipulator::GetInstance();
                     const auto caretPosition = memoryManipulator->getCaretPosition();
                     auto path = memoryManipulator->getFileName();
-                    if (auto project = memoryManipulator->getProjectDirectory();
+                    auto project = memoryManipulator->getProjectDirectory();
+                    if (const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
                         !path.empty() && !project.empty()) {
                         string prefix, suffix; {
-                            const auto currentLine = memoryManipulator->getLineContent(caretPosition.line);
+                            const auto currentLine = memoryManipulator->getLineContent(
+                                currentFileHandle, caretPosition.line
+                            );
                             prefix = currentLine.substr(0, caretPosition.character);
                             suffix = currentLine.substr(caretPosition.character);
                         }
                         for (uint32_t index = 1; index <= min(caretPosition.line, 100u); ++index) {
-                            const auto tempLine = memoryManipulator->getLineContent(caretPosition.line - index).append(
-                                "\r\n");
+                            const auto tempLine = memoryManipulator->getLineContent(
+                                currentFileHandle, caretPosition.line - index
+                            ).append("\r\n");
                             prefix.insert(0, tempLine);
                         }
                         for (uint32_t index = 1; index <= 30u; ++index) {
-                            const auto tempLine = memoryManipulator->getLineContent(caretPosition.line + index);
+                            const auto tempLine = memoryManipulator->getLineContent(
+                                currentFileHandle, caretPosition.line + index);
                             suffix.append("\r\n").append(tempLine);
                         } {
                             unique_lock lock(_componentsMutex);
@@ -571,9 +602,9 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             _components.project = move(project);
                             _components.recentFiles = ModificationManager::GetInstance()->getRecentFiles();
                             _components.suffix = move(suffix);
-                            // if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
-                            //     _components.symbols = getDeclaredSymbolInfo(caretPosition.line);
-                            // }
+                            if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
+                                _components.symbols = getDeclaredSymbolInfo(caretPosition.line);
+                            }
                         }
                         _isNewLine = false;
                         logger::info("Retrieve completion with full prefix");

@@ -9,6 +9,26 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
+uint32_t window::getMainWindowHandle(const uint32_t processId) {
+    struct Payload {
+        const uint32_t targetProcessId;
+        HWND resultWindowHandle;
+    } payload{.targetProcessId = processId};
+    EnumWindows([](HWND__* currentHandle, const LPARAM lParam) {
+        const auto payloadPtr = reinterpret_cast<Payload *>(lParam);
+        DWORD currentProcessId = 0;
+        GetWindowThreadProcessId(currentHandle, &currentProcessId);
+        if (payloadPtr->targetProcessId == currentProcessId &&
+            GetWindow(currentHandle, GW_OWNER) == nullptr &&
+            IsWindowVisible(currentHandle)) {
+            payloadPtr->resultWindowHandle = currentHandle;
+            return FALSE;
+        }
+        return TRUE;
+    }, reinterpret_cast<LPARAM>(&payload));
+    return reinterpret_cast<uint32_t>(payload.resultWindowHandle);
+}
+
 string window::getWindowClassName(const int64_t hwnd) {
     string text;
     text.resize(256);

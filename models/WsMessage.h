@@ -85,6 +85,7 @@ namespace models {
         explicit CompletionKeptClientMessage(
             const std::string& actionId,
             uint32_t count,
+            const std::string& editedContent,
             Ratio ratio
         );
     };

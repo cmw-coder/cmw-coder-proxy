@@ -19,7 +19,7 @@ namespace components {
             std::string actionId;
             types::Time acceptedTime = std::chrono::high_resolution_clock::now();
 
-            AcceptedCompletion(std::string actionId, std::string content, uint32_t line);
+            AcceptedCompletion(std::string actionId, uint32_t windowHandle, std::string content, uint32_t line);
 
             [[nodiscard]] bool canReport() const;
 
@@ -27,9 +27,10 @@ namespace components {
 
             void removeLine(uint32_t line);
 
-            [[nodiscard]] uint32_t getKeptLineCount() const;
+            [[nodiscard]] std::tuple<std::string, uint32_t> getEditedLines() const;
 
         private:
+            uint32_t _windowHandle;
             std::string _content;
             std::vector<uint32_t> _references;
         };

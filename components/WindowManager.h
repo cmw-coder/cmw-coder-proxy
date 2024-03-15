@@ -13,15 +13,19 @@ namespace components {
 
         ~WindowManager() override;
 
-        bool checkNeedHideWhenLostFocus(int64_t windowHandle);
+        bool checkNeedHideWhenLostFocus(uint32_t windowHandle);
 
-        bool checkNeedShowWhenGainFocus(int64_t windowHandle);
+        bool checkNeedShowWhenGainFocus(uint32_t windowHandle);
+
+        void closeWindowHandle(uint32_t windowHandle);
+
+        std::optional<uint32_t> getAssosiatedFileHandle(uint32_t windowHandle) const;
 
         std::tuple<int64_t, int64_t> getClientPosition() const;
 
-        bool hasPopListWindow() const;
+        std::optional<uint32_t> getCurrentWindowHandle() const;
 
-        bool hasValidCodeWindow() const;
+        bool hasPopListWindow() const;
 
         void interactionPaste(const std::any& = {});
 
@@ -40,14 +44,20 @@ namespace components {
         void unsetMenuText() const;
 
     private:
+        mutable std::shared_mutex _fileHandleMapMutex;
+
         const std::string _menuBaseText = "Comware Coder Proxy: ";
         helpers::KeyHelper _keyHelper;
         std::atomic<bool> _isRunning{true}, _needRetrieveInfo{false};
-        std::atomic<int64_t> _codeWindowHandle{-1}, _menuHandle{-1}, _menuItemIndex{-1}, _popListWindowHandle{-1};
+        std::atomic<int64_t> _menuHandle{-1}, _menuItemIndex{-1}, _popListWindowHandle{-1};
+        std::atomic<std::optional<uint32_t>> _currentWindowHandle{};
         std::atomic<types::Time> _debounceRetrieveInfoTime;
+        std::unordered_map<uint32_t, uint32_t> _fileHandleMap;
+
+        void _addEditorWindowHandle(uint32_t windowHandle);
 
         void _cancelRetrieveInfo();
 
-        void _threadDebounceRetrieveInfo();
+        void _threadInitMenuHandle();
     };
 }

@@ -29,7 +29,9 @@ namespace components {
 
         [[nodiscard]] std::string getFileName() const;
 
-        [[nodiscard]] std::string getLineContent(uint32_t line) const;
+        [[nodiscard]] uint32_t getHandle(models::MemoryAddress::HandleType handleType) const;
+
+        [[nodiscard]] std::string getLineContent(uint32_t handle, uint32_t line) const;
 
         [[nodiscard]] std::string getProjectDirectory() const;
 
@@ -39,7 +41,9 @@ namespace components {
 
         [[nodiscard]] std::optional<models::SymbolName> getSymbolName(models::SymbolRecord symbolRecord) const;
 
-        [[nodiscard]] std::optional<models::SymbolName> getSymbolName(models::SymbolListHandle symbolListHandle, uint32_t index) const;
+        [[nodiscard]] std::optional<models::SymbolName> getSymbolName(
+            models::SymbolListHandle symbolListHandle, uint32_t index
+        ) const;
 
         [[nodiscard]] std::optional<models::SymbolRecord> getSymbolRecord(models::SymbolName symbolName) const;
 
@@ -54,7 +58,5 @@ namespace components {
     private:
         const models::MemoryAddress _memoryAddress;
         const std::shared_ptr<void> _processHandle;
-
-        [[nodiscard]] uint32_t _getHandle(models::MemoryAddress::HandleType handleType) const;
     };
 }

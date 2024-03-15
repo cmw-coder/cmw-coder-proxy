@@ -1,0 +1,40 @@
+name: Hephaestus Develop CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  get-info:
+    runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.actual-get-info.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get Version
+        id: actual-get-info
+        run: echo "::set-output name=commit::$(git rev-parse --short ${{ GITHUB.SHA }})"
+
+  build-windows:
+    runs-on: windows-latest
+    needs: get-info
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+      - name: Configure CMake
+        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+      - name: Build
+        run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      - name: Install
+        run: cmake --install ${{github.workspace}}/build
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmw-coder-proxy_${{ needs.get-info.outputs.commit }}_${{ GITHUB.RUN_NUMBER }}_Windows
+          path: ${{github.workspace}}/build

@@ -29,6 +29,15 @@ namespace {
 
 InteractionMonitor::InteractionMonitor()
     : _keyHelper(Configurator::GetInstance()->version().first),
+      _cbtHookHandle(
+          SetWindowsHookEx(
+              WH_CBT,
+              _cbtProcedureHook,
+              GetModuleHandle(nullptr),
+              mainThreadId
+          ),
+          UnhookWindowsHookEx
+      ),
       _keyHookHandle(
           SetWindowsHookEx(
               WH_KEYBOARD,
@@ -76,14 +85,21 @@ InteractionMonitor::~InteractionMonitor() {
     _isRunning.store(false);
 }
 
-long InteractionMonitor::_keyProcedureHook(const int nCode, const unsigned wParam, const long lParam) {
+long InteractionMonitor::_cbtProcedureHook(const int nCode, const unsigned int wParam, const long lParam) {
+    if (nCode == HCBT_DESTROYWND) {
+        WindowManager::GetInstance()->closeWindowHandle(wParam);
+    }
+    return CallNextHookEx(nullptr, nCode, wParam, lParam);
+}
+
+long InteractionMonitor::_keyProcedureHook(const int nCode, const unsigned int wParam, const long lParam) {
     if (GetInstance()->_processKeyMessage(wParam, lParam)) {
         return true;
     }
     return CallNextHookEx(nullptr, nCode, wParam, lParam);
 }
 
-long InteractionMonitor::_mouseProcedureHook(const int nCode, const unsigned wParam, const long lParam) {
+long InteractionMonitor::_mouseProcedureHook(const int nCode, const unsigned int wParam, const long lParam) {
     GetInstance()->_processMouseMessage(wParam);
     return CallNextHookEx(nullptr, nCode, wParam, lParam);
 }
@@ -93,7 +109,6 @@ long InteractionMonitor::_windowProcedureHook(const int nCode, const unsigned in
     return CallNextHookEx(nullptr, nCode, wParam, lParam);
 }
 
-// ReSharper disable once CppDFAUnreachableFunctionCall
 void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
     if (_keyHelper.isPrintable(keycode)) {
         ignore = _handleInteraction(Interaction::NormalInput, _keyHelper.toPrintable(keycode));
@@ -173,7 +188,6 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
     } catch (...) {}
 }
 
-// ReSharper disable once CppDFAUnreachableFunctionCall
 bool InteractionMonitor::_handleInteraction(const Interaction interaction, const any& data) const noexcept {
     bool needBlockMessage{false};
     try {
@@ -239,9 +253,8 @@ void InteractionMonitor::_monitorDebugLog() const {
     }).detach();
 }
 
-// ReSharper disable once CppDFAUnreachableFunctionCall
 bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigned lParam) {
-    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
+    if (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
         return false;
     }
 
@@ -284,7 +297,6 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
     return needBlockMessage;
 }
 
-// ReSharper disable once CppDFAUnreachableFunctionCall
 void InteractionMonitor::_processMouseMessage(const unsigned wParam) {
     switch (wParam) {
         case WM_LBUTTONDOWN: {
@@ -320,28 +332,27 @@ void InteractionMonitor::_processMouseMessage(const unsigned wParam) {
     }
 }
 
-// ReSharper disable once CppDFAUnreachableFunctionCall
 void InteractionMonitor::_processWindowMessage(const long lParam) {
     const auto windowProcData = reinterpret_cast<PCWPSTRUCT>(lParam);
-    if (const auto currentWindow = reinterpret_cast<int64_t>(windowProcData->hwnd);
-        window::getWindowClassName(currentWindow) == "si_Sw") {
+    if (const auto editorWindowHandle = reinterpret_cast<int64_t>(windowProcData->hwnd);
+        window::getWindowClassName(editorWindowHandle) == "si_Sw") {
         switch (windowProcData->message) {
+            case UM_KEYCODE: {
+                _handleKeycode(windowProcData->wParam);
+                break;
+            }
             case WM_KILLFOCUS: {
-                logger::debug("WM_KILLFOCUS");
+                // logger::debug("WM_KILLFOCUS");
                 if (WindowManager::GetInstance()->checkNeedHideWhenLostFocus(windowProcData->wParam)) {
                     WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(false));
                 }
                 break;
             }
             case WM_SETFOCUS: {
-                logger::debug("WM_SETFOCUS");
-                if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(currentWindow)) {
+                // logger::debug("WM_SETFOCUS");
+                if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(editorWindowHandle)) {
                     WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(true));
                 }
-                break;
-            }
-            case UM_KEYCODE: {
-                _handleKeycode(windowProcData->wParam);
                 break;
             }
             default: {

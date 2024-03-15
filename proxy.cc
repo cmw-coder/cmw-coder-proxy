@@ -33,7 +33,7 @@ typedef struct {
 
 void WINAPI vSetDdrawflag(void) {
 #pragma comment(linker, "/EXPORT:vSetDdrawflag=_vSetDdrawflag@0")
-    logger::log(format("Proxying {}", typeid(vSetDdrawflag).name()));
+    logger::info(format("Proxying {}", typeid(vSetDdrawflag).name()));
 }
 
 // https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-alphablend
@@ -53,7 +53,7 @@ BOOL WINAPI AlphaBlend(
 #pragma comment(linker, "/EXPORT:AlphaBlend=_AlphaBlend@44")
     const auto remoteFunction = ModuleProxy::GetInstance()->getFunction<decltype(AlphaBlend)>("AlphaBlend");
     if (!remoteFunction) {
-        logger::log("FATAL: Failed to get address of 'AlphaBlend'.");
+        logger::error("Failed to get address of 'AlphaBlend'.");
         return false;
     }
     return remoteFunction(
@@ -83,7 +83,7 @@ BOOL WINAPI GradientFill(
 #pragma comment(linker, "/EXPORT:GradientFill=_GradientFill@24")
     const auto remoteFunction = ModuleProxy::GetInstance()->getFunction<decltype(GradientFill)>("GradientFill");
     if (!remoteFunction) {
-        logger::log("FATAL: Failed to get address of 'GradientFill'.");
+        logger::error("Failed to get address of 'GradientFill'.");
         return false;
     }
     return remoteFunction(hdc, pVertex, nVertex, pMesh, nMesh, ulMode);
@@ -106,7 +106,7 @@ BOOL WINAPI TransparentBlt(
 #pragma comment(linker, "/EXPORT:TransparentBlt=_TransparentBlt@44")
     const auto remoteFunction = ModuleProxy::GetInstance()->getFunction<decltype(TransparentBlt)>("TransparentBlt");
     if (!remoteFunction) {
-        logger::log("FATAL: Failed to get address of 'TransparentBlt'.");
+        logger::error("Failed to get address of 'TransparentBlt'.");
         return false;
     }
     return remoteFunction(

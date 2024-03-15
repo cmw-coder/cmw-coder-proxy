@@ -20,7 +20,7 @@ using namespace utils;
 
 namespace {
     void initialize() {
-        logger::log("Comware Coder Proxy is initializing...");
+        logger::info("Comware Coder Proxy is initializing...");
 
         ModuleProxy::Construct();
         Configurator::Construct();
@@ -33,7 +33,7 @@ namespace {
     }
 
     void finalize() {
-        logger::log("Comware Coder Proxy is finalizing...");
+        logger::info("Comware Coder Proxy is finalizing...");
 
         WindowManager::Destruct();
         InteractionMonitor::Destruct();
@@ -159,7 +159,7 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 &CompletionManager::wsActionCompletionGenerate
             );
 
-            logger::log(std::format(
+            logger::info(format(
                 "Version: {}, PID: {}, currentTID: {}, mainTID: {}, mainModuleName: {}",
                 VERSION_STRING + Configurator::GetInstance()->reportVersion(),
                 GetCurrentProcessId(),
@@ -168,12 +168,12 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 system::getModuleFileName(reinterpret_cast<uint64_t>(GetModuleHandle(nullptr)))
             ));
 
-            logger::log("Comware Coder Proxy is ready");
+            logger::info("Comware Coder Proxy is ready");
             break;
         }
         case DLL_PROCESS_DETACH: {
             finalize();
-            logger::log("Comware Coder Proxy is unloaded");
+            logger::info("Comware Coder Proxy is unloaded");
             break;
         }
         default: {

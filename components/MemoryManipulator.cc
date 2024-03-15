@@ -112,7 +112,7 @@ MemoryManipulator::MemoryManipulator(const SiVersion::Full version)
 }
 
 void MemoryManipulator::deleteLineContent(const uint32_t line) const {
-    if (const auto fileHandle = _getHandle(MemoryAddress::HandleType::File)) {
+    if (const auto fileHandle = getHandle(MemoryAddress::HandleType::File)) {
         AddressToFunction<void(uint32_t, uint32_t, uint32_t)>(
             memory::offset(_memoryAddress.file.funcDelBufLine.base)
         )(fileHandle, line, _memoryAddress.file.funcDelBufLine.param3);
@@ -131,7 +131,7 @@ CaretDimension MemoryManipulator::getCaretDimension() const {
 
 CaretDimension MemoryManipulator::getCaretDimension(const uint32_t line) const {
     CaretDimension caretDimension{};
-    if (const auto windowHandle = _getHandle(MemoryAddress::HandleType::Window)) {
+    if (const auto windowHandle = getHandle(MemoryAddress::HandleType::Window)) {
         caretDimension.yPosition = AddressToFunction<uint32_t(uint32_t, uint32_t)>(
             memory::offset(_memoryAddress.window.funcYPosFromLine.base)
         )(windowHandle, line);
@@ -178,7 +178,7 @@ SymbolListHandle MemoryManipulator::getChildSymbolListHandle(SymbolName symbolNa
 }
 
 string MemoryManipulator::getFileName() const {
-    if (const auto fileHandle = _getHandle(MemoryAddress::HandleType::File)) {
+    if (const auto fileHandle = getHandle(MemoryAddress::HandleType::File)) {
         uint32_t param1Base, param1;
         SimpleString payload;
 
@@ -192,12 +192,31 @@ string MemoryManipulator::getFileName() const {
     return {};
 }
 
-string MemoryManipulator::getLineContent(const uint32_t line) const {
-    if (const auto fileHandle = _getHandle(MemoryAddress::HandleType::File)) {
+uint32_t MemoryManipulator::getHandle(const MemoryAddress::HandleType handleType) const {
+    uint32_t address{}, handle{};
+    if (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
+        return handle;
+    }
+    switch (handleType) {
+        case MemoryAddress::HandleType::File: {
+            address = memory::offset(_memoryAddress.file.handle);
+            break;
+        }
+        case MemoryAddress::HandleType::Window: {
+            address = memory::offset(_memoryAddress.window.handle);
+            break;
+        }
+    }
+    memory::read(address, handle);
+    return handle;
+}
+
+string MemoryManipulator::getLineContent(const uint32_t handle, const uint32_t line) const {
+    if (handle) {
         SimpleString payload;
         AddressToFunction<void(uint32_t, uint32_t, void*)>(
             memory::offset(_memoryAddress.file.funcGetBufLine.base)
-        )(fileHandle, line, payload.data());
+        )(handle, line, payload.data());
         return payload.str();
     }
     return {};
@@ -216,7 +235,7 @@ optional<SymbolName> MemoryManipulator::getSymbolName() const {
 }
 
 optional<SymbolName> MemoryManipulator::getSymbolName(const uint32_t line) const {
-    if (const auto fileHandle = _getHandle(MemoryAddress::HandleType::File)) {
+    if (const auto fileHandle = getHandle(MemoryAddress::HandleType::File)) {
         uint32_t symbolHandle{};
         int32_t symbolIndex{};
         SymbolName symbolName;
@@ -306,7 +325,7 @@ optional<SymbolRecord> MemoryManipulator::getSymbolRecordDeclared(SymbolName sym
 }
 
 void MemoryManipulator::setCaretPosition(const CaretPosition& caretPosition) const {
-    if (const auto windowHandle = _getHandle(MemoryAddress::HandleType::Window)) {
+    if (const auto windowHandle = getHandle(MemoryAddress::HandleType::Window)) {
         AddressToFunction<void(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(
             memory::offset(_memoryAddress.window.funcSetWndSel.base)
         )(windowHandle, caretPosition.line, caretPosition.character, caretPosition.line, caretPosition.character);
@@ -314,7 +333,7 @@ void MemoryManipulator::setCaretPosition(const CaretPosition& caretPosition) con
 }
 
 void MemoryManipulator::setLineContent(const uint32_t line, const string& content, const bool isInsertion) const {
-    if (const auto fileHandle = _getHandle(MemoryAddress::HandleType::File)) {
+    if (const auto fileHandle = getHandle(MemoryAddress::HandleType::File)) {
         AddressToFunction<void(uint32_t, uint32_t, void*)>(memory::offset(
             isInsertion ? _memoryAddress.file.funcInsBufLine.base : _memoryAddress.file.funcPutBufLine.base
         ))(fileHandle, line, SimpleString(content).data());
@@ -322,30 +341,11 @@ void MemoryManipulator::setLineContent(const uint32_t line, const string& conten
 }
 
 void MemoryManipulator::setSelectionContent(const string& content) const {
-    if (WindowManager::GetInstance()->hasValidCodeWindow()) {
+    if (WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
         uint32_t param1;
         memory::read(memory::offset(_memoryAddress.window.funcSetBufSelText.param1Base), param1);
         AddressToFunction<void(uint32_t, const char*)>(
             memory::offset(_memoryAddress.window.funcSetBufSelText.base)
         )(param1, content.c_str());
     }
-}
-
-uint32_t MemoryManipulator::_getHandle(const MemoryAddress::HandleType handleType) const {
-    uint32_t address{}, handle{};
-    if (!WindowManager::GetInstance()->hasValidCodeWindow()) {
-        return handle;
-    }
-    switch (handleType) {
-        case MemoryAddress::HandleType::File: {
-            address = memory::offset(_memoryAddress.file.handle);
-            break;
-        }
-        case MemoryAddress::HandleType::Window: {
-            address = memory::offset(_memoryAddress.window.handle);
-            break;
-        }
-    }
-    memory::read(address, handle);
-    return handle;
 }

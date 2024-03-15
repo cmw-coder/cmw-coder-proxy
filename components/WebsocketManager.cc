@@ -67,11 +67,9 @@ WebsocketManager::~WebsocketManager() {
 }
 
 void WebsocketManager::send(const WsMessage& message) {
-    logger::debug(format("Send websocket action: {}", enum_name(message.action)));
     _client.send(message.parse());
 }
 
-// ReSharper disable once CppDFAUnreachableFunctionCall
 void WebsocketManager::_handleEventMessage(const string& messageString) {
     try {
         if (auto message = nlohmann::json::parse(messageString);

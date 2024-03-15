@@ -106,11 +106,13 @@ optional<Completions> CompletionGenerateServerMessage::completions() const {
 CompletionKeptClientMessage::CompletionKeptClientMessage(
     const string& actionId,
     const uint32_t count,
+    const string& editedContent,
     const Ratio ratio
 ): WsMessage(
     WsAction::CompletionKept, {
         {"actionId", actionId},
         {"count", count},
+        {"editedContent", editedContent},
         {"ratio", enum_name(ratio)},
     }
 ) {}
