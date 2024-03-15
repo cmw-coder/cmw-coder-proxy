@@ -40,9 +40,8 @@ jobs:
       - name: CMake Configure and Build
         uses: lukka/run-cmake@v10
         with:
-          configurePreset: 'ninja-vcpkg'
-          buildPreset: 'ninja-vcpkg'
           buildPresetAdditionalArgs: '[`--config ${{ matrix.config }}`]'
+          workflowPreset: 'ninja-vcpkg'
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
