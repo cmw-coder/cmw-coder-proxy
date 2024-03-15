@@ -11,10 +11,10 @@
             "displayName": "Ninja Configure Settings",
             "description": "Sets build and install directories",
             "binaryDir": "${sourceDir}/build",
-            "generator": "Ninja"
+            "generator": "Ninja Multi-Config"
         },
         {
-            "name": "ninja-multi-vcpkg",
+            "name": "ninja-vcpkg",
             "displayName": "Ninja Multi-Config Configure Settings",
             "description": "Configure with vcpkg toolchain",
             "binaryDir": "${sourceDir}/builds/${presetName}",
@@ -52,10 +52,10 @@
             "description": "Build with Ninja"
         },
         {
-            "name": "ninja-multi-vcpkg",
-            "configurePreset": "ninja-multi-vcpkg",
-            "displayName": "Build ninja-multi-vcpkg",
-            "description": "Build ninja-multi-vcpkg Configurations"
+            "name": "ninja-vcpkg",
+            "configurePreset": "ninja-vcpkg",
+            "displayName": "Build ninja-vcpkg",
+            "description": "Build ninja-vcpkg Configuration"
         },
         {
             "name": "msbuild-vcpkg",
@@ -70,13 +70,13 @@
             "steps": [
                 {
                     "type": "configure",
-                    "name": "ninja-multi-vcpkg"
+                    "name": "ninja-vcpkg"
                 },
                 {
                     "type": "build",
-                    "name": "ninja-multi-vcpkg"
+                    "name": "ninja-vcpkg"
                 }
             ]
         }
-    ],
+    ]
 }
