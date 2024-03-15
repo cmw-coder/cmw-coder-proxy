@@ -7,32 +7,54 @@
     },
     "configurePresets": [
         {
-            "name": "ninja-vcpkg",
-            "displayName": "Ninja Multi-Config Configure Settings",
-            "description": "Configure with vcpkg toolchain",
+            "name": "ninja-multi-config",
+            "displayName": "Ninja Multi-Config",
             "binaryDir": "${sourceDir}/build",
-            "generator": "Ninja Multi-Config"
+            "generator": "Ninja Multi-Config",
+            "architecture": {
+                "strategy": "set",
+                "value": "x86"
+            }
         }
     ],
     "buildPresets": [
         {
-            "name": "ninja-vcpkg",
-            "configurePreset": "ninja-vcpkg",
-            "displayName": "Build ninja-vcpkg",
-            "description": "Build ninja-vcpkg Configuration"
+            "name": "Debug",
+            "configurePreset": "ninja-multi-config",
+            "configuration": "Debug",
+            "displayName": "Build Debug Configuration"
+        },
+        {
+            "name": "Release",
+            "configurePreset": "ninja-multi-config",
+            "configuration": "Release",
+            "displayName": "Build Release Configuration"
         }
     ],
     "workflowPresets": [
         {
-            "name": "ninja-vcpkg",
+            "name": "Debug",
             "steps": [
                 {
                     "type": "configure",
-                    "name": "ninja-vcpkg"
+                    "name": "ninja-multi-config"
                 },
                 {
                     "type": "build",
-                    "name": "ninja-vcpkg"
+                    "name": "Debug"
+                }
+            ]
+        },
+        {
+            "name": "Release",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "ninja-multi-config"
+                },
+                {
+                    "type": "build",
+                    "name": "Release"
                 }
             ]
         }
