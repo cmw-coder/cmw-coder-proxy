@@ -35,6 +35,10 @@ jobs:
           path: vcpkg
           key: vcpkg-${{ hashFiles('vcpkg.json') }}
           restore-keys: vcpkg-
+      - name: Prepare for build
+        shell: bash
+        run: |
+          mkdir -p ${{ env.OUTPUT_FOLDER }}
       - name: Configure & Build
         uses: lukka/run-cmake@v10
         with:
