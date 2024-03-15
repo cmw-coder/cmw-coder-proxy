@@ -11,20 +11,26 @@ jobs:
   get-info:
     runs-on: ubuntu-latest
     outputs:
-      commit: ${{ steps.actual-get-info.outputs.commit }}
+      commit-hash: ${{ steps.git-info.outputs.commit-hash }}
     steps:
       - uses: actions/checkout@v4
-      - name: Get Version
-        id: actual-get-info
-        run: echo "::set-output name=commit::$(git rev-parse --short ${{ GITHUB.SHA }})"
+      - name: Get git info
+        id: git-info
+        shell: bash
+        run: |
+          COMMIT_HASH=$(git rev-parse --short ${{ GITHUB.SHA }})
+          echo "commit-hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
 
-  build-windows:
+  build:
     runs-on: windows-latest
     needs: get-info
     env:
       OUTPUT_FOLDER: ./build
       RELEASE_FOLDER: ./release
       VCPKG_DEFAULT_TRIPLET: x86-windows
+    strategy:
+      matrix:
+        config: [ Debug, Release ]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,21 +42,21 @@ jobs:
         with:
           configurePreset: 'ninja-vcpkg'
           buildPreset: 'ninja-vcpkg'
-          buildPresetAdditionalArgs: '[`--config Release`]'
+          buildPresetAdditionalArgs: '[`--config ${{ matrix.config }}`]'
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: cmw-coder-proxy_${{ needs.get-info.outputs.commit }}_${{ GITHUB.RUN_NUMBER }}_Windows
-          path: ${{ env.OUTPUT_FOLDER }}
+          name: cmw-coder-proxy_${{ needs.get-info.outputs.commit-hash }}_${{ GITHUB.RUN_NUMBER }}_${{ matrix.config }}
+          path: "${{ env.OUTPUT_FOLDER }}/${{ matrix.config }}"
       - name: Prepare for release
-        if: ${{ startsWith(github.ref, 'refs/tags/pre') || startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ (startsWith(github.ref, 'refs/tags/pre') || startsWith(github.ref, 'refs/tags/v')) && matrix.config == 'Release'}}
         shell: bash
         run: |
           mkdir -p ${{ env.RELEASE_FOLDER }}
-          cp ${{ env.OUTPUT_FOLDER }}/msimg32.dll ${{ env.RELEASE_FOLDER }}/loaderdll.dll
-          cp ${{ env.OUTPUT_FOLDER }}/zlib1.dll ${{ env.RELEASE_FOLDER }}/zlib1.dll
+          cp ${{ env.OUTPUT_FOLDER }}/${{ matrix.config }}/msimg32.dll ${{ env.RELEASE_FOLDER }}/loaderdll.dll
+          cp ${{ env.OUTPUT_FOLDER }}/${{ matrix.config }}/zlib1.dll ${{ env.RELEASE_FOLDER }}/zlib1.dll
       - name: Upload release
-        if: ${{ startsWith(github.ref, 'refs/tags/pre') || startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ (startsWith(github.ref, 'refs/tags/pre') || startsWith(github.ref, 'refs/tags/v')) && matrix.config == 'Release'}}
         uses: softprops/action-gh-release@v2
         with:
           files: |
