@@ -31,7 +31,7 @@ jobs:
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
       - name: Configure CMake
-        run: cmake -A Win32 -B ${{ env.OUTPUT_FOLDER }} -DCMAKE_BUILD_TYPE=Release -G "CodeBlocks - NMake Makefiles"
+        run: cmake -B ${{ env.OUTPUT_FOLDER }} -DCMAKE_BUILD_TYPE=Release -G "CodeBlocks - NMake Makefiles"
       - name: Build Release
         run: cmake --build ${{ env.OUTPUT_FOLDER }} --target msimg32
       - name: Upload Artifacts
