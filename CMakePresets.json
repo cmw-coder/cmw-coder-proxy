@@ -10,11 +10,7 @@
             "name": "ninja-multi-config",
             "displayName": "Ninja Multi-Config",
             "binaryDir": "${sourceDir}/build",
-            "generator": "Ninja Multi-Config",
-            "architecture": {
-                "strategy": "set",
-                "value": "x86"
-            }
+            "generator": "Ninja Multi-Config"
         }
     ],
     "buildPresets": [
