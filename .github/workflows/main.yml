@@ -24,14 +24,23 @@ jobs:
     env:
       OUTPUT_FOLDER: ./build
       RELEASE_FOLDER: ./release
+      VCPKG_DEFAULT_TRIPLET: x86-windows
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: 'recursive'
-      - name: Configure CMake
-        run: cmake -A Win32 -B ${{ env.OUTPUT_FOLDER }} -DCMAKE_BUILD_TYPE=Release
-      - name: Build Release
-        run: cmake --build ${{ env.OUTPUT_FOLDER }} --target msimg32
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+      - name: Run CMake+vcpkg+NinjaMulti-Config (Release configuration)
+        uses: lukka/run-cmake@v10
+        with:
+          configurePreset: 'ninja-multi-vcpkg'
+          buildPreset: 'ninja-multi-vcpkg'
+          buildPresetAdditionalArgs: '[`--config Release`]'
+      #      - name: Configure CMake
+      #        run: cmake -A Win32 -B ${{ env.OUTPUT_FOLDER }} -DCMAKE_BUILD_TYPE=Release
+      #      - name: Build Release
+      #        run: cmake --build ${{ env.OUTPUT_FOLDER }} --target msimg32
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
