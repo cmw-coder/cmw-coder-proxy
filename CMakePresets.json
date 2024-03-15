@@ -11,7 +11,7 @@
             "displayName": "Ninja Multi-Config Configure Settings",
             "description": "Configure with vcpkg toolchain",
             "binaryDir": "${sourceDir}/build",
-            "generator": "Ninja Multi-Config",
+            "generator": "Ninja Multi-Config"
         }
     ],
     "buildPresets": [
