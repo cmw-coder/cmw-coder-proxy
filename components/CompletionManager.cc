@@ -545,8 +545,8 @@ void CompletionManager::_threadCheckAcceptedCompletions() {
                         const auto [editedContent, keptLineCount] = acceptedCompletion.getEditedLines();
                         WebsocketManager::GetInstance()->send(CompletionKeptClientMessage(
                             acceptedCompletion.actionId,
-                            editedContent,
                             keptLineCount,
+                            editedContent,
                             CompletionKeptClientMessage::Ratio::All
                         ));
                     }
