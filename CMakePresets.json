@@ -11,22 +11,11 @@
             "displayName": "Ninja Multi-Config Configure Settings",
             "description": "Configure with vcpkg toolchain",
             "binaryDir": "${sourceDir}/build",
-            "generator": "Ninja Multi-Config"
-        },
-        {
-            "name": "msbuild-vcpkg",
-            "displayName": "MSBuild (vcpkg toolchain) Configure Settings",
-            "description": "Configure with VS generators and with vcpkg toolchain",
-            "binaryDir": "${sourceDir}/build",
-            "generator": "Visual Studio 17 2022",
-            "architecture": {
-                "strategy": "set",
-                "value": "x86"
-            },
+            "generator": "Ninja Multi-Config",
             "cacheVariables": {
                 "CMAKE_TOOLCHAIN_FILE": {
                     "type": "FILEPATH",
-                    "value": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+                    "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
                 }
             }
         }
@@ -37,12 +26,6 @@
             "configurePreset": "ninja-vcpkg",
             "displayName": "Build ninja-vcpkg",
             "description": "Build ninja-vcpkg Configuration"
-        },
-        {
-            "name": "msbuild-vcpkg",
-            "configurePreset": "msbuild-vcpkg",
-            "displayName": "Build MSBuild",
-            "description": "Build with MSBuild (VS)"
         }
     ],
     "workflowPresets": [
