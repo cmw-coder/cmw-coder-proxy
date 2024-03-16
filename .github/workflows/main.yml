@@ -1,4 +1,4 @@
-name: Hephaestus Develop CI
+name: Comware Coder Proxy Main CI
 
 on:
   push:
