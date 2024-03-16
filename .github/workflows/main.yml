@@ -1,5 +1,7 @@
 name: Comware Coder Proxy Main CI
 
+permissions: write-all
+
 on:
   push:
     branches: [ main ]
