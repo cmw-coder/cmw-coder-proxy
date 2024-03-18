@@ -13,7 +13,7 @@ jobs:
   get-info:
     runs-on: ubuntu-latest
     outputs:
-      commit-hash: ${{ steps.git-info.outputs.commit-hash }}
+      commitHash: ${{ steps.git-info.outputs.commitHash }}
     steps:
       - uses: actions/checkout@v4
       - name: Get git info
@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: |
           COMMIT_HASH=$(git rev-parse --short ${{ GITHUB.SHA }})
-          echo "commit-hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
+          echo "commitHash=$COMMIT_HASH" >> $GITHUB_OUTPUT
 
   build:
     runs-on: windows-latest
@@ -46,7 +46,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: cmw-coder-proxy_${{ needs.get-info.outputs.commit-hash }}_${{ GITHUB.RUN_NUMBER }}_${{ matrix.config }}
+          name: cmw-coder-proxy_${{ needs.get-info.outputs.commitHash }}_${{ GITHUB.RUN_NUMBER }}_${{ matrix.config }}
           path: "${{ env.OUTPUT_FOLDER }}/${{ matrix.config }}"
       - name: Prepare for release
         if: ${{ (startsWith(github.ref, 'refs/tags/pre') || startsWith(github.ref, 'refs/tags/v')) && matrix.config == 'Release'}}
