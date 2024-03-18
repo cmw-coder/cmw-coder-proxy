@@ -43,6 +43,20 @@ CompletionCancelClientMessage::CompletionCancelClientMessage(const string& actio
         }
     ) {}
 
+CompletionEditClientMessage::CompletionEditClientMessage(
+    const string& actionId,
+    const uint32_t count,
+    const string& editedContent,
+    const KeptRatio keptRatio
+): WsMessage(
+    WsAction::CompletionEdit, {
+        {"actionId", actionId},
+        {"count", count},
+        {"editedContent", editedContent},
+        {"ratio", enum_name(keptRatio)},
+    }
+) {}
+
 CompletionGenerateClientMessage::CompletionGenerateClientMessage(
     const CaretPosition& caret,
     const string& path,
@@ -83,9 +97,12 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
 
 CompletionGenerateServerMessage::CompletionGenerateServerMessage(nlohmann::json&& data)
     : WsMessage(WsAction::CompletionGenerate, move(data)),
-      result(_data["result"].get<string>()),
-      type(enum_cast<CompletionType>(_data["completions"]["type"].get<string>()).value_or(CompletionType::Snippet)) {
+      result(_data["result"].get<string>()) {
     if (result == "success") {
+        if (const auto completionTypeopt = enum_cast<CompletionType>(_data["completions"]["type"].get<string>());
+            completionTypeopt.has_value()) {
+            _type = completionTypeopt.value();
+        }
         _completionsOpt.emplace(
             _data["actionId"].get<string>(),
             _data["completions"]["candidates"].get<vector<string>>()
@@ -102,20 +119,6 @@ string CompletionGenerateServerMessage::message() const {
 optional<Completions> CompletionGenerateServerMessage::completions() const {
     return _completionsOpt;
 }
-
-CompletionKeptClientMessage::CompletionKeptClientMessage(
-    const string& actionId,
-    const uint32_t count,
-    const string& editedContent,
-    const Ratio ratio
-): WsMessage(
-    WsAction::CompletionKept, {
-        {"actionId", actionId},
-        {"count", count},
-        {"editedContent", editedContent},
-        {"ratio", enum_name(ratio)},
-    }
-) {}
 
 CompletionSelectClientMessage::CompletionSelectClientMessage(
     const string& actionId,

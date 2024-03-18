@@ -10,31 +10,11 @@
 #include <types/common.h>
 #include <types/Completions.h>
 #include <types/CompletionCache.h>
+#include <types/EditedCompletion.h>
 
 namespace components {
     class CompletionManager : public SingletonDclp<CompletionManager> {
     public:
-        class AcceptedCompletion {
-        public:
-            std::string actionId;
-            types::Time acceptedTime = std::chrono::high_resolution_clock::now();
-
-            AcceptedCompletion(std::string actionId, uint32_t windowHandle, std::string content, uint32_t line);
-
-            [[nodiscard]] bool canReport() const;
-
-            void addLine(uint32_t line);
-
-            void removeLine(uint32_t line);
-
-            [[nodiscard]] std::tuple<std::string, uint32_t> getEditedLines() const;
-
-        private:
-            uint32_t _windowHandle;
-            std::string _content;
-            std::vector<uint32_t> _references;
-        };
-
         struct Components {
             types::CaretPosition caretPosition;
             std::string path;
@@ -76,13 +56,13 @@ namespace components {
         void setAutoCompletion(bool isAutoCompletion);
 
     private:
-        mutable std::shared_mutex _acceptedCompletionsMutex, _completionsMutex, _completionCacheMutex, _componentsMutex;
+        mutable std::shared_mutex _editedCompletionMapMutex, _completionsMutex, _completionCacheMutex, _componentsMutex;
         Components _components;
         std::atomic<bool> _isAutoCompletion{true}, _isNewLine{true}, _isRunning{true},
                 _needDiscardWsAction{false}, _needRetrieveCompletion{false};
         std::atomic<types::Time> _debounceRetrieveCompletionTime;
         std::optional<types::Completions> _completionsOpt;
-        std::vector<AcceptedCompletion> _acceptedCompletions;
+        std::unordered_map<std::string, types::EditedCompletion> _editedCompletionMap;
         types::CompletionCache _completionCache;
 
         void _cancelCompletion();

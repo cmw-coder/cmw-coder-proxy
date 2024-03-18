@@ -9,6 +9,8 @@ namespace utils::system {
 
     std::optional<std::string> deleteRegValue(const std::string& subKey, const std::string& valueName);
 
+    std::optional<std::string> getClipboardText();
+
     std::optional<std::string> getEnvironmentVariable(const std::string& name);
 
     unsigned long getMainThreadId();

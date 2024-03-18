@@ -39,6 +39,19 @@ optional<string> system::deleteRegValue(const string& subKey, const string& valu
     return nullopt;
 }
 
+optional<string> system::getClipboardText() {
+    if (OpenClipboard(nullptr) && IsClipboardFormatAvailable(CF_TEXT)) {
+        if (const auto sharedClipboardDataHandle = GetClipboardData(CF_TEXT); sharedClipboardDataHandle) {
+            const auto clipboardData = static_cast<const char *>(GlobalLock(sharedClipboardDataHandle));
+            GlobalUnlock(sharedClipboardDataHandle);
+            CloseClipboard();
+            return clipboardData;
+        }
+    }
+    CloseClipboard();
+    return nullopt;
+}
+
 optional<string> system::getEnvironmentVariable(const string& name) {
     constexpr auto valueLength = 32767;
     string value;

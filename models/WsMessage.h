@@ -39,6 +39,23 @@ namespace models {
         explicit CompletionCancelClientMessage(const std::string& actionId, bool isExplicit);
     };
 
+    class CompletionEditClientMessage final : public WsMessage {
+    public:
+        enum class KeptRatio {
+            All,
+            Few,
+            Most,
+            None,
+        };
+
+        explicit CompletionEditClientMessage(
+            const std::string& actionId,
+            uint32_t count,
+            const std::string& editedContent,
+            KeptRatio keptRatio
+        );
+    };
+
     class CompletionGenerateClientMessage final : public WsMessage {
     public:
         CompletionGenerateClientMessage(
@@ -61,7 +78,6 @@ namespace models {
         };
 
         const std::string result;
-        const CompletionType type;
 
         explicit CompletionGenerateServerMessage(nlohmann::json&& data);
 
@@ -70,24 +86,9 @@ namespace models {
         [[nodiscard]] std::optional<types::Completions> completions() const;
 
     private:
+        CompletionType _type{CompletionType::Snippet};
         std::string _message;
         std::optional<types::Completions> _completionsOpt{};
-    };
-
-    class CompletionKeptClientMessage final : public WsMessage {
-    public:
-        enum class Ratio {
-            All,
-            Most,
-            Few,
-        };
-
-        explicit CompletionKeptClientMessage(
-            const std::string& actionId,
-            uint32_t count,
-            const std::string& editedContent,
-            Ratio ratio
-        );
     };
 
     class CompletionSelectClientMessage final : public WsMessage {
