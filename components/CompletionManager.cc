@@ -353,6 +353,14 @@ void CompletionManager::interactionPaste(const any&, bool&) {
         logger::log("Paste. Send CompletionCancel");
     }
 
+    if (const auto clipboardTextOpt = system::getClipboardText();
+        clipboardTextOpt.has_value()) {
+        WebsocketManager::GetInstance()->send(EditorPasteClientMessage(
+            ranges::count(clipboardTextOpt.value(), '\n'),
+            MemoryManipulator::GetInstance()->getProjectDirectory()
+        ));
+    }
+
     _isNewLine = true;
 }
 

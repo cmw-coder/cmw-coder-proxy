@@ -151,6 +151,16 @@ DebugSyncClientMessage::DebugSyncClientMessage(const string& content, const stri
 EditorFocusStateClientMessage::EditorFocusStateClientMessage(const bool isFocused)
     : WsMessage(WsAction::EditorFocusState, isFocused) {}
 
+EditorPasteClientMessage::EditorPasteClientMessage(
+    const uint32_t count,
+    const string& projectId
+): WsMessage(
+    WsAction::EditorPaste, {
+        {"count", count},
+        {"projectId", projectId}
+    }
+) {}
+
 EditorSwitchProjectClientMessage::EditorSwitchProjectClientMessage(const string& path)
     : WsMessage(WsAction::EditorSwitchProject, iconv::needEncode ? iconv::gbkToUtf8(path) : path) {}
 

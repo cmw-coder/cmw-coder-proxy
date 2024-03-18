@@ -112,6 +112,11 @@ namespace models {
         explicit EditorFocusStateClientMessage(bool isFocused);
     };
 
+    class EditorPasteClientMessage final : public WsMessage {
+    public:
+        explicit EditorPasteClientMessage(uint32_t count, const std::string& projectId);
+    };
+
     class EditorSwitchProjectClientMessage final : public WsMessage {
     public:
         explicit EditorSwitchProjectClientMessage(const std::string& path);
