@@ -553,9 +553,9 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             _components.project = move(project);
                             _components.recentFiles = ModificationManager::GetInstance()->getRecentFiles();
                             _components.suffix = move(suffix);
-                            if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
-                                _components.symbols = getDeclaredSymbolInfo(caretPosition.line);
-                            }
+                            // if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
+                            //     _components.symbols = getDeclaredSymbolInfo(caretPosition.line);
+                            // }
                         }
                         _isNewLine = false;
                         logger::info("Retrieve completion with full prefix");
