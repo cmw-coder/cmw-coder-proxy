@@ -356,7 +356,7 @@ void CompletionManager::interactionPaste(const any&, bool&) {
     if (const auto clipboardTextOpt = system::getClipboardText();
         clipboardTextOpt.has_value()) {
         WebsocketManager::GetInstance()->send(EditorPasteClientMessage(
-            ranges::count(clipboardTextOpt.value(), '\n'),
+            ranges::count(clipboardTextOpt.value(), '\n') + 1,
             MemoryManipulator::GetInstance()->getProjectDirectory()
         ));
     }
