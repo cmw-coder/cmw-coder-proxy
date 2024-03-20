@@ -52,7 +52,7 @@ CompletionEditClientMessage::CompletionEditClientMessage(
     WsAction::CompletionEdit, {
         {"actionId", actionId},
         {"count", count},
-        {"editedContent", editedContent},
+        {"editedContent", iconv::needEncode ? iconv::gbkToUtf8(editedContent) : editedContent},
         {"ratio", enum_name(keptRatio)},
     }
 ) {}

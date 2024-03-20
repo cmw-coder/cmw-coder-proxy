@@ -67,7 +67,11 @@ WebsocketManager::~WebsocketManager() {
 }
 
 void WebsocketManager::send(const WsMessage& message) {
-    _client.send(message.parse());
+    try {
+        _client.send(message.parse());
+    } catch (exception &e) {
+        logger::error(e.what());
+    }
 }
 
 void WebsocketManager::_handleEventMessage(const string& messageString) {
