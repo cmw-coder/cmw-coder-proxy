@@ -114,7 +114,7 @@ namespace models {
 
     class EditorPasteClientMessage final : public WsMessage {
     public:
-        explicit EditorPasteClientMessage(uint32_t count, const std::string& projectId);
+        explicit EditorPasteClientMessage(uint32_t count, const std::string& project);
     };
 
     class EditorSwitchProjectClientMessage final : public WsMessage {

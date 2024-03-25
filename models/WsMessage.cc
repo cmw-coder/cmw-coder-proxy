@@ -27,7 +27,7 @@ string WsMessage::parse() const {
 CompletionAcceptClientMessage::CompletionAcceptClientMessage(const string& actionId, uint32_t index)
     : WsMessage(
         WsAction::CompletionAccept, {
-            {"actionId", actionId},
+            {"actionId", iconv::needEncode ? iconv::gbkToUtf8(actionId) : actionId},
             {"index", index},
         }
     ) {}
@@ -38,7 +38,7 @@ CompletionCacheClientMessage::CompletionCacheClientMessage(const bool isDelete)
 CompletionCancelClientMessage::CompletionCancelClientMessage(const string& actionId, bool isExplicit)
     : WsMessage(
         WsAction::CompletionCancel, {
-            {"actionId", actionId},
+            {"actionId", iconv::needEncode ? iconv::gbkToUtf8(actionId) : actionId},
             {"explicit", isExplicit}
         }
     ) {}
@@ -50,7 +50,7 @@ CompletionEditClientMessage::CompletionEditClientMessage(
     const KeptRatio keptRatio
 ): WsMessage(
     WsAction::CompletionEdit, {
-        {"actionId", actionId},
+        {"actionId", iconv::needEncode ? iconv::gbkToUtf8(actionId) : actionId},
         {"count", count},
         {"editedContent", iconv::needEncode ? iconv::gbkToUtf8(editedContent) : editedContent},
         {"ratio", enum_name(keptRatio)},
@@ -128,7 +128,7 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
     const int64_t y
 ): WsMessage(
     WsAction::CompletionSelect, {
-        {"actionId", actionId},
+        {"actionId", iconv::needEncode ? iconv::gbkToUtf8(actionId) : actionId},
         {"index", index},
         {
             "dimensions", {
@@ -140,24 +140,20 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
     }
 ) {}
 
-DebugSyncClientMessage::DebugSyncClientMessage(const string& content, const string& path)
-    : WsMessage(
-        WsAction::DebugSync, {
-            {"content", iconv::needEncode ? iconv::gbkToUtf8(content) : content},
-            {"path", iconv::needEncode ? iconv::gbkToUtf8(path) : path}
-        }
-    ) {}
+DebugSyncClientMessage::DebugSyncClientMessage(const string& content, const string& path): WsMessage(
+    WsAction::DebugSync, {
+        {"content", iconv::needEncode ? iconv::gbkToUtf8(content) : content},
+        {"path", iconv::needEncode ? iconv::gbkToUtf8(path) : path}
+    }
+) {}
 
 EditorFocusStateClientMessage::EditorFocusStateClientMessage(const bool isFocused)
     : WsMessage(WsAction::EditorFocusState, isFocused) {}
 
-EditorPasteClientMessage::EditorPasteClientMessage(
-    const uint32_t count,
-    const string& projectId
-): WsMessage(
+EditorPasteClientMessage::EditorPasteClientMessage(const uint32_t count, const string& project): WsMessage(
     WsAction::EditorPaste, {
         {"count", count},
-        {"projectId", projectId}
+        {"project", iconv::needEncode ? iconv::gbkToUtf8(project) : project}
     }
 ) {}
 
@@ -168,6 +164,6 @@ HandShakeClientMessage::HandShakeClientMessage(string&& version)
     : WsMessage(
         WsAction::HandShake, {
             {"pid", GetCurrentProcessId()},
-            {"version", version},
+            {"version", iconv::needEncode ? iconv::gbkToUtf8(version) : version},
         }
     ) {}
