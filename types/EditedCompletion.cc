@@ -58,7 +58,7 @@ CompletionEditClientMessage EditedCompletion::parse() {
 
     WindowManager::GetInstance()->sendF13();
     if (const auto fileHandleOpt = WindowManager::GetInstance()->getAssosiatedFileHandle(_windowHandle);
-        fileHandleOpt.has_value()) {
+        fileHandleOpt.has_value() && !_references.empty()) {
         for (auto line = _references.front(); line <= _references.back(); ++line) {
             const auto currentLine = memoryManipulator->getLineContent(fileHandleOpt.value(), line);
             currentContent.append(currentLine).append("\r\n");
