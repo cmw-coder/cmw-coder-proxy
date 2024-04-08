@@ -66,6 +66,7 @@ namespace {
 
         auto [height, xPosition, yPosition] = MemoryManipulator::GetInstance()->getCaretDimension();
         while (!height) {
+            this_thread::sleep_for(chrono::milliseconds(5));
             const auto [
                 newHeight,
                 newXPosition,

@@ -24,6 +24,21 @@ namespace models {
         virtual ~WsMessage() = default;
     };
 
+    class ChatInsertServerMessage final : public WsMessage {
+    public:
+        const std::string result;
+
+        explicit ChatInsertServerMessage(nlohmann::json&& data);
+
+        [[nodiscard]] std::string message() const;
+
+        [[nodiscard]] std::optional<std::string> content() const;
+
+    private:
+        std::string _message;
+        std::optional<std::string> _content{};
+    };
+
     class CompletionAcceptClientMessage final : public WsMessage {
     public:
         explicit CompletionAcceptClientMessage(const std::string& actionId, uint32_t index);

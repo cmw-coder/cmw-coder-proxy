@@ -2,6 +2,7 @@
 
 namespace types {
     enum class WsAction {
+        ChatInsert,
         CompletionAccept,
         CompletionCache,
         CompletionCancel,

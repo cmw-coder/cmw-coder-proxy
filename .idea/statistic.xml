@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="Statistic">
+    <option name="excludedDirectories">
+      <list>
+        <option value="$PROJECT_DIR$/.idea" />
+        <option value="$PROJECT_DIR$/cmake-build-debug-vs_x86" />
+        <option value="$PROJECT_DIR$/cmake-build-release-vs_x86" />
+      </list>
+    </option>
+  </component>
+</project>

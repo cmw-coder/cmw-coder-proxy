@@ -14,6 +14,20 @@ WsMessage::WsMessage(const WsAction action): action(action) {}
 
 WsMessage::WsMessage(const WsAction action, nlohmann::json&& data): action(action), _data(move(data)) {}
 
+ChatInsertServerMessage::ChatInsertServerMessage(nlohmann::json&& data)
+    : WsMessage(WsAction::CompletionGenerate, move(data)),
+      result(_data["result"].get<string>()) {
+    if (result == "success") {
+        _content.emplace(_data["content"].get<string>());
+    } else if (_data.contains("message")) {
+        _message = _data["message"].get<string>();
+    }
+}
+
+optional<string> ChatInsertServerMessage::content() const {
+    return _content;
+}
+
 string WsMessage::parse() const {
     nlohmann::json jsonMessage = {{"action", enum_name(action)}};
 
