@@ -4,6 +4,7 @@
 
 #include <windows.h>
 
+using namespace helpers;
 using namespace magic_enum;
 using namespace models;
 using namespace std;
@@ -13,6 +14,16 @@ using namespace utils;
 WsMessage::WsMessage(const WsAction action): action(action) {}
 
 WsMessage::WsMessage(const WsAction action, nlohmann::json&& data): action(action), _data(move(data)) {}
+
+string WsMessage::parse() const {
+    nlohmann::json jsonMessage = {{"action", enum_name(action)}};
+
+    if (!_data.empty()) {
+        jsonMessage["data"] = _data;
+    }
+
+    return jsonMessage.dump();
+}
 
 ChatInsertServerMessage::ChatInsertServerMessage(nlohmann::json&& data)
     : WsMessage(WsAction::CompletionGenerate, move(data)),
@@ -26,16 +37,6 @@ ChatInsertServerMessage::ChatInsertServerMessage(nlohmann::json&& data)
 
 optional<string> ChatInsertServerMessage::content() const {
     return _content;
-}
-
-string WsMessage::parse() const {
-    nlohmann::json jsonMessage = {{"action", enum_name(action)}};
-
-    if (!_data.empty()) {
-        jsonMessage["data"] = _data;
-    }
-
-    return jsonMessage.dump();
 }
 
 CompletionAcceptClientMessage::CompletionAcceptClientMessage(const string& actionId, uint32_t index)
@@ -181,3 +182,27 @@ HandShakeClientMessage::HandShakeClientMessage(string&& version)
             {"version", iconv::needEncode ? iconv::gbkToUtf8(version) : version},
         }
     ) {}
+
+SettingSyncServerMessage::SettingSyncServerMessage(nlohmann::json&& data)
+    : WsMessage(WsAction::SettingSync, move(data)),
+      result(_data["result"].get<string>()) {
+    if (result == "success") {
+        _shortcuts.emplace(_data["shortcuts"]);
+    } else if (_data.contains("message")) {
+        _message = _data["message"].get<string>();
+    }
+}
+
+optional<KeyHelper::KeyCombination> SettingSyncServerMessage::shortcutManualCompletion() const {
+    if (_shortcuts.has_value()) {
+        const auto shortcutConfig = _shortcuts.value()["manualCompletion"];
+        if (shortcutConfig.contains("key") && shortcutConfig.contains("modifiers")) {
+            // return KeyHelper::KeyCombination{
+            //     shortcutConfig["key"].get<int>(),
+            //     shortcutConfig["modifiers"].get<int>()
+            // };
+            // TODO: Implement logic
+        }
+    }
+    return nullopt;
+}

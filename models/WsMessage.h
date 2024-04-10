@@ -2,6 +2,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <helpers/KeyHelper.h>
 #include <models/SymbolInfo.h>
 #include <types/CaretPosition.h>
 #include <types/Completions.h>
@@ -140,5 +141,20 @@ namespace models {
     class HandShakeClientMessage final : public WsMessage {
     public:
         explicit HandShakeClientMessage(std::string&& version);
+    };
+
+    class SettingSyncServerMessage final : public WsMessage {
+    public:
+        const std::string result;
+
+        explicit SettingSyncServerMessage(nlohmann::json&& data);
+
+        [[nodiscard]] std::string message() const;
+
+        [[nodiscard]] std::optional<helpers::KeyHelper::KeyCombination> shortcutManualCompletion() const;
+
+    private:
+        std::string _message;
+        std::optional<nlohmann::json> _shortcuts{};
     };
 }

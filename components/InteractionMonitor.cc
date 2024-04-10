@@ -4,7 +4,7 @@
 #include <magic_enum.hpp>
 
 #include <components/CompletionManager.h>
-#include <components/Configurator.h>
+#include <components/ConfigManager.h>
 #include <components/InteractionMonitor.h>
 #include <components/MemoryManipulator.h>
 #include <components/WebsocketManager.h>
@@ -28,7 +28,7 @@ namespace {
 }
 
 InteractionMonitor::InteractionMonitor()
-    : _keyHelper(Configurator::GetInstance()->version().first),
+    : _keyHelper(ConfigManager::GetInstance()->version().first),
       _cbtHookHandle(
           SetWindowsHookEx(
               WH_CBT,

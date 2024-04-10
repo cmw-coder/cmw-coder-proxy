@@ -1,7 +1,7 @@
 #include <ixwebsocket/IXNetSystem.h>
 #include <magic_enum.hpp>
 
-#include <components/Configurator.h>
+#include <components/ConfigManager.h>
 #include <components/WebsocketManager.h>
 #include <utils/logger.h>
 
@@ -25,7 +25,7 @@ WebsocketManager::WebsocketManager(string&& url, const chrono::seconds& pingInte
             }
             case WebSocketMessageType::Open: {
                 logger::info("Websocket connection established");
-                send(HandShakeClientMessage(Configurator::GetInstance()->reportVersion()));
+                send(HandShakeClientMessage(ConfigManager::GetInstance()->reportVersion()));
                 break;
             }
             case WebSocketMessageType::Close: {

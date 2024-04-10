@@ -2,17 +2,19 @@
 
 #include <magic_enum.hpp>
 
-#include <components/Configurator.h>
+#include <components/ConfigManager.h>
+#include <models/WsMessage.h>
 #include <utils/logger.h>
 #include <utils/system.h>
 
 using namespace components;
 using namespace magic_enum;
+using namespace models;
 using namespace std;
 using namespace types;
 using namespace utils;
 
-Configurator::Configurator() {
+ConfigManager::ConfigManager() {
     if (const auto [major, minor, build, _] = system::getVersion(); major == 3 && minor == 5) {
         _siVersion = make_pair(
             SiVersion::Major::V35,
@@ -30,10 +32,20 @@ Configurator::Configurator() {
     logger::info(format("Configurator is initialized with version: {}", _siVersionString));
 }
 
-SiVersion::Full Configurator::version() const {
+SiVersion::Full ConfigManager::version() const {
     return _siVersion;
 }
 
-string Configurator::reportVersion() const {
+string ConfigManager::reportVersion() const {
     return _siVersionString;
+}
+
+void ConfigManager::wsSettingSync(nlohmann::json&& data) {
+    if (const auto serverMessage = SettingSyncServerMessage(move(data));
+        serverMessage.result == "success") {
+        if(const auto shortcutManualCompletionOpt = serverMessage.shortcutManualCompletion();
+            shortcutManualCompletionOpt.has_value()) {
+
+        }
+    }
 }

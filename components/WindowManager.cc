@@ -1,4 +1,4 @@
-#include <components/Configurator.h>
+#include <components/ConfigManager.h>
 #include <components/MemoryManipulator.h>
 #include <components/WindowManager.h>
 #include <types/Key.h>
@@ -19,7 +19,7 @@ namespace {
     atomic<uint32_t> mainWindowHandle;
 }
 
-WindowManager::WindowManager() : _keyHelper(Configurator::GetInstance()->version().first) {
+WindowManager::WindowManager() : _keyHelper(ConfigManager::GetInstance()->version().first) {
     _threadInitMenuHandle();
 
     logger::info("WindowManager is initialized");

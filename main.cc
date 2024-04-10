@@ -1,7 +1,7 @@
 #include <format>
 
 #include <components/CompletionManager.h>
-#include <components/Configurator.h>
+#include <components/ConfigManager.h>
 #include <components/InteractionMonitor.h>
 #include <components/MemoryManipulator.h>
 #include <components/ModificationManager.h>
@@ -25,8 +25,8 @@ namespace {
         logger::info("Comware Coder Proxy is initializing...");
 
         ModuleProxy::Construct();
-        Configurator::Construct();
-        MemoryManipulator::Construct(Configurator::GetInstance()->version());
+        ConfigManager::Construct();
+        MemoryManipulator::Construct(ConfigManager::GetInstance()->version());
         WebsocketManager::Construct("ws://127.0.0.1:3000");
         ModificationManager::Construct();
         CompletionManager::Construct();
@@ -43,7 +43,7 @@ namespace {
         ModificationManager::Destruct();
         WebsocketManager::Destruct();
         MemoryManipulator::Destruct();
-        Configurator::Destruct();
+        ConfigManager::Destruct();
         ModuleProxy::Destruct();
     }
 }
@@ -194,12 +194,17 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
             WebsocketManager::GetInstance()->registerAction(
                 WsAction::CompletionGenerate,
                 CompletionManager::GetInstance(),
-                &CompletionManager::wsActionCompletionGenerate
+                &CompletionManager::wsCompletionGenerate
+            );
+            WebsocketManager::GetInstance()->registerAction(
+                WsAction::SettingSync,
+                ConfigManager::GetInstance(),
+                &ConfigManager::wsSettingSync
             );
 
             logger::info(format(
                 "Version: {}, PID: {}, currentTID: {}, mainTID: {}, mainModuleName: {}",
-                VERSION_STRING + Configurator::GetInstance()->reportVersion(),
+                VERSION_STRING + ConfigManager::GetInstance()->reportVersion(),
                 GetCurrentProcessId(),
                 GetCurrentThreadId(),
                 system::getMainThreadId(),

@@ -6,7 +6,7 @@
 #include <nlohmann/json.hpp>
 
 #include <components/CompletionManager.h>
-#include <components/Configurator.h>
+#include <components/ConfigManager.h>
 #include <components/MemoryManipulator.h>
 #include <components/ModificationManager.h>
 #include <components/WebsocketManager.h>
@@ -383,7 +383,7 @@ void CompletionManager::interactionUndo(const any&, bool&) {
     }
 }
 
-void CompletionManager::wsActionCompletionGenerate(nlohmann::json&& data) {
+void CompletionManager::wsCompletionGenerate(nlohmann::json&& data) {
     if (const auto serverMessage = CompletionGenerateServerMessage(move(data));
         serverMessage.result == "success") {
         const auto completions = serverMessage.completions().value();
@@ -427,13 +427,6 @@ void CompletionManager::wsActionCompletionGenerate(nlohmann::json&& data) {
         ));
     }
     WindowManager::GetInstance()->unsetMenuText();
-}
-
-void CompletionManager::setAutoCompletion(const bool isAutoCompletion) {
-    if (isAutoCompletion != _isAutoCompletion.load()) {
-        _isAutoCompletion.store(isAutoCompletion);
-        logger::log(format("Auto completion switch {}", _isAutoCompletion.load() ? "on" : "off"));
-    }
 }
 
 void CompletionManager::_cancelCompletion() {

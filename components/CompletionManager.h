@@ -49,16 +49,12 @@ namespace components {
 
         void interactionUndo(const std::any&, bool&);
 
-        void wsActionCompletionGenerate(nlohmann::json&& data);
-
-        // TODO: Remove old methods
-
-        void setAutoCompletion(bool isAutoCompletion);
+        void wsCompletionGenerate(nlohmann::json&& data);
 
     private:
         mutable std::shared_mutex _editedCompletionMapMutex, _completionsMutex, _completionCacheMutex, _componentsMutex;
         Components _components;
-        std::atomic<bool> _isAutoCompletion{true}, _isNewLine{true}, _isRunning{true},
+        std::atomic<bool> _isNewLine{true}, _isRunning{true},
                 _needDiscardWsAction{false}, _needRetrieveCompletion{false};
         std::atomic<types::Time> _debounceRetrieveCompletionTime;
         std::optional<types::Completions> _completionsOpt;
