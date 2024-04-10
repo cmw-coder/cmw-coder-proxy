@@ -357,7 +357,7 @@ void CompletionManager::interactionPaste(const any&, bool&) {
     if (const auto clipboardTextOpt = system::getClipboardText();
         clipboardTextOpt.has_value()) {
         WebsocketManager::GetInstance()->send(EditorPasteClientMessage(
-            ranges::count(clipboardTextOpt.value(), '\n') + 1,
+            ranges::count(clipboardTextOpt.value(), '\n') + 1
         ));
     }
 
@@ -475,7 +475,6 @@ void CompletionManager::_sendCompletionGenerate() {
             _components.caretPosition,
             _components.path,
             _components.prefix,
-            _components.project,
             _components.recentFiles,
             _components.suffix,
             _components.symbols
@@ -516,11 +515,10 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                 try {
                     WindowManager::GetInstance()->sendF13();
                     const auto memoryManipulator = MemoryManipulator::GetInstance();
+                    const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
                     const auto caretPosition = memoryManipulator->getCaretPosition();
-                    auto path = memoryManipulator->getFileName();
-                    auto project = memoryManipulator->getProjectDirectory();
-                    if (const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
-                        !path.empty() && !project.empty()) {
+                    if (auto path = memoryManipulator->getFileName();
+                        currentFileHandle && !path.empty()) {
                         string prefix, suffix; {
                             const auto currentLine = memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line
@@ -543,7 +541,6 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             _components.caretPosition = caretPosition;
                             _components.path = move(path);
                             _components.prefix = move(prefix);
-                            _components.project = move(project);
                             _components.recentFiles = ModificationManager::GetInstance()->getRecentFiles();
                             _components.suffix = move(suffix);
                             // if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {

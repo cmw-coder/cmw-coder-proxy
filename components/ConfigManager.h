@@ -34,7 +34,6 @@ namespace components {
     private:
         mutable std::shared_mutex _currentProjectMutex, _shortcutMutex;
         helpers::KeyHelper::KeyCombination _shortcutCommit, _shortcutManualCompletion;
-        std::unique_ptr<helpers::KeyHelper> _keyHelper;
         std::atomic<bool> _isRunning{true};
         std::string _currentProject, _siVersionString;
         types::SiVersion::Full _siVersion;

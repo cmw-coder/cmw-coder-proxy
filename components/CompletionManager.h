@@ -19,7 +19,6 @@ namespace components {
             types::CaretPosition caretPosition;
             std::string path;
             std::string prefix;
-            std::string project;
             std::vector<std::string> recentFiles;
             std::string suffix;
             std::vector<models::SymbolInfo> symbols;

@@ -33,10 +33,13 @@ ConfigManager::ConfigManager()
         );
         _siVersionString = "_4.00." + format("{:0>{}}", build, 4);
     }
-    _keyHelper = make_unique<KeyHelper>(_siVersion.first);
     _threadRetrieveProjectDirectory();
 
     logger::info(format("Configurator is initialized with version: {}", _siVersionString));
+}
+
+ConfigManager::~ConfigManager() {
+    _isRunning = false;
 }
 
 bool ConfigManager::checkCommit(const Key key, const KeyHelper::ModifierSet& modifiers) const {
