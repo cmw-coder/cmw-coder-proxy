@@ -9,9 +9,9 @@
 
 namespace helpers {
     class KeyHelper {
+    public:
         using ModifierSet = std::unordered_set<types::Modifier>;
 
-    public:
         using KeyCombination = std::pair<types::Key, ModifierSet>;
 
         explicit KeyHelper(types::SiVersion::Major siVersion) noexcept;

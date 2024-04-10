@@ -78,7 +78,6 @@ namespace models {
             const types::CaretPosition& caret,
             const std::string& path,
             const std::string& prefix,
-            const std::string& project,
             const std::vector<std::string>& recentFiles,
             const std::string& suffix,
             const std::vector<SymbolInfo>& symbols
@@ -130,7 +129,7 @@ namespace models {
 
     class EditorPasteClientMessage final : public WsMessage {
     public:
-        explicit EditorPasteClientMessage(uint32_t count, const std::string& project);
+        explicit EditorPasteClientMessage(uint32_t count);
     };
 
     class EditorSwitchProjectClientMessage final : public WsMessage {
@@ -140,7 +139,7 @@ namespace models {
 
     class HandShakeClientMessage final : public WsMessage {
     public:
-        explicit HandShakeClientMessage(std::string&& version);
+        explicit HandShakeClientMessage(std::string&& currentProject,std::string&& version);
     };
 
     class SettingSyncServerMessage final : public WsMessage {

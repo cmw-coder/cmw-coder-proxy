@@ -76,7 +76,6 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
     const CaretPosition& caret,
     const string& path,
     const string& prefix,
-    const string& project,
     const vector<string>& recentFiles,
     const string& suffix,
     const vector<SymbolInfo>& symbols
@@ -90,7 +89,6 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
         },
         {"path", iconv::needEncode ? iconv::gbkToUtf8(path) : path},
         {"prefix", iconv::needEncode ? iconv::gbkToUtf8(prefix) : prefix},
-        {"project", iconv::needEncode ? iconv::gbkToUtf8(project) : project},
         {"recentFiles", nlohmann::json::array()},
         {"suffix", iconv::needEncode ? iconv::gbkToUtf8(suffix) : suffix},
         {"symbols", nlohmann::json::array()},
@@ -165,20 +163,20 @@ DebugSyncClientMessage::DebugSyncClientMessage(const string& content, const stri
 EditorFocusStateClientMessage::EditorFocusStateClientMessage(const bool isFocused)
     : WsMessage(WsAction::EditorFocusState, isFocused) {}
 
-EditorPasteClientMessage::EditorPasteClientMessage(const uint32_t count, const string& project): WsMessage(
+EditorPasteClientMessage::EditorPasteClientMessage(const uint32_t count): WsMessage(
     WsAction::EditorPaste, {
         {"count", count},
-        {"project", iconv::needEncode ? iconv::gbkToUtf8(project) : project}
     }
 ) {}
 
 EditorSwitchProjectClientMessage::EditorSwitchProjectClientMessage(const string& path)
     : WsMessage(WsAction::EditorSwitchProject, iconv::needEncode ? iconv::gbkToUtf8(path) : path) {}
 
-HandShakeClientMessage::HandShakeClientMessage(string&& version)
+HandShakeClientMessage::HandShakeClientMessage(string&& currentProject, string&& version)
     : WsMessage(
         WsAction::HandShake, {
             {"pid", GetCurrentProcessId()},
+            {"currentProject", iconv::needEncode ? iconv::gbkToUtf8(currentProject) : currentProject},
             {"version", iconv::needEncode ? iconv::gbkToUtf8(version) : version},
         }
     ) {}

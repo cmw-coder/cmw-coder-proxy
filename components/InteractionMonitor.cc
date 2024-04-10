@@ -116,11 +116,17 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
         return;
     }
 
-    const auto keyCombinationOpt = _keyHelper.fromKeycode(keycode);
-    try {
-        if (keyCombinationOpt.has_value()) {
-            if (const auto [key, modifiers] = keyCombinationOpt.value();
-                modifiers.empty()) {
+    if (const auto keyCombinationOpt = _keyHelper.fromKeycode(keycode);
+        keyCombinationOpt.has_value()) {
+        const auto configManager = ConfigManager::GetInstance();
+        const auto [key, modifiers] = keyCombinationOpt.value();
+        if (configManager->checkManualCompletion(key, modifiers)) {
+            ignore = _handleInteraction(Interaction::EnterInput);
+            _isSelecting.store(false);
+            return;
+        }
+        try {
+            if (modifiers.empty()) {
                 switch (key) {
                     case Key::BackSpace: {
                         ignore = _handleInteraction(Interaction::DeleteInput);
@@ -170,22 +176,22 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                                 break;
                             }
                         }
-                    } else if (modifiers.contains(Modifier::Alt)) {
-                        switch (key) {
-                            case Key::Enter: {
-                                ignore = _handleInteraction(Interaction::EnterInput);
-                                _isSelecting.store(false);
-                                break;
-                            }
-                            default: {
-                                break;
-                            }
-                        }
                     }
                 }
             }
+        } catch (exception& e) {
+            string modifierString;
+            for (const auto& modifier: modifiers) {
+                modifierString += format("{} + ", enum_name(modifier));
+            }
+            logger::warn(format(
+                "Exception when processing key combination '{}{}': {}",
+                modifierString,
+                enum_name(key),
+                e.what()
+            ));
         }
-    } catch (...) {}
+    }
 }
 
 bool InteractionMonitor::_handleInteraction(const Interaction interaction, const any& data) const noexcept {

@@ -2,6 +2,7 @@
 #include <magic_enum.hpp>
 
 #include <components/ConfigManager.h>
+#include <components/MemoryManipulator.h>
 #include <components/WebsocketManager.h>
 #include <utils/logger.h>
 
@@ -25,7 +26,10 @@ WebsocketManager::WebsocketManager(string&& url, const chrono::seconds& pingInte
             }
             case WebSocketMessageType::Open: {
                 logger::info("Websocket connection established");
-                send(HandShakeClientMessage(ConfigManager::GetInstance()->reportVersion()));
+                send(HandShakeClientMessage(
+                    MemoryManipulator::GetInstance()->getProjectDirectory(),
+                    ConfigManager::GetInstance()->reportVersion()
+                ));
                 break;
             }
             case WebSocketMessageType::Close: {
@@ -69,7 +73,7 @@ WebsocketManager::~WebsocketManager() {
 void WebsocketManager::send(const WsMessage& message) {
     try {
         _client.send(message.parse());
-    } catch (exception &e) {
+    } catch (exception& e) {
         logger::error(e.what());
     }
 }
