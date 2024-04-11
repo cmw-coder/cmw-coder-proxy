@@ -225,9 +225,7 @@ string MemoryManipulator::getLineContent(const uint32_t handle, const uint32_t l
 string MemoryManipulator::getProjectDirectory() const {
     char tempBuffer[256];
     memory::read(memory::offset(_memoryAddress.project.projectPath), tempBuffer);
-    const auto directory = fs::getDirectory(string(tempBuffer));
-    logger::info(format("Current Project: '{}'", directory));
-    return directory;
+    return fs::getDirectory(string(tempBuffer));
 }
 
 optional<SymbolName> MemoryManipulator::getSymbolName() const {
