@@ -120,7 +120,9 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
         const auto configManager = ConfigManager::GetInstance();
         const auto [key, modifiers] = keyCombinationOpt.value();
         if (configManager->checkCommit(key, modifiers)) {
-            WebsocketManager::GetInstance()->send(EditorCommitClientMessage());
+            WebsocketManager::GetInstance()->send(EditorCommitClientMessage(
+                MemoryManipulator::GetInstance()->getFileName()
+            ));
             return;
         }
         if (configManager->checkManualCompletion(key, modifiers)) {
