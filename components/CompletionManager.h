@@ -4,7 +4,6 @@
 
 #include <singleton_dclp.hpp>
 
-#include <helpers/HttpHelper.h>
 #include <models/SymbolInfo.h>
 #include <types/CaretPosition.h>
 #include <types/common.h>

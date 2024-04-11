@@ -1,8 +1,8 @@
 #include <chrono>
 #include <format>
+#include <regex>
 
 #include <magic_enum.hpp>
-#include <httplib.h>
 #include <nlohmann/json.hpp>
 
 #include <components/CompletionManager.h>

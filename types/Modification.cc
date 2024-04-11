@@ -10,7 +10,6 @@
 #include <algorithm>
 
 #include <components/WebsocketManager.h>
-#include <helpers/HttpHelper.h>
 #include <types/IndentType.h>
 #include <types/Modification.h>
 #include <utils/fs.h>
