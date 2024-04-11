@@ -13,7 +13,8 @@ using namespace utils;
 
 WsMessage::WsMessage(const WsAction action): action(action) {}
 
-WsMessage::WsMessage(const WsAction action, nlohmann::json&& data): action(action), _data(move(data)) {}
+WsMessage::WsMessage(const WsAction action, nlohmann::json&& data)
+    : action(action), _data(move(data)) {}
 
 string WsMessage::parse() const {
     nlohmann::json jsonMessage = {{"action", enum_name(action)}};
@@ -26,8 +27,7 @@ string WsMessage::parse() const {
 }
 
 ChatInsertServerMessage::ChatInsertServerMessage(nlohmann::json&& data)
-    : WsMessage(WsAction::CompletionGenerate, move(data)),
-      result(_data["result"].get<string>()) {
+    : WsMessage(WsAction::CompletionGenerate, move(data)), result(_data["result"].get<string>()) {
     if (result == "success") {
         _content.emplace(_data["content"].get<string>());
     } else if (_data.contains("message")) {
@@ -109,11 +109,11 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
 }
 
 CompletionGenerateServerMessage::CompletionGenerateServerMessage(nlohmann::json&& data)
-    : WsMessage(WsAction::CompletionGenerate, move(data)),
-      result(_data["result"].get<string>()) {
+    : WsMessage(WsAction::CompletionGenerate, move(data)), result(_data["result"].get<string>()) {
     if (result == "success") {
-        if (const auto completionTypeopt = enum_cast<CompletionType>(_data["completions"]["type"].get<string>());
-            completionTypeopt.has_value()) {
+        if (const auto completionTypeopt = enum_cast<CompletionType>(
+            _data["completions"]["type"].get<string>()
+        ); completionTypeopt.has_value()) {
             _type = completionTypeopt.value();
         }
         _completionsOpt.emplace(
@@ -153,21 +153,26 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
     }
 ) {}
 
-DebugSyncClientMessage::DebugSyncClientMessage(const string& content, const string& path): WsMessage(
-    WsAction::DebugSync, {
-        {"content", iconv::needEncode ? iconv::gbkToUtf8(content) : content},
-        {"path", iconv::needEncode ? iconv::gbkToUtf8(path) : path}
-    }
-) {}
+DebugSyncClientMessage::DebugSyncClientMessage(const string& content, const string& path)
+    : WsMessage(
+        WsAction::DebugSync, {
+            {"content", iconv::needEncode ? iconv::gbkToUtf8(content) : content},
+            {"path", iconv::needEncode ? iconv::gbkToUtf8(path) : path}
+        }
+    ) {}
+
+EditorCommitClientMessage::EditorCommitClientMessage()
+    : WsMessage(WsAction::EditorCommit) {}
 
 EditorFocusStateClientMessage::EditorFocusStateClientMessage(const bool isFocused)
     : WsMessage(WsAction::EditorFocusState, isFocused) {}
 
-EditorPasteClientMessage::EditorPasteClientMessage(const uint32_t count): WsMessage(
-    WsAction::EditorPaste, {
-        {"count", count},
-    }
-) {}
+EditorPasteClientMessage::EditorPasteClientMessage(const uint32_t count)
+    : WsMessage(
+        WsAction::EditorPaste, {
+            {"count", count},
+        }
+    ) {}
 
 EditorSwitchProjectClientMessage::EditorSwitchProjectClientMessage(const string& path)
     : WsMessage(WsAction::EditorSwitchProject, iconv::needEncode ? iconv::gbkToUtf8(path) : path) {}

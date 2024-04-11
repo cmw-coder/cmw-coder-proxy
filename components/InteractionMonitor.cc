@@ -120,6 +120,10 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
         keyCombinationOpt.has_value()) {
         const auto configManager = ConfigManager::GetInstance();
         const auto [key, modifiers] = keyCombinationOpt.value();
+        if (configManager->checkCommit(key, modifiers)) {
+            WebsocketManager::GetInstance()->send(EditorCommitClientMessage());
+            return;
+        }
         if (configManager->checkManualCompletion(key, modifiers)) {
             ignore = _handleInteraction(Interaction::EnterInput);
             _isSelecting.store(false);

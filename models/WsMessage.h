@@ -122,6 +122,11 @@ namespace models {
         DebugSyncClientMessage(const std::string& content, const std::string& path);
     };
 
+    class EditorCommitClientMessage final : public WsMessage {
+    public:
+        explicit EditorCommitClientMessage();
+    };
+
     class EditorFocusStateClientMessage final : public WsMessage {
     public:
         explicit EditorFocusStateClientMessage(bool isFocused);
@@ -139,7 +144,7 @@ namespace models {
 
     class HandShakeClientMessage final : public WsMessage {
     public:
-        explicit HandShakeClientMessage(std::string&& currentProject,std::string&& version);
+        explicit HandShakeClientMessage(std::string&& currentProject, std::string&& version);
     };
 
     class SettingSyncServerMessage final : public WsMessage {

@@ -10,6 +10,7 @@ namespace types {
         CompletionGenerate,
         CompletionSelect,
         DebugSync,
+        EditorCommit,
         EditorFocusState,
         EditorPaste,
         EditorSwitchProject,
