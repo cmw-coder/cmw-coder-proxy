@@ -18,7 +18,7 @@ using namespace types;
 using namespace utils;
 
 ConfigManager::ConfigManager()
-    : _shortcutCommit({Key::K, {Modifier::Ctrl}}),
+    : _shortcutCommit({Key::K, {Modifier::Alt, Modifier::Ctrl}}),
       _shortcutManualCompletion({Key::Enter, {Modifier::Alt}}) {
     if (const auto [major, minor, build, _] = system::getVersion(); major == 3 && minor == 5) {
         _siVersion = make_pair(

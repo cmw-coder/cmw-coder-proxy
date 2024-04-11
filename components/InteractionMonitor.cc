@@ -3,7 +3,6 @@
 
 #include <magic_enum.hpp>
 
-#include <components/CompletionManager.h>
 #include <components/ConfigManager.h>
 #include <components/InteractionMonitor.h>
 #include <components/MemoryManipulator.h>

@@ -161,8 +161,8 @@ DebugSyncClientMessage::DebugSyncClientMessage(const string& content, const stri
         }
     ) {}
 
-EditorCommitClientMessage::EditorCommitClientMessage()
-    : WsMessage(WsAction::EditorCommit) {}
+EditorCommitClientMessage::EditorCommitClientMessage(const string& path)
+    : WsMessage(WsAction::EditorCommit, path) {}
 
 EditorFocusStateClientMessage::EditorFocusStateClientMessage(const bool isFocused)
     : WsMessage(WsAction::EditorFocusState, isFocused) {}

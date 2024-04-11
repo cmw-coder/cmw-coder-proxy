@@ -124,7 +124,7 @@ namespace models {
 
     class EditorCommitClientMessage final : public WsMessage {
     public:
-        explicit EditorCommitClientMessage();
+        explicit EditorCommitClientMessage(const std::string& path);
     };
 
     class EditorFocusStateClientMessage final : public WsMessage {
