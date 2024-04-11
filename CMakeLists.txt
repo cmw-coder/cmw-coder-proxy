@@ -42,14 +42,12 @@ add_library(${PROXY_MODULE_NAME} SHARED proxy.cc main.cc)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_singleton.cmake)
 
 find_package(cryptopp CONFIG REQUIRED)
-find_package(httplib CONFIG REQUIRED)
 find_package(ixwebsocket CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
 target_link_libraries(${PROXY_MODULE_NAME} PRIVATE
         cryptopp::cryptopp
-        httplib::httplib
         ixwebsocket::ixwebsocket
         magic_enum::magic_enum
         nlohmann_json::nlohmann_json
