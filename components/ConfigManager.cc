@@ -34,6 +34,7 @@ ConfigManager::ConfigManager()
         _siVersionString = "_4.00." + format("{:0>{}}", build, 4);
     }
     _threadRetrieveProjectDirectory();
+    _threadRetrieveSvnDirectory();
 
     logger::info(format("Configurator is initialized with version: {}", _siVersionString));
 }
@@ -81,7 +82,41 @@ void ConfigManager::_threadRetrieveProjectDirectory() {
                 unique_lock lock(_currentProjectMutex);
                 _currentProject = currentProject;
             }
-            this_thread::sleep_for(chrono::seconds(10));
+            this_thread::sleep_for(chrono::milliseconds(500));
+        }
+    }).detach();
+}
+
+void ConfigManager::_threadRetrieveSvnDirectory() {
+    thread([this] {
+        while (_isRunning) {
+            auto tempFolder = filesystem::path(
+                MemoryManipulator::GetInstance()->getFileName()
+            ).lexically_normal().parent_path();
+            if (!tempFolder.empty()) {
+                bool isMismatch; {
+                    shared_lock lock(_currentSvnMutex);
+                    if (_currentSvn.empty()) {
+                        isMismatch = true;
+                    } else {
+                        isMismatch = mismatch(_currentSvn.begin(), _currentSvn.end(), tempFolder.begin())
+                                     .first != _currentSvn.end();
+                    }
+                }
+                if (isMismatch && tempFolder.is_absolute()) {
+                    while (!tempFolder.empty()) {
+                        if (exists(tempFolder / ".svn")) {
+                            WebsocketManager::GetInstance()->send(EditorSwitchSvnClientMessage(tempFolder.string()));
+                            logger::debug(format("Switched to SVN directory: {}", tempFolder.string()));
+                            unique_lock lock(_currentSvnMutex);
+                            _currentSvn = tempFolder;
+                            break;
+                        }
+                        tempFolder = tempFolder.parent_path();
+                    }
+                }
+            }
+            this_thread::sleep_for(chrono::milliseconds(50));
         }
     }).detach();
 }

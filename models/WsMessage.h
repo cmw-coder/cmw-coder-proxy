@@ -142,6 +142,11 @@ namespace models {
         explicit EditorSwitchProjectClientMessage(const std::string& path);
     };
 
+    class EditorSwitchSvnClientMessage final : public WsMessage {
+    public:
+        explicit EditorSwitchSvnClientMessage(const std::string& path);
+    };
+
     class HandShakeClientMessage final : public WsMessage {
     public:
         explicit HandShakeClientMessage(std::string&& currentProject, std::string&& version);

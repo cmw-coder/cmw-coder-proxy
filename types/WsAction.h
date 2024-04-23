@@ -14,6 +14,7 @@ namespace types {
         EditorFocusState,
         EditorPaste,
         EditorSwitchProject,
+        EditorSwitchSvn,
         HandShake,
         SettingSync,
     };

@@ -177,6 +177,9 @@ EditorPasteClientMessage::EditorPasteClientMessage(const uint32_t count)
 EditorSwitchProjectClientMessage::EditorSwitchProjectClientMessage(const string& path)
     : WsMessage(WsAction::EditorSwitchProject, iconv::needEncode ? iconv::gbkToUtf8(path) : path) {}
 
+EditorSwitchSvnClientMessage::EditorSwitchSvnClientMessage(const std::string& path)
+    : WsMessage(WsAction::EditorSwitchSvn, iconv::needEncode ? iconv::gbkToUtf8(path) : path) {}
+
 HandShakeClientMessage::HandShakeClientMessage(string&& currentProject, string&& version)
     : WsMessage(
         WsAction::HandShake, {
