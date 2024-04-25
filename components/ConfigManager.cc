@@ -111,7 +111,11 @@ void ConfigManager::_threadRetrieveSvnDirectory() {
                             _currentSvn = tempFolder;
                             break;
                         }
-                        tempFolder = tempFolder.parent_path();
+                        const auto parentPath = tempFolder.parent_path();
+                        if (parentPath == tempFolder) {
+                            break;
+                        }
+                        tempFolder = parentPath;
                     }
                 }
             }
