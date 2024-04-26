@@ -92,6 +92,7 @@ namespace {
     [[maybe_unused]] vector<SymbolInfo> getDeclaredSymbolInfo(const uint32_t line) {
         const auto memoryManipulator = MemoryManipulator::GetInstance();
         vector<SymbolInfo> declaredSymbols;
+        int64_t minLine{-1}, maxLine{-1};
 
         WindowManager::GetInstance()->sendF13();
         const auto symbolNameOpt = memoryManipulator->getSymbolName(line);
@@ -129,9 +130,17 @@ namespace {
                 lineStart
             ] = symbolDeclaredOpt.value();
 
+            if (minLine < 0 || lineStart < minLine) {
+                minLine = lineStart;
+            }
+            if (maxLine < 0 || lineEnd > maxLine) {
+                maxLine = lineEnd;
+            }
+
             declaredSymbols.emplace_back(symbol, file, type, lineStart, lineEnd - 1);
         }
         memoryManipulator->freeSymbolListHandle(childSymbolListHandle);
+        logger::info(format("Symbol line range: ({}, {})", minLine, maxLine));
         return declaredSymbols;
     }
 }
@@ -543,9 +552,9 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             _components.prefix = move(prefix);
                             _components.recentFiles = ModificationManager::GetInstance()->getRecentFiles();
                             _components.suffix = move(suffix);
-                            // if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
-                            //     _components.symbols = getDeclaredSymbolInfo(caretPosition.line);
-                            // }
+                            if (ConfigManager::GetInstance()->version().first == SiVersion::Major::V35) {
+                                _components.symbols = getDeclaredSymbolInfo(caretPosition.line);
+                            }
                         }
                         _isNewLine = false;
                         logger::info("Retrieve completion with full prefix");
