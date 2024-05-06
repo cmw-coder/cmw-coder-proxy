@@ -6,6 +6,7 @@
 #include <components/MemoryManipulator.h>
 #include <components/ModificationManager.h>
 #include <components/ModuleProxy.h>
+#include <components/SymbolManager.h>
 #include <components/WindowManager.h>
 #include <components/WebsocketManager.h>
 #include <utils/iconv.h>
@@ -29,6 +30,7 @@ namespace {
         MemoryManipulator::Construct(ConfigManager::GetInstance()->version());
         WebsocketManager::Construct("ws://127.0.0.1:3000");
         ModificationManager::Construct();
+        SymbolManager::Construct();
         CompletionManager::Construct();
         InteractionMonitor::Construct();
         WindowManager::Construct();
@@ -40,6 +42,7 @@ namespace {
         WindowManager::Destruct();
         InteractionMonitor::Destruct();
         CompletionManager::Destruct();
+        SymbolManager::Destruct();
         ModificationManager::Destruct();
         WebsocketManager::Destruct();
         MemoryManipulator::Destruct();

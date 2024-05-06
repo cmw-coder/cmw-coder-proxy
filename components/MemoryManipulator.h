@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <memory>
 
 #include <singleton_dclp.hpp>
@@ -33,7 +34,7 @@ namespace components {
 
         [[nodiscard]] std::string getLineContent(uint32_t handle, uint32_t line) const;
 
-        [[nodiscard]] std::string getProjectDirectory() const;
+        [[nodiscard]] std::filesystem::path getProjectDirectory() const;
 
         [[nodiscard]] std::optional<models::SymbolName> getSymbolName() const;
 

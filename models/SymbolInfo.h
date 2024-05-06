@@ -3,8 +3,10 @@
 namespace models {
     struct SymbolInfo {
         enum class Type {
-            Constant,
+            Enum,
             Function,
+            Macro,
+            Reference,
             Structure,
             Unknown,
             Variable,

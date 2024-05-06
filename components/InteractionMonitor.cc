@@ -75,7 +75,6 @@ InteractionMonitor::InteractionMonitor()
     }
 
     _monitorCaretPosition();
-    _monitorDebugLog();
 
     logger::info("InteractionMonitor is initialized.");
 }
@@ -247,19 +246,6 @@ void InteractionMonitor::_monitorCaretPosition() {
                 }
             }
             this_thread::sleep_for(chrono::milliseconds(10));
-        }
-    }).detach();
-}
-
-void InteractionMonitor::_monitorDebugLog() const {
-    thread([this] {
-        while (_isRunning.load()) {
-            if (const auto debugStringOpt = system::getEnvironmentVariable(debugLogKey);
-                debugStringOpt.has_value()) {
-                logger::debug(format("[SI] {}", regex_replace(debugStringOpt.value(), regex("\\n"), "\n")));
-                system::setEnvironmentVariable(debugLogKey);
-            }
-            this_thread::sleep_for(chrono::milliseconds(5));
         }
     }).detach();
 }

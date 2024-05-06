@@ -25,6 +25,8 @@ namespace utils::system {
 
     std::tuple<int, int, int, int> getVersion();
 
+    bool runCommand(const std::string& executable, const std::string& arguments = "");
+
     void setEnvironmentVariable(const std::string& name, const std::string& value = "");
 
     void setRegValue(const std::string& subKey, const std::string& valueName, const std::string& value);

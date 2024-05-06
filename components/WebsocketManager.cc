@@ -27,7 +27,7 @@ WebsocketManager::WebsocketManager(string&& url, const chrono::seconds& pingInte
             case WebSocketMessageType::Open: {
                 logger::info("Websocket connection established");
                 send(HandShakeClientMessage(
-                    MemoryManipulator::GetInstance()->getProjectDirectory(),
+                    MemoryManipulator::GetInstance()->getProjectDirectory().string(),
                     ConfigManager::GetInstance()->reportVersion()
                 ));
                 break;

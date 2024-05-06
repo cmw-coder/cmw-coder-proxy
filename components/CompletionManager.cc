@@ -15,6 +15,8 @@
 #include <utils/iconv.h>
 #include <utils/logger.h>
 
+#include "SymbolManager.h"
+
 using namespace components;
 using namespace helpers;
 using namespace magic_enum;
@@ -77,11 +79,6 @@ namespace {
             yPosition = newYPosition;
         }
 
-        logger::debug(format(
-            "Pixels: Client (x: {}, y: {}), Caret (h: {}, x: {}, y: {})",
-            clientX, clientY, height, xPosition, yPosition
-        ));
-
         return {
             height,
             clientX + xPosition,
@@ -92,6 +89,7 @@ namespace {
     [[maybe_unused]] vector<SymbolInfo> getDeclaredSymbolInfo(const uint32_t line) {
         const auto memoryManipulator = MemoryManipulator::GetInstance();
         vector<SymbolInfo> declaredSymbols;
+        int64_t minLine{-1}, maxLine{-1};
 
         WindowManager::GetInstance()->sendF13();
         const auto symbolNameOpt = memoryManipulator->getSymbolName(line);
@@ -129,9 +127,18 @@ namespace {
                 lineStart
             ] = symbolDeclaredOpt.value();
 
+            if (minLine < 0 || lineStart < minLine) {
+                minLine = lineStart;
+            }
+            if (maxLine < 0 || lineEnd > maxLine) {
+                maxLine = lineEnd;
+            }
+
             declaredSymbols.emplace_back(symbol, file, type, lineStart, lineEnd - 1);
         }
         memoryManipulator->freeSymbolListHandle(childSymbolListHandle);
+        logger::debug(format("Declared symbol count {}", declaredSymbols.size()));
+        logger::debug(format("Symbol line range: ({}, {})", minLine, maxLine));
         return declaredSymbols;
     }
 }
@@ -519,6 +526,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     const auto caretPosition = memoryManipulator->getCaretPosition();
                     if (auto path = memoryManipulator->getFileName();
                         currentFileHandle && !path.empty()) {
+                        SymbolManager::GetInstance()->updateFile(path);
                         string prefix, suffix; {
                             const auto currentLine = memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line
@@ -540,12 +548,10 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             unique_lock lock(_componentsMutex);
                             _components.caretPosition = caretPosition;
                             _components.path = move(path);
+                            _components.symbols = SymbolManager::GetInstance()->getSymbols(prefix);
                             _components.prefix = move(prefix);
                             _components.recentFiles = ModificationManager::GetInstance()->getRecentFiles();
                             _components.suffix = move(suffix);
-                            // if (Configurator::GetInstance()->version().first == SiVersion::Major::V35) {
-                            //     _components.symbols = getDeclaredSymbolInfo(caretPosition.line);
-                            // }
                         }
                         _isNewLine = false;
                         logger::info("Retrieve completion with full prefix");

@@ -72,7 +72,7 @@ void ConfigManager::wsSettingSync(nlohmann::json&& data) {
 void ConfigManager::_threadRetrieveProjectDirectory() {
     thread([this] {
         while (_isRunning) {
-            const auto currentProject = MemoryManipulator::GetInstance()->getProjectDirectory();
+            const auto currentProject = MemoryManipulator::GetInstance()->getProjectDirectory().string();
             bool isSameProject; {
                 shared_lock lock(_currentProjectMutex);
                 isSameProject = currentProject == _currentProject;
@@ -106,7 +106,7 @@ void ConfigManager::_threadRetrieveSvnDirectory() {
                     while (!tempFolder.empty()) {
                         if (exists(tempFolder / ".svn")) {
                             WebsocketManager::GetInstance()->send(EditorSwitchSvnClientMessage(tempFolder.string()));
-                            logger::debug(format("Switched to SVN directory: {}", tempFolder.string()));
+                            // logger::debug(format("Switched to SVN directory: {}", tempFolder.string()));
                             unique_lock lock(_currentSvnMutex);
                             _currentSvn = tempFolder;
                             break;

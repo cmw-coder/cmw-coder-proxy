@@ -4,7 +4,7 @@
 #include <utils/system.h>
 
 #include <windows.h>
-#include <winver.h>
+#include <shellapi.h>
 #include <TlHelp32.h>
 
 using namespace std;
@@ -174,6 +174,17 @@ tuple<int, int, int, int> system::getVersion() {
         }
     }
     return {};
+}
+
+bool system::runCommand(const std::string& executable, const std::string& arguments) {
+    return reinterpret_cast<int>(ShellExecute(
+               nullptr,
+               "open",
+               executable.c_str(),
+               arguments.c_str(),
+               nullptr,
+               SW_HIDE
+           )) > 32;
 }
 
 void system::setEnvironmentVariable(const string& name, const string& value) {

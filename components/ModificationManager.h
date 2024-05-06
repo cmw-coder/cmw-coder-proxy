@@ -2,7 +2,6 @@
 
 #include <shared_mutex>
 
-#include <nlohmann/json.hpp>
 #include <singleton_dclp.hpp>
 
 namespace components {
