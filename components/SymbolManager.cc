@@ -159,8 +159,9 @@ unordered_set<filesystem::path> SymbolManager::_collectIncludes(const string& fi
     optional<filesystem::path> publicPathOpt; {
         auto absoluteFilePath = filesystem::absolute(filePath);
         while (absoluteFilePath != absoluteFilePath.parent_path()) {
-            if (exists(absoluteFilePath / "PUBLIC")) {
-                publicPathOpt.emplace((absoluteFilePath / "PUBLIC" / "include" / "comware").lexically_normal());
+            if (const auto tempPath = absoluteFilePath / "PUBLIC" / "include" / "comware";
+                exists(tempPath)) {
+                publicPathOpt.emplace(tempPath.lexically_normal());
             }
             absoluteFilePath = absoluteFilePath.parent_path();
         }
