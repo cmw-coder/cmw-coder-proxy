@@ -33,9 +33,10 @@ string fs::getExtension(const string& path) {
     return filesystem::path(path).extension().string();
 }
 
-string fs::getDirectory(const string& path) {
+filesystem::path fs::getDirectory(const string& path) {
     if (path.empty()) {
         return {};
     }
-    return filesystem::path(path).parent_path().string();
+    const auto filePath = filesystem::path(path);
+    return is_directory(filePath) ? filePath : filePath.parent_path();
 }

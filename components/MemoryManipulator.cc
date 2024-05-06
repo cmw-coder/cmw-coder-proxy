@@ -222,7 +222,7 @@ string MemoryManipulator::getLineContent(const uint32_t handle, const uint32_t l
     return {};
 }
 
-string MemoryManipulator::getProjectDirectory() const {
+filesystem::path MemoryManipulator::getProjectDirectory() const {
     char tempBuffer[256];
     memory::read(memory::offset(_memoryAddress.project.projectPath), tempBuffer);
     return fs::getDirectory(string(tempBuffer));

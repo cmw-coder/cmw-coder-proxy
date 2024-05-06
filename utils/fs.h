@@ -7,5 +7,5 @@ namespace utils::fs {
 
     std::string getExtension(const std::string& path);
 
-    std::string getDirectory(const std::string& path);
+    std::filesystem::path getDirectory(const std::string& path);
 }
