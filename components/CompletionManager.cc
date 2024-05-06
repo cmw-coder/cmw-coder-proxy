@@ -526,7 +526,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     const auto caretPosition = memoryManipulator->getCaretPosition();
                     if (auto path = memoryManipulator->getFileName();
                         currentFileHandle && !path.empty()) {
-                        auto updateFileThread = thread([path] { SymbolManager::GetInstance()->updateFile(path); });
+                        SymbolManager::GetInstance()->updateFile(path);
                         string prefix, suffix; {
                             const auto currentLine = memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line
@@ -544,8 +544,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             const auto tempLine = memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line + index);
                             suffix.append("\r\n").append(tempLine);
-                        }
-                        updateFileThread.join(); {
+                        } {
                             unique_lock lock(_componentsMutex);
                             _components.caretPosition = caretPosition;
                             _components.path = move(path);

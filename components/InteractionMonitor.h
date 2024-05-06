@@ -54,8 +54,6 @@ namespace components {
 
         void _monitorCaretPosition();
 
-        void _monitorDebugLog() const;
-
         bool _processKeyMessage(unsigned wParam, unsigned lParam);
 
         void _processMouseMessage(unsigned wParam);

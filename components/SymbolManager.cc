@@ -125,26 +125,28 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix) {
 }
 
 void SymbolManager::updateFile(const string& filePath) {
-    if (const auto extension = fs::getExtension(filePath);
-        extension == ".c" || extension == ".h") {
-        bool needUpdate; {
-            shared_lock lock{_fileSetMutex};
-            needUpdate = !_fileSet.contains(filePath);
-        }
-        if (needUpdate) {
-            if (auto includes = _collectIncludes(filePath); _updateTags(includes)) {
-                {
-                    unique_lock lock{_fileSetMutex};
-                    _fileSet.merge(includes);
-                }
-                for (const auto& duplicated: includes) {
-                    logger::warn(format("Found duplicated include: {}", duplicated.generic_string()));
-                }
+    thread([this,filePath] {
+        if (const auto extension = fs::getExtension(filePath);
+            extension == ".c" || extension == ".h") {
+            bool needUpdate; {
+                shared_lock lock{_fileSetMutex};
+                needUpdate = !_fileSet.contains(filePath);
             }
-        } else {
-            ignore = _updateTags(filePath);
+            if (needUpdate) {
+                if (auto includes = _collectIncludes(filePath); _updateTags(includes)) {
+                    {
+                        unique_lock lock{_fileSetMutex};
+                        _fileSet.merge(includes);
+                    }
+                    for (const auto& duplicated: includes) {
+                        logger::warn(format("Found duplicated include: {}", duplicated.generic_string()));
+                    }
+                }
+            } else {
+                ignore = _updateTags(filePath);
+            }
         }
-    }
+    }).detach();
 }
 
 unordered_set<filesystem::path> SymbolManager::_collectIncludes(const string& filePath) const {
@@ -204,7 +206,7 @@ unordered_set<filesystem::path> SymbolManager::_getIncludesInFile(
     return result;
 }
 
-bool SymbolManager::_updateTags(const std::filesystem::path& filePath) const {
+bool SymbolManager::_updateTags(const filesystem::path& filePath) const {
     const string command = format(
         R"(ctags.exe -a --excmd=combine -f "{}" --fields=+e+n --kinds-c=-efhmv {})",
         (MemoryManipulator::GetInstance()->getProjectDirectory() / "tags").string(),
@@ -218,7 +220,7 @@ bool SymbolManager::_updateTags(const std::filesystem::path& filePath) const {
     return true;
 }
 
-bool SymbolManager::_updateTags(const std::unordered_set<std::filesystem::path>& fileSet) const {
+bool SymbolManager::_updateTags(const unordered_set<filesystem::path>& fileSet) const {
     string fileList;
     for (const auto& file: fileSet) {
         fileList += file.string() + " ";
