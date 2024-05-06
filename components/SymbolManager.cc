@@ -11,7 +11,7 @@
 #include <components/SymbolManager.h>
 #include <utils/fs.h>
 #include <utils/logger.h>
-
+#include <utils/system.h>
 
 using namespace components;
 using namespace magic_enum;
@@ -36,6 +36,9 @@ namespace {
             back_inserter(symbolList)
         );
         for (const auto& symbol: symbolList) {
+            if (symbol.length() < 2) {
+                continue;
+            }
             if (const auto lastTwoChars = symbol.substr(symbol.length() - 2);
                 lastTwoChars == "_E" || lastTwoChars == "_S") {
                 result.references.emplace(symbol);
@@ -52,6 +55,11 @@ SymbolManager::SymbolManager() = default;
 SymbolManager::~SymbolManager() = default;
 
 vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix) {
+    vector<SymbolInfo> result;
+    const auto tagsFilePath = MemoryManipulator::GetInstance()->getProjectDirectory() / "tags";
+    if (!exists(tagsFilePath)) {
+        return result;
+    }
     const auto getEndLine = [](const vector<pair<string, string>>& symbolFields)-> optional<uint32_t> {
         if (symbolFields.size() == 1) {
             if (const auto& [key, value] = symbolFields[0];
@@ -62,11 +70,11 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix) {
         return nullopt;
     };
     const auto getSymbolFields = [](const decltype(tagEntry::fields)& fields) -> vector<pair<string, string>> {
-        vector<pair<string, string>> result;
+        vector<pair<string, string>> symbolFields;
         for (auto index = 0; index < fields.count; ++index) {
-            result.emplace_back((fields.list + index)->key, (fields.list + index)->value);
+            symbolFields.emplace_back((fields.list + index)->key, (fields.list + index)->value);
         }
-        return result;
+        return symbolFields;
     };
     const auto getTypeReference = [](
         const vector<pair<string, string>>& symbolFields
@@ -80,21 +88,17 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix) {
         }
         return nullopt;
     };
-    vector<SymbolInfo> result;
     tagFileInfo taginfo;
 
     shared_lock lock{_tagFileMutex};
-    const auto tagFileHandle = tagsOpen(
-        (MemoryManipulator::GetInstance()->getProjectDirectory() / "tags").string().c_str(),
-        &taginfo
-    );
-    if (tagFileHandle == nullptr) {
+    const auto tagsFileHandle = tagsOpen(tagsFilePath.generic_string().c_str(), &taginfo);
+    if (tagsFileHandle == nullptr) {
         logger::warn("Failed to open tags file");
         return result;
     }
     for (const auto& symbol: collectSymbols(prefix).references) {
         tagEntry entry;
-        if (tagsFind(tagFileHandle, &entry, symbol.c_str(), TAG_OBSERVECASE) == TagSuccess) {
+        if (tagsFind(tagsFileHandle, &entry, symbol.c_str(), TAG_OBSERVECASE) == TagSuccess) {
             if (const auto typeReferenceOpt = getTypeReference(getSymbolFields(entry.fields));
                 typeReferenceOpt.has_value()) {
                 result.emplace_back(
@@ -105,7 +109,7 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix) {
                     static_cast<uint32_t>(entry.address.lineNumber)
                 );
                 if (const auto& [type, reference] = typeReferenceOpt.value();
-                    tagsFind(tagFileHandle, &entry, reference.c_str(), TAG_OBSERVECASE) == TagSuccess) {
+                    tagsFind(tagsFileHandle, &entry, reference.c_str(), TAG_OBSERVECASE) == TagSuccess) {
                     if (const auto endLineOpt = getEndLine(getSymbolFields(entry.fields));
                         endLineOpt.has_value()) {
                         result.emplace_back(
@@ -120,7 +124,7 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix) {
             }
         }
     }
-    tagsClose(tagFileHandle);
+    tagsClose(tagsFileHandle);
     return result;
 }
 
@@ -133,12 +137,14 @@ void SymbolManager::updateFile(const string& filePath) {
                 needUpdate = !_fileSet.contains(filePath);
             }
             if (needUpdate) {
-                if (auto includes = _collectIncludes(filePath); _updateTags(includes)) {
+                auto fileSet = _collectIncludes(filePath);
+                fileSet.emplace(filePath);
+                if (_updateTags(fileSet)) {
                     {
                         unique_lock lock{_fileSetMutex};
-                        _fileSet.merge(includes);
+                        _fileSet.merge(fileSet);
                     }
-                    for (const auto& duplicated: includes) {
+                    for (const auto& duplicated: fileSet) {
                         logger::warn(format("Found duplicated include: {}", duplicated.generic_string()));
                     }
                 }
@@ -207,13 +213,13 @@ unordered_set<filesystem::path> SymbolManager::_getIncludesInFile(
 }
 
 bool SymbolManager::_updateTags(const filesystem::path& filePath) const {
-    const string command = format(
-        R"(ctags.exe -a --excmd=combine -f "{}" --fields=+e+n --kinds-c=-efhmv {})",
-        (MemoryManipulator::GetInstance()->getProjectDirectory() / "tags").string(),
-        filePath.string()
+    const auto arguments = format(
+        R"(-a --excmd=combine -f "{}" --fields=+e+n --kinds-c=-efhmv "{}")",
+        (MemoryManipulator::GetInstance()->getProjectDirectory() / "tags").generic_string(),
+        filePath.generic_string()
     );
     unique_lock lock{_tagFileMutex};
-    if (system(command.c_str()) != 0) {
+    if (!system::runCommand("ctags.exe", arguments)) {
         logger::warn("Failed to generate tags");
         return false;
     }
@@ -221,17 +227,20 @@ bool SymbolManager::_updateTags(const filesystem::path& filePath) const {
 }
 
 bool SymbolManager::_updateTags(const unordered_set<filesystem::path>& fileSet) const {
+    if (fileSet.empty()) {
+        return false;
+    }
     string fileList;
     for (const auto& file: fileSet) {
-        fileList += file.string() + " ";
+        fileList += format(R"("{}" )", file.generic_string());
     }
-    const string command = format(
-        R"(ctags.exe -a --excmd=combine -f "{}" --fields=+e+n --kinds-c=-efhmv {})",
-        (MemoryManipulator::GetInstance()->getProjectDirectory() / "tags").string(),
+    const string arguments = format(
+        R"(-a --excmd=combine -f "{}" --fields=+e+n --kinds-c=-efhmv {})",
+        (MemoryManipulator::GetInstance()->getProjectDirectory() / "tags").generic_string(),
         fileList
     );
     unique_lock lock{_tagFileMutex};
-    if (system(command.c_str()) != 0) {
+    if (!system::runCommand("ctags.exe", arguments)) {
         logger::warn("Failed to generate tags");
         return false;
     }
