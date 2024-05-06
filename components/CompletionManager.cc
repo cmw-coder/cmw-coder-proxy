@@ -79,11 +79,6 @@ namespace {
             yPosition = newYPosition;
         }
 
-        logger::debug(format(
-            "Pixels: Client (x: {}, y: {}), Caret (h: {}, x: {}, y: {})",
-            clientX, clientY, height, xPosition, yPosition
-        ));
-
         return {
             height,
             clientX + xPosition,
@@ -142,7 +137,8 @@ namespace {
             declaredSymbols.emplace_back(symbol, file, type, lineStart, lineEnd - 1);
         }
         memoryManipulator->freeSymbolListHandle(childSymbolListHandle);
-        logger::info(format("Symbol line range: ({}, {})", minLine, maxLine));
+        logger::debug(format("Declared symbol count {}", declaredSymbols.size()));
+        logger::debug(format("Symbol line range: ({}, {})", minLine, maxLine));
         return declaredSymbols;
     }
 }
@@ -530,6 +526,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     const auto caretPosition = memoryManipulator->getCaretPosition();
                     if (auto path = memoryManipulator->getFileName();
                         currentFileHandle && !path.empty()) {
+                        auto updateFileThread = thread([path] { SymbolManager::GetInstance()->updateFile(path); });
                         string prefix, suffix; {
                             const auto currentLine = memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line
@@ -547,7 +544,8 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             const auto tempLine = memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line + index);
                             suffix.append("\r\n").append(tempLine);
-                        } {
+                        }
+                        updateFileThread.join(); {
                             unique_lock lock(_componentsMutex);
                             _components.caretPosition = caretPosition;
                             _components.path = move(path);
