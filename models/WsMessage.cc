@@ -98,12 +98,13 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
         _data["recentFiles"].push_back(iconv::needEncode ? iconv::gbkToUtf8(recentFile) : recentFile);
     }
     for (const auto& [name, path, type, startLine, endLine]: symbols) {
+        // ctags uses UTF-8 encoding, so we need to convert them to UTF-8
         _data["symbols"].push_back({
             {"endLine", endLine},
-            {"name", iconv::needEncode ? iconv::gbkToUtf8(name) : name},
-            {"path", iconv::needEncode ? iconv::gbkToUtf8(path) : path},
+            {"name", name},
+            {"path", path},
             {"startLine", startLine},
-            {"type", iconv::needEncode ? iconv::gbkToUtf8(type) : type},
+            {"type", type},
         });
     }
 }
