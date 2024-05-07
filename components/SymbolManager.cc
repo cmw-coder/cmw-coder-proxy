@@ -124,7 +124,7 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix) {
 void SymbolManager::updateFile(const string& filePath) {
     thread([this,filePath] {
         if (const auto extension = fs::getExtension(filePath);
-            extension == ".c" || extension == ".h") {
+            extension == ".c") {
             bool needUpdate; {
                 shared_lock lock{_fileSetMutex};
                 needUpdate = !_fileSet.contains(filePath);
@@ -143,6 +143,12 @@ void SymbolManager::updateFile(const string& filePath) {
                 }
             } else {
                 ignore = _updateTags(filePath);
+            }
+        } else if (extension == ".h") {
+            unique_lock lock{_tagFileMutex};
+            if (const auto tagsFilePath = MemoryManipulator::GetInstance()->getProjectDirectory() / "tags";
+                exists(tagsFilePath)) {
+                remove(MemoryManipulator::GetInstance()->getProjectDirectory() / "tags");
             }
         }
     }).detach();
