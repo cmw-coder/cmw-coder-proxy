@@ -101,13 +101,6 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix) {
         if (tagsFind(tagsFileHandle, &entry, symbol.c_str(), TAG_OBSERVECASE) == TagSuccess) {
             if (const auto typeReferenceOpt = getTypeReference(getSymbolFields(entry.fields));
                 typeReferenceOpt.has_value()) {
-                result.emplace_back(
-                    entry.name,
-                    entry.file,
-                    string{enum_name(SymbolInfo::Type::Reference)},
-                    static_cast<uint32_t>(entry.address.lineNumber),
-                    static_cast<uint32_t>(entry.address.lineNumber)
-                );
                 if (const auto& [type, reference] = typeReferenceOpt.value();
                     tagsFind(tagsFileHandle, &entry, reference.c_str(), TAG_OBSERVECASE) == TagSuccess) {
                     if (const auto endLineOpt = getEndLine(getSymbolFields(entry.fields));
@@ -116,8 +109,8 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix) {
                             entry.name,
                             entry.file,
                             type,
-                            static_cast<uint32_t>(entry.address.lineNumber),
-                            endLineOpt.value()
+                            static_cast<uint32_t>(entry.address.lineNumber - 1),
+                            endLineOpt.value() - 1
                         );
                     }
                 }
