@@ -53,7 +53,7 @@ target_link_libraries(${PROXY_MODULE_NAME} PRIVATE
         magic_enum::magic_enum
         nlohmann_json::nlohmann_json
         singleton::singleton
-        universal-ctags::libreadtags
+        universal-ctags::readtags
         Version.lib
 )
 
