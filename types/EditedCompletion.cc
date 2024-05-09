@@ -56,10 +56,11 @@ CompletionEditClientMessage EditedCompletion::parse() {
     string currentContent;
     uint32_t count{};
 
-    WindowManager::GetInstance()->sendF13();
     if (const auto fileHandleOpt = WindowManager::GetInstance()->getAssosiatedFileHandle(_windowHandle);
         fileHandleOpt.has_value() && !_references.empty()) {
-        for (auto line = _references.front(); line <= _references.back(); ++line) {
+        WindowManager::GetInstance()->sendF13();
+        for (uint32_t line = _references.front() < 10 ? 0 : _references.front() - 10;
+             line <= _references.back() + 10; ++line) {
             const auto currentLine = memoryManipulator->getLineContent(fileHandleOpt.value(), line);
             currentContent.append(currentLine).append("\r\n");
         }
