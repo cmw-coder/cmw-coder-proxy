@@ -22,7 +22,6 @@ using namespace types;
 using namespace utils;
 
 namespace {
-    constexpr auto debugLogKey = "CMWCODER_debugLog";
     const auto mainThreadId = system::getMainThreadId();
 }
 
