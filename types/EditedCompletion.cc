@@ -15,7 +15,7 @@ EditedCompletion::EditedCompletion(
     const uint32_t line,
     string completion
 ) : actionId(move(actionId)), _windowHandle(windowHandle), _completion(move(completion)) {
-    for ([[maybe_unused]] const auto _: _completion | views::split("\r\n"sv)) {
+    for ([[maybe_unused]] const auto _: _completion | views::split("\n"sv)) {
         if (_references.empty()) {
             _references.emplace_back(line);
         } else {
@@ -62,11 +62,11 @@ CompletionEditClientMessage EditedCompletion::parse() {
         for (uint32_t line = _references.front() < 10 ? 0 : _references.front() - 10;
              line <= _references.back() + 10; ++line) {
             const auto currentLine = memoryManipulator->getLineContent(fileHandleOpt.value(), line);
-            currentContent.append(currentLine).append("\r\n");
+            currentContent.append(currentLine).append("\n");
         }
         if (_isAccept) {
             auto reference = _references.begin();
-            for (const auto originalRange: _completion | views::split("\r\n"sv)) {
+            for (const auto originalRange: _completion | views::split("\n"sv)) {
                 if (memoryManipulator->getLineContent(fileHandleOpt.value(), *reference).contains(
                     string{originalRange.begin(), originalRange.end()}
                 )) {

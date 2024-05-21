@@ -172,7 +172,7 @@ void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockM
         }
 
         uint32_t insertedlineCount{0}, lastLineLength{0};
-        for (const auto lineRange: content.substr(cacheIndex) | views::split("\r\n"sv)) {
+        for (const auto lineRange: content.substr(cacheIndex) | views::split("\n"sv)) {
             auto lineContent = string{lineRange.begin(), lineRange.end()};
             if (insertedlineCount == 0) {
                 lastLineLength = currentPosition.character + 1 + lineContent.size();
@@ -527,7 +527,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     if (auto path = memoryManipulator->getFileName();
                         currentFileHandle && !path.empty()) {
                         SymbolManager::GetInstance()->updateFile(path);
-                        string prefix, suffix; {
+                        string prefix, prefixForSymbol, suffix; {
                             const auto currentLine = memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line
                             );
@@ -537,18 +537,24 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                         for (uint32_t index = 1; index <= min(caretPosition.line, 100u); ++index) {
                             const auto tempLine = memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line - index
-                            ).append("\r\n");
+                            ).append("\n");
+                            if (prefixForSymbol.empty() &&
+                                regex_match(tempLine, regex(R"~(^\/\/.*|^\S+.*?\*\/\s*$)~"))) {
+                                prefixForSymbol = prefix;
+                            }
                             prefix.insert(0, tempLine);
                         }
                         for (uint32_t index = 1; index <= 30u; ++index) {
                             const auto tempLine = memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line + index);
-                            suffix.append("\r\n").append(tempLine);
+                            suffix.append("\n").append(tempLine);
                         } {
                             unique_lock lock(_componentsMutex);
                             _components.caretPosition = caretPosition;
                             _components.path = move(path);
-                            _components.symbols = SymbolManager::GetInstance()->getSymbols(prefix);
+                            _components.symbols = SymbolManager::GetInstance()->getSymbols(
+                                prefixForSymbol.empty() ? prefix : prefixForSymbol
+                            );
                             _components.prefix = move(prefix);
                             _components.recentFiles = ModificationManager::GetInstance()->getRecentFiles();
                             _components.suffix = move(suffix);

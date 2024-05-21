@@ -129,7 +129,7 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                             const auto currentPosition = memoryManipulator->getCaretPosition();
 
                             uint32_t insertedlineCount{0}, lastLineLength{0};
-                            for (const auto lineRange: content | views::split("\r\n"sv)) {
+                            for (const auto lineRange: content | views::split("\n"sv)) {
                                 auto lineContent = string{lineRange.begin(), lineRange.end()};
                                 if (insertedlineCount == 0) {
                                     lastLineLength = currentPosition.character + 1 + lineContent.size();
