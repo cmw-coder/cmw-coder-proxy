@@ -9,7 +9,6 @@ namespace types {
         CompletionEdit,
         CompletionGenerate,
         CompletionSelect,
-        DebugSync,
         EditorCommit,
         EditorFocusState,
         EditorPaste,

@@ -154,14 +154,6 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
     }
 ) {}
 
-DebugSyncClientMessage::DebugSyncClientMessage(const string& content, const string& path)
-    : WsMessage(
-        WsAction::DebugSync, {
-            {"content", iconv::needEncode ? iconv::gbkToUtf8(content) : content},
-            {"path", iconv::needEncode ? iconv::gbkToUtf8(path) : path}
-        }
-    ) {}
-
 EditorCommitClientMessage::EditorCommitClientMessage(const string& path)
     : WsMessage(WsAction::EditorCommit, path) {}
 

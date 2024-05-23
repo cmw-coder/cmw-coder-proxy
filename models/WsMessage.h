@@ -117,11 +117,6 @@ namespace models {
         );
     };
 
-    class DebugSyncClientMessage final : public WsMessage {
-    public:
-        DebugSyncClientMessage(const std::string& content, const std::string& path);
-    };
-
     class EditorCommitClientMessage final : public WsMessage {
     public:
         explicit EditorCommitClientMessage(const std::string& path);
