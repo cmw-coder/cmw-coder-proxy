@@ -258,6 +258,8 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
     const auto isKeyUp = (keyFlags & KF_UP) == KF_UP;
     bool needBlockMessage{false};
 
+    MemoryManipulator::GetInstance()->aquireRemoteFunctionUniqueLock();
+
     switch (wParam) {
         case VK_RETURN: {
             if (isKeyUp) {

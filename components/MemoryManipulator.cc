@@ -111,8 +111,13 @@ MemoryManipulator::MemoryManipulator(const SiVersion::Full version)
     logger::log("MemoryManipulator is initialized");
 }
 
+void MemoryManipulator::aquireRemoteFunctionUniqueLock() const {
+    unique_lock lock(_remoteFunctionMutex);
+}
+
 void MemoryManipulator::deleteLineContent(const uint32_t line) const {
     if (const auto fileHandle = getHandle(MemoryAddress::HandleType::File)) {
+        shared_lock lock(_remoteFunctionMutex);
         AddressToFunction<void(uint32_t, uint32_t, uint32_t)>(
             memory::offset(_memoryAddress.file.funcDelBufLine.base)
         )(fileHandle, line, _memoryAddress.file.funcDelBufLine.param3);
@@ -120,6 +125,7 @@ void MemoryManipulator::deleteLineContent(const uint32_t line) const {
 }
 
 void MemoryManipulator::freeSymbolListHandle(SymbolList* const symbolListHandle) const {
+    shared_lock lock(_remoteFunctionMutex);
     AddressToFunction<int(SymbolListHandle)>(
         memory::offset(_memoryAddress.symbol.funcDestroySymbolList.base)
     )(symbolListHandle);
@@ -132,9 +138,12 @@ CaretDimension MemoryManipulator::getCaretDimension() const {
 CaretDimension MemoryManipulator::getCaretDimension(const uint32_t line) const {
     CaretDimension caretDimension{};
     if (const auto windowHandle = getHandle(MemoryAddress::HandleType::Window)) {
-        caretDimension.yPosition = AddressToFunction<uint32_t(uint32_t, uint32_t)>(
-            memory::offset(_memoryAddress.window.funcYPosFromLine.base)
-        )(windowHandle, line);
+        {
+            shared_lock lock(_remoteFunctionMutex);
+            caretDimension.yPosition = AddressToFunction<uint32_t(uint32_t, uint32_t)>(
+                memory::offset(_memoryAddress.window.funcYPosFromLine.base)
+            )(windowHandle, line);
+        }
 
         memory::read(windowHandle + _memoryAddress.window.dataXPos.offset1, caretDimension.xPosition);
         memory::read(memory::offset(_memoryAddress.window.dataYDim.base), caretDimension.height);
@@ -152,6 +161,8 @@ CaretPosition MemoryManipulator::getCaretPosition() const {
 
 SymbolListHandle MemoryManipulator::getChildSymbolListHandle(SymbolName symbolName) const {
     SymbolBuffer symbolBuffer;
+
+    shared_lock lock(_remoteFunctionMutex);
     auto symbolListHandle = AddressToFunction<SymbolListHandle()>(
         memory::offset(_memoryAddress.symbol.funcCreateSymbolList.base)
     )();
@@ -184,6 +195,7 @@ string MemoryManipulator::getFileName() const {
 
         memory::read(fileHandle + _memoryAddress.file.funcGetBufName.param1Base, param1Base);
         memory::read(param1Base + _memoryAddress.file.funcGetBufName.param1Offset1, param1);
+        shared_lock lock(_remoteFunctionMutex);
         AddressToFunction<void(uint32_t, void*)>(
             memory::offset(_memoryAddress.file.funcGetBufName.base)
         )(param1, payload.data());
@@ -214,6 +226,7 @@ uint32_t MemoryManipulator::getHandle(const MemoryAddress::HandleType handleType
 string MemoryManipulator::getLineContent(const uint32_t handle, const uint32_t line) const {
     if (handle) {
         SimpleString payload;
+        shared_lock lock(_remoteFunctionMutex);
         AddressToFunction<void(uint32_t, uint32_t, void*)>(
             memory::offset(_memoryAddress.file.funcGetBufLine.base)
         )(handle, line, payload.data());
@@ -238,6 +251,7 @@ optional<SymbolName> MemoryManipulator::getSymbolName(const uint32_t line) const
         int32_t symbolIndex{};
         SymbolName symbolName;
 
+        shared_lock lock(_remoteFunctionMutex);
         AddressToFunction<void(uint32_t, uint32_t, uint32_t*, int32_t*, uint32_t)>(
             memory::offset(_memoryAddress.symbol.funcGetSymbolHandle.base)
         )(fileHandle, line, &symbolHandle, &symbolIndex, _memoryAddress.symbol.funcGetSymbolHandle.param5);
@@ -264,6 +278,7 @@ optional<SymbolName> MemoryManipulator::getSymbolName(SymbolRecord symbolRecord)
     SimpleString errorMessage;
     SymbolName symbolName;
 
+    shared_lock lock(_remoteFunctionMutex);
     if (AddressToFunction<bool(void*, void*, const void*)>(
         memory::offset(_memoryAddress.symbol.funcGetSymbolNameByRecord.base)
     )(errorMessage.data(), symbolName.data(), symbolRecord.data())) {
@@ -276,6 +291,7 @@ optional<SymbolName> MemoryManipulator::getSymbolName(SymbolList* const symbolLi
     if (index < symbolListHandle->size()) {
         SymbolName symbolName{};
 
+        shared_lock lock(_remoteFunctionMutex);
         AddressToFunction<void(uint32_t, void*)>(
             memory::offset(_memoryAddress.symbol.funcGetSymbolNameByAddress.base)
         )(
@@ -297,6 +313,7 @@ optional<SymbolRecord> MemoryManipulator::getSymbolRecord(SymbolName symbolName)
         return nullopt;
     }
     try {
+        shared_lock lock(_remoteFunctionMutex);
         if (
             const auto result = AddressToFunction<char*(void*, void*)>(
                 memory::offset(_memoryAddress.symbol.funcGetSymbolRecord.base)
@@ -310,6 +327,7 @@ optional<SymbolRecord> MemoryManipulator::getSymbolRecord(SymbolName symbolName)
 }
 
 optional<SymbolRecord> MemoryManipulator::getSymbolRecordDeclared(SymbolName symbolName) const {
+    shared_lock lock(_remoteFunctionMutex);
     if (AddressToFunction<bool(void*, uint32_t, uint32_t)>(
         memory::offset(_memoryAddress.symbol.funcTransformSymbolNameToDeclaredType.base)
     )(
@@ -324,6 +342,7 @@ optional<SymbolRecord> MemoryManipulator::getSymbolRecordDeclared(SymbolName sym
 
 void MemoryManipulator::setCaretPosition(const CaretPosition& caretPosition) const {
     if (const auto windowHandle = getHandle(MemoryAddress::HandleType::Window)) {
+        shared_lock lock(_remoteFunctionMutex);
         AddressToFunction<void(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(
             memory::offset(_memoryAddress.window.funcSetWndSel.base)
         )(windowHandle, caretPosition.line, caretPosition.character, caretPosition.line, caretPosition.character);
@@ -332,6 +351,7 @@ void MemoryManipulator::setCaretPosition(const CaretPosition& caretPosition) con
 
 void MemoryManipulator::setLineContent(const uint32_t line, const string& content, const bool isInsertion) const {
     if (const auto fileHandle = getHandle(MemoryAddress::HandleType::File)) {
+        shared_lock lock(_remoteFunctionMutex);
         AddressToFunction<void(uint32_t, uint32_t, void*)>(memory::offset(
             isInsertion ? _memoryAddress.file.funcInsBufLine.base : _memoryAddress.file.funcPutBufLine.base
         ))(fileHandle, line, SimpleString(content).data());
@@ -342,6 +362,7 @@ void MemoryManipulator::setSelectionContent(const string& content) const {
     if (WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
         uint32_t param1;
         memory::read(memory::offset(_memoryAddress.window.funcSetBufSelText.param1Base), param1);
+        shared_lock lock(_remoteFunctionMutex);
         AddressToFunction<void(uint32_t, const char*)>(
             memory::offset(_memoryAddress.window.funcSetBufSelText.base)
         )(param1, content.c_str());
