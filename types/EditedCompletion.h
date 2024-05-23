@@ -20,7 +20,7 @@ namespace types {
 
         void removeLine(uint32_t line);
 
-        [[nodiscard]] models::CompletionEditClientMessage parse();
+        [[nodiscard]] models::CompletionEditClientMessage parse() const;
 
     private:
         bool _isAccept = false;

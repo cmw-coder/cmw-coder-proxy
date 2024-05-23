@@ -128,7 +128,6 @@ void Modification::add(const char character) {
             offset += 1;
         }
     }
-    _debugSync();
 }
 
 /**
@@ -155,7 +154,6 @@ void Modification::add(const string& characters) {
         _lastPosition.addLine(lineCount);
     }
     _lastPosition.addCharactor(characters.length());
-    _debugSync();
 }
 
 CaretPosition Modification::getPosition() const {
@@ -257,7 +255,6 @@ void Modification::reload() {
         _lineOffsets.push_back(_lineOffsets.back() + line.size() + 1);
     }
     _lineOffsets.pop_back();
-    _debugSync();
 }
 
 /**
@@ -292,7 +289,6 @@ void Modification::remove() {
             _lastPosition.addCharactor(-1);
         }
     }
-    _debugSync();
 }
 
 void Modification::selectionClear() {
@@ -317,12 +313,6 @@ string Modification::_addRangeIndent(const Range& range) const {
         }
     }
     return selectcontent;
-}
-
-void Modification::_debugSync() const {
-    thread([content = _content, path = path] {
-        WebsocketManager::GetInstance()->send(DebugSyncClientMessage(content, path));
-    }).detach();
 }
 
 string Modification::_getLineContent(const uint32_t lineIndex) const {

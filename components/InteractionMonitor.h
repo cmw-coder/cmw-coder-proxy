@@ -22,6 +22,8 @@ namespace components {
 
         ~InteractionMonitor() override;
 
+        std::shared_lock<std::shared_mutex> getInteractionLock() const;
+
         template<class T>
         void registerInteraction(
             const types::Interaction interaction,
@@ -33,6 +35,7 @@ namespace components {
 
     private:
         const helpers::KeyHelper _keyHelper;
+        mutable std::shared_mutex _interactionMutex;
         std::atomic<bool> _isRunning{true}, _isMouseLeftDown{false}, _isSelecting{false};
         std::atomic<types::CaretPosition> _currentCaretPosition, _downCursorPosition;
         std::atomic<std::optional<types::Key>> _navigateWithKey;
@@ -52,8 +55,6 @@ namespace components {
 
         bool _handleInteraction(types::Interaction interaction, const std::any& data = {}) const noexcept;
 
-        void _monitorCaretPosition();
-
         bool _processKeyMessage(unsigned wParam, unsigned lParam);
 
         void _processMouseMessage(unsigned wParam);
@@ -61,5 +62,7 @@ namespace components {
         void _processWindowMessage(long lParam);
 
         void _retrieveProjectId(const std::string& project) const;
+
+        void _threadMonitorCaretPosition();
     };
 }

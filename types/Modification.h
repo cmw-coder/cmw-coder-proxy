@@ -53,8 +53,6 @@ namespace types {
 
         [[nodiscard]] std::string _addRangeIndent(const Range& range) const;
 
-        void _debugSync() const;
-
         [[nodiscard]] std::string _getLineContent(uint32_t lineIndex) const;
 
         [[nodiscard]] uint32_t _getLineIndent(uint32_t lineIndex) const;

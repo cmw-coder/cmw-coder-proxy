@@ -51,7 +51,7 @@ void EditedCompletion::removeLine(const uint32_t line) {
     }
 }
 
-CompletionEditClientMessage EditedCompletion::parse() {
+CompletionEditClientMessage EditedCompletion::parse() const {
     const auto memoryManipulator = MemoryManipulator::GetInstance();
     string currentContent;
     uint32_t count{};

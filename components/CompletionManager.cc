@@ -7,15 +7,15 @@
 
 #include <components/CompletionManager.h>
 #include <components/ConfigManager.h>
+#include <components/InteractionMonitor.h>
 #include <components/MemoryManipulator.h>
 #include <components/ModificationManager.h>
+#include <components/SymbolManager.h>
 #include <components/WebsocketManager.h>
 #include <components/WindowManager.h>
 #include <types/CaretPosition.h>
 #include <utils/iconv.h>
 #include <utils/logger.h>
-
-#include "SymbolManager.h"
 
 using namespace components;
 using namespace helpers;
@@ -438,18 +438,19 @@ void CompletionManager::_sendCompletionGenerate() {
 void CompletionManager::_threadCheckAcceptedCompletions() {
     thread([this] {
         while (_isRunning) {
-            vector<string> needRemoveActionId{}; {
-                shared_lock lock(_editedCompletionMapMutex);
-                for (auto& [actionId, acceptedCompletion]: _editedCompletionMap) {
+            vector<EditedCompletion> needReportCompletions{}; {
+                const shared_lock lock(_editedCompletionMapMutex);
+                for (auto& [_, acceptedCompletion]: _editedCompletionMap) {
                     if (acceptedCompletion.canReport()) {
-                        needRemoveActionId.emplace_back(actionId);
-                        WebsocketManager::GetInstance()->send(acceptedCompletion.parse());
+                        needReportCompletions.push_back(acceptedCompletion);
                     }
                 }
             } {
-                unique_lock lock(_editedCompletionMapMutex);
-                for (const auto& actionId: needRemoveActionId) {
-                    _editedCompletionMap.erase(actionId);
+                const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
+                const unique_lock editedCompletionMapLock(_editedCompletionMapMutex);
+                for (const auto& needReportCompletion: needReportCompletions) {
+                    _editedCompletionMap.erase(needReportCompletion.actionId);
+                    WebsocketManager::GetInstance()->send(needReportCompletion.parse());
                 }
             }
             this_thread::sleep_for(chrono::seconds(1));
@@ -465,6 +466,8 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                 WindowManager::GetInstance()->setMenuText("Generating...");
                 try {
                     WindowManager::GetInstance()->sendF13();
+                    // TODO: Improve performance
+                    const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
                     const auto memoryManipulator = MemoryManipulator::GetInstance();
                     const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
                     const auto caretPosition = memoryManipulator->getCaretPosition();

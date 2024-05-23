@@ -73,13 +73,17 @@ InteractionMonitor::InteractionMonitor()
         abort();
     }
 
-    _monitorCaretPosition();
+    _threadMonitorCaretPosition();
 
     logger::info("InteractionMonitor is initialized.");
 }
 
 InteractionMonitor::~InteractionMonitor() {
     _isRunning.store(false);
+}
+
+shared_lock<shared_mutex> InteractionMonitor::getInteractionLock() const {
+    return shared_lock(_interactionMutex);
 }
 
 long InteractionMonitor::_cbtProcedureHook(const int nCode, const unsigned int wParam, const long lParam) {
@@ -222,33 +226,6 @@ bool InteractionMonitor::_handleInteraction(const Interaction interaction, const
     return needBlockMessage;
 }
 
-void InteractionMonitor::_monitorCaretPosition() {
-    thread([this] {
-        while (_isRunning.load()) {
-            if (const auto navigationBufferOpt = _navigateWithKey.load();
-                navigationBufferOpt.has_value()) {
-                ignore = _handleInteraction(Interaction::NavigateWithKey, navigationBufferOpt.value());
-                _navigateWithKey.store(nullopt);
-                continue;
-            }
-
-            auto newCursorPosition = MemoryManipulator::GetInstance()->getCaretPosition();
-            newCursorPosition.maxCharacter = newCursorPosition.character;
-            if (const auto oldCursorPosition = _currentCaretPosition.load();
-                oldCursorPosition != newCursorPosition) {
-                _currentCaretPosition.store(newCursorPosition);
-                if (const auto navigateWithMouseOpt = _navigateWithMouse.load();
-                    navigateWithMouseOpt.has_value()) {
-                    _handleInteraction(Interaction::NavigateWithMouse,
-                                       make_tuple(newCursorPosition, oldCursorPosition));
-                    _navigateWithMouse.store(nullopt);
-                }
-            }
-            this_thread::sleep_for(chrono::milliseconds(10));
-        }
-    }).detach();
-}
-
 bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigned lParam) {
     if (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
         return false;
@@ -257,8 +234,6 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
     const auto keyFlags = HIWORD(lParam);
     const auto isKeyUp = (keyFlags & KF_UP) == KF_UP;
     bool needBlockMessage{false};
-
-    MemoryManipulator::GetInstance()->aquireRemoteFunctionUniqueLock();
 
     switch (wParam) {
         case VK_RETURN: {
@@ -292,6 +267,13 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
             break;
         }
     }
+
+    if (unique_lock lock(_interactionMutex, try_to_lock); lock.owns_lock()) {
+        thread([_lock = move(lock)] {
+            this_thread::sleep_for(chrono::milliseconds(200));
+        }).detach();
+    }
+
     return needBlockMessage;
 }
 
@@ -358,4 +340,32 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
             }
         }
     }
+}
+
+void InteractionMonitor::_threadMonitorCaretPosition() {
+    thread([this] {
+        while (_isRunning.load()) {
+            if (const auto navigationBufferOpt = _navigateWithKey.load();
+                navigationBufferOpt.has_value()) {
+                ignore = _handleInteraction(Interaction::NavigateWithKey, navigationBufferOpt.value());
+                _navigateWithKey.store(nullopt);
+                continue;
+            }
+
+            // TODO: Check if need InteractionMonitor::GetInstance()->getInteractionLock();
+            auto newCursorPosition = MemoryManipulator::GetInstance()->getCaretPosition();
+            newCursorPosition.maxCharacter = newCursorPosition.character;
+            if (const auto oldCursorPosition = _currentCaretPosition.load();
+                oldCursorPosition != newCursorPosition) {
+                _currentCaretPosition.store(newCursorPosition);
+                if (const auto navigateWithMouseOpt = _navigateWithMouse.load();
+                    navigateWithMouseOpt.has_value()) {
+                    _handleInteraction(Interaction::NavigateWithMouse,
+                                       make_tuple(newCursorPosition, oldCursorPosition));
+                    _navigateWithMouse.store(nullopt);
+                }
+            }
+            this_thread::sleep_for(chrono::milliseconds(10));
+        }
+    }).detach();
 }

@@ -16,8 +16,6 @@ namespace components {
     public:
         explicit MemoryManipulator(types::SiVersion::Full version);
 
-        void aquireRemoteFunctionUniqueLock() const;
-
         void deleteLineContent(uint32_t line) const;
 
         void freeSymbolListHandle(models::SymbolListHandle symbolListHandle) const;
@@ -59,7 +57,6 @@ namespace components {
         void setSelectionContent(const std::string& content) const;
 
     private:
-        mutable std::shared_mutex _remoteFunctionMutex;
         const models::MemoryAddress _memoryAddress;
         const std::shared_ptr<void> _processHandle;
     };

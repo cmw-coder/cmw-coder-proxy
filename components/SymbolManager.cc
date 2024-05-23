@@ -146,6 +146,7 @@ void SymbolManager::updateFile(const string& filePath) {
             }
         } else if (extension == ".h") {
             unique_lock lock{_tagFileMutex};
+            // TODO: Check if need InteractionMonitor::GetInstance()->getInteractionLock();
             if (const auto tagsFilePath = MemoryManipulator::GetInstance()->getProjectDirectory() / "tags";
                 exists(tagsFilePath)) {
                 remove(MemoryManipulator::GetInstance()->getProjectDirectory() / "tags");
