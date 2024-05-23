@@ -85,62 +85,6 @@ namespace {
             clientY + yPosition - 1,
         };
     }
-
-    [[maybe_unused]] vector<SymbolInfo> getDeclaredSymbolInfo(const uint32_t line) {
-        const auto memoryManipulator = MemoryManipulator::GetInstance();
-        vector<SymbolInfo> declaredSymbols;
-        int64_t minLine{-1}, maxLine{-1};
-
-        WindowManager::GetInstance()->sendF13();
-        const auto symbolNameOpt = memoryManipulator->getSymbolName(line);
-        if (!symbolNameOpt.has_value() ||
-            !memoryManipulator->getSymbolRecord(symbolNameOpt.value()).has_value()) {
-            return {};
-        }
-
-        WindowManager::GetInstance()->sendF13();
-        const auto childSymbolListHandle = memoryManipulator->getChildSymbolListHandle(symbolNameOpt.value());
-        for (uint32_t index = 0; index < min(childSymbolListHandle->count(), 100u); ++index) {
-            const auto childSymbolNameOpt = memoryManipulator->getSymbolName(childSymbolListHandle, index);
-            if (!childSymbolNameOpt.has_value() ||
-                !memoryManipulator->getSymbolRecord(childSymbolNameOpt.value()).has_value()) {
-                break;
-            }
-
-            const auto symbolRecordDeclaredOpt = memoryManipulator->getSymbolRecordDeclared(childSymbolNameOpt.value());
-            if (!symbolRecordDeclaredOpt.has_value()) {
-                continue;
-            }
-
-            const auto symbolDeclaredOpt = symbolRecordDeclaredOpt.value().parse();
-            if (!symbolDeclaredOpt.has_value()) {
-                continue;
-            }
-            const auto& [
-                file,
-                project,
-                symbol,
-                type,
-                namePosition,
-                instanceIndex,
-                lineEnd,
-                lineStart
-            ] = symbolDeclaredOpt.value();
-
-            if (minLine < 0 || lineStart < minLine) {
-                minLine = lineStart;
-            }
-            if (maxLine < 0 || lineEnd > maxLine) {
-                maxLine = lineEnd;
-            }
-
-            declaredSymbols.emplace_back(symbol, file, type, lineStart, lineEnd - 1);
-        }
-        memoryManipulator->freeSymbolListHandle(childSymbolListHandle);
-        logger::debug(format("Declared symbol count {}", declaredSymbols.size()));
-        logger::debug(format("Symbol line range: ({}, {})", minLine, maxLine));
-        return declaredSymbols;
-    }
 }
 
 CompletionManager::CompletionManager() {
@@ -527,7 +471,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     if (auto path = memoryManipulator->getFileName();
                         currentFileHandle && !path.empty()) {
                         SymbolManager::GetInstance()->updateFile(path);
-                        string prefix, prefixForSymbol, suffix; {
+                        string prefix, suffix; {
                             const auto currentLine = memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line
                             );
@@ -538,9 +482,8 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             const auto tempLine = memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line - index
                             ).append("\n");
-                            if (prefixForSymbol.empty() &&
-                                regex_match(tempLine, regex(R"~(^\/\/.*|^\S+.*?\*\/\s*$)~"))) {
-                                prefixForSymbol = prefix;
+                            if (regex_match(tempLine, regex(R"~(^\/\/.*|^\/\*\*.*)~"))) {
+                                break;
                             }
                             prefix.insert(0, tempLine);
                         }
@@ -552,9 +495,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             unique_lock lock(_componentsMutex);
                             _components.caretPosition = caretPosition;
                             _components.path = move(path);
-                            _components.symbols = SymbolManager::GetInstance()->getSymbols(
-                                prefixForSymbol.empty() ? prefix : prefixForSymbol
-                            );
+                            _components.symbols = SymbolManager::GetInstance()->getSymbols(prefix);
                             _components.prefix = move(prefix);
                             _components.recentFiles = ModificationManager::GetInstance()->getRecentFiles();
                             _components.suffix = move(suffix);
