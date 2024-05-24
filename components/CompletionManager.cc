@@ -39,7 +39,7 @@ namespace {
         switch (character) {
             case ';': {
                 if (ranges::none_of(keywords, [&currentLineContent](const string& keyword) {
-                    return regex_match(currentLineContent, regex(format(R"(.*?\b{}\b.*?)", keyword)));
+                    return regex_search(currentLineContent, regex(format(R"~(\b{}\b)~", keyword)));
                 })) {
                     logger::info("Normal input. Ignore due to ';' without any keyword");
                     return false;
@@ -487,10 +487,10 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             const auto tempLine = memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line - index
                             ).append("\n");
-                            if (regex_match(tempLine, regex(R"~(^\/\/.*|^\/\*\*.*)~"))) {
+                            prefix.insert(0, tempLine);
+                            if (regex_search(tempLine, regex(R"~(^\/\/.*|^\/\*\*.*)~"))) {
                                 break;
                             }
-                            prefix.insert(0, tempLine);
                         }
                         for (uint32_t index = 1; index <= 30u; ++index) {
                             const auto tempLine = memoryManipulator->getLineContent(

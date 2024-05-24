@@ -381,7 +381,7 @@ void InteractionMonitor::_threadReleaseInteractionLock() {
         while (_isRunning.load()) {
             if (_needReleaseInteractionLock.load()) {
                 if (const auto releaseInteractionLockTime = _releaseInteractionLockTime.load();
-                    chrono::high_resolution_clock::now() - releaseInteractionLockTime > 2000ms) {
+                    chrono::high_resolution_clock::now() - releaseInteractionLockTime > 300ms) {
                     _needReleaseInteractionLock.store(false);
                     _interactionMutex.unlock();
                     logger::debug("Interaction mutex unlocked");
