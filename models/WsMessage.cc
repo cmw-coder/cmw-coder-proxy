@@ -74,9 +74,9 @@ CompletionEditClientMessage::CompletionEditClientMessage(
 
 CompletionGenerateClientMessage::CompletionGenerateClientMessage(
     const CaretPosition& caret,
-    const string& path,
+    const filesystem::path& path,
     const string& prefix,
-    const vector<string>& recentFiles,
+    const vector<filesystem::path>& recentFiles,
     const string& suffix,
     const vector<SymbolInfo>& symbols
 ): WsMessage(
@@ -87,7 +87,7 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
                 {"line", caret.line},
             }
         },
-        {"path", iconv::needEncode ? iconv::gbkToUtf8(path) : path},
+        {"path", iconv::needEncode ? iconv::gbkToUtf8(path.generic_string()) : path.generic_string()},
         {"prefix", iconv::needEncode ? iconv::gbkToUtf8(prefix) : prefix},
         {"recentFiles", nlohmann::json::array()},
         {"suffix", iconv::needEncode ? iconv::gbkToUtf8(suffix) : suffix},
@@ -95,14 +95,14 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
     }
 ) {
     for (const auto& recentFile: recentFiles) {
-        _data["recentFiles"].push_back(iconv::needEncode ? iconv::gbkToUtf8(recentFile) : recentFile);
+        _data["recentFiles"].push_back(iconv::needEncode ? iconv::gbkToUtf8(recentFile.generic_string()) : recentFile);
     }
-    for (const auto& [name, path, type, startLine, endLine]: symbols) {
+    for (const auto& [path, name, type, startLine, endLine]: symbols) {
         // ctags uses UTF-8 encoding, so we need to convert them to UTF-8
         _data["symbols"].push_back({
             {"endLine", endLine},
             {"name", name},
-            {"path", path},
+            {"path", path.generic_string()},
             {"startLine", startLine},
             {"type", type},
         });
@@ -154,8 +154,11 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
     }
 ) {}
 
-EditorCommitClientMessage::EditorCommitClientMessage(const string& path)
-    : WsMessage(WsAction::EditorCommit, path) {}
+EditorCommitClientMessage::EditorCommitClientMessage(const filesystem::path& path)
+    : WsMessage(
+        WsAction::EditorCommit,
+        iconv::needEncode ? iconv::gbkToUtf8(path.generic_string()) : path.generic_string()
+    ) {}
 
 EditorFocusStateClientMessage::EditorFocusStateClientMessage(const bool isFocused)
     : WsMessage(WsAction::EditorFocusState, isFocused) {}
@@ -167,11 +170,17 @@ EditorPasteClientMessage::EditorPasteClientMessage(const uint32_t count)
         }
     ) {}
 
-EditorSwitchProjectClientMessage::EditorSwitchProjectClientMessage(const string& path)
-    : WsMessage(WsAction::EditorSwitchProject, iconv::needEncode ? iconv::gbkToUtf8(path) : path) {}
+EditorSwitchProjectClientMessage::EditorSwitchProjectClientMessage(const filesystem::path& path)
+    : WsMessage(
+        WsAction::EditorSwitchProject,
+        iconv::needEncode ? iconv::gbkToUtf8(path.generic_string()) : path.generic_string()
+    ) {}
 
-EditorSwitchSvnClientMessage::EditorSwitchSvnClientMessage(const std::string& path)
-    : WsMessage(WsAction::EditorSwitchSvn, iconv::needEncode ? iconv::gbkToUtf8(path) : path) {}
+EditorSwitchSvnClientMessage::EditorSwitchSvnClientMessage(const std::filesystem::path& path)
+    : WsMessage(
+        WsAction::EditorSwitchSvn,
+        iconv::needEncode ? iconv::gbkToUtf8(path.generic_string()) : path.generic_string()
+    ) {}
 
 HandShakeClientMessage::HandShakeClientMessage(string&& currentProject, string&& version)
     : WsMessage(

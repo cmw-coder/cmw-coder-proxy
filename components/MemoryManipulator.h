@@ -28,7 +28,7 @@ namespace components {
 
         [[nodiscard]] models::SymbolListHandle getChildSymbolListHandle(models::SymbolName symbolName) const;
 
-        [[nodiscard]] std::string getFileName() const;
+        [[nodiscard]] std::filesystem::path getCurrentFilePath() const;
 
         [[nodiscard]] uint32_t getHandle(models::MemoryAddress::HandleType handleType) const;
 

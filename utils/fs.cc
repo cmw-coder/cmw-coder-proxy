@@ -25,18 +25,3 @@ string fs::readFile(const string& path) {
     erase(out, '\r');
     return out;
 }
-
-string fs::getExtension(const string& path) {
-    if (path.empty()) {
-        return {};
-    }
-    return filesystem::path(path).extension().string();
-}
-
-filesystem::path fs::getDirectory(const string& path) {
-    if (path.empty()) {
-        return {};
-    }
-    const auto filePath = filesystem::path(path);
-    return is_directory(filePath) ? filePath : filePath.parent_path();
-}

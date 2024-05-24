@@ -180,7 +180,7 @@ SymbolListHandle MemoryManipulator::getChildSymbolListHandle(SymbolName symbolNa
     return symbolListHandle;
 }
 
-string MemoryManipulator::getFileName() const {
+filesystem::path MemoryManipulator::getCurrentFilePath() const {
     if (const auto fileHandle = getHandle(MemoryAddress::HandleType::File)) {
         uint32_t param1Base, param1;
         SimpleString payload;
@@ -226,9 +226,10 @@ string MemoryManipulator::getLineContent(const uint32_t handle, const uint32_t l
 }
 
 filesystem::path MemoryManipulator::getProjectDirectory() const {
-    char tempBuffer[256];
+    char tempBuffer[256]{};
     memory::read(memory::offset(_memoryAddress.project.projectPath), tempBuffer);
-    return fs::getDirectory(string(tempBuffer));
+    const auto filePath = filesystem::path(string(tempBuffer));
+    return is_directory(filePath) ? filePath : filePath.parent_path();
 }
 
 optional<SymbolName> MemoryManipulator::getSymbolName() const {

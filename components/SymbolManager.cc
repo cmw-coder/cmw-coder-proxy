@@ -9,7 +9,6 @@
 
 #include <components/MemoryManipulator.h>
 #include <components/SymbolManager.h>
-#include <utils/fs.h>
 #include <utils/logger.h>
 #include <utils/system.h>
 
@@ -106,8 +105,8 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix) {
                     if (const auto endLineOpt = getEndLine(getSymbolFields(entry.fields));
                         endLineOpt.has_value()) {
                         result.emplace_back(
-                            entry.name,
                             entry.file,
+                            entry.name,
                             type,
                             static_cast<uint32_t>(entry.address.lineNumber - 1),
                             endLineOpt.value() - 1
@@ -121,9 +120,9 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix) {
     return result;
 }
 
-void SymbolManager::updateFile(const string& filePath) {
-    thread([this,filePath] {
-        if (const auto extension = fs::getExtension(filePath);
+void SymbolManager::updateFile(const filesystem::path& filePath) {
+    thread([this, filePath] {
+        if (const auto extension = filePath.extension();
             extension == ".c") {
             bool needUpdate; {
                 shared_lock lock{_fileSetMutex};
@@ -155,9 +154,9 @@ void SymbolManager::updateFile(const string& filePath) {
     }).detach();
 }
 
-unordered_set<filesystem::path> SymbolManager::_collectIncludes(const string& filePath) const {
+unordered_set<filesystem::path> SymbolManager::_collectIncludes(const filesystem::path& filePath) const {
     optional<filesystem::path> publicPathOpt; {
-        auto absoluteFilePath = filesystem::absolute(filePath);
+        auto absoluteFilePath = absolute(filePath);
         while (absoluteFilePath != absoluteFilePath.parent_path()) {
             if (const auto tempPath = absoluteFilePath / "PUBLIC" / "include" / "comware";
                 exists(tempPath)) {

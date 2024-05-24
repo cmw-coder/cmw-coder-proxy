@@ -15,13 +15,13 @@ namespace components {
 
         std::vector<models::SymbolInfo> getSymbols(const std::string& prefix);
 
-        void updateFile(const std::string& filePath);
+        void updateFile(const std::filesystem::path& filePath);
 
     private:
         mutable std::shared_mutex _fileSetMutex, _tagFileMutex;
         std::unordered_set<std::filesystem::path> _fileSet;
 
-        std::unordered_set<std::filesystem::path> _collectIncludes(const std::string& filePath) const;
+        std::unordered_set<std::filesystem::path> _collectIncludes(const std::filesystem::path& filePath) const;
 
         std::unordered_set<std::filesystem::path> _getIncludesInFile(
             const std::filesystem::path& filePath,

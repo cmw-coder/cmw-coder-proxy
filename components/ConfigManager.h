@@ -36,8 +36,8 @@ namespace components {
         mutable std::shared_mutex _currentProjectMutex, _currentSvnMutex, _shortcutMutex;
         helpers::KeyHelper::KeyCombination _shortcutCommit, _shortcutManualCompletion;
         std::atomic<bool> _isRunning{true};
-        std::filesystem::path _currentSvn;
-        std::string _currentProject, _siVersionString;
+        std::filesystem::path _currentProjectPath, _currentSvnPath;
+        std::string _siVersionString;
         types::SiVersion::Full _siVersion;
 
         void _threadRetrieveProjectDirectory();

@@ -11,12 +11,12 @@ namespace components {
 
         ~ModificationManager() override;
 
-        std::vector<std::string> getRecentFiles(uint32_t limit = 5) const;
+        std::vector<std::filesystem::path> getRecentFiles(uint32_t limit = 5) const;
 
     private:
         mutable std::shared_mutex _modifingFilesMutex;
         std::atomic<bool> _isRunning{true};
-        std::unordered_map<std::string, std::chrono::high_resolution_clock::time_point> _recentFiles;
+        std::unordered_map<std::filesystem::path, std::chrono::high_resolution_clock::time_point> _recentFiles;
 
         void _monitorCurrentFile();
     };

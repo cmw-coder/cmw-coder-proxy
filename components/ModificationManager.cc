@@ -1,7 +1,6 @@
 #include <components/InteractionMonitor.h>
 #include <components/MemoryManipulator.h>
 #include <components/ModificationManager.h>
-#include <utils/fs.h>
 #include <utils/logger.h>
 
 using namespace components;
@@ -19,9 +18,9 @@ ModificationManager::~ModificationManager() {
     _isRunning = false;
 }
 
-vector<string> ModificationManager::getRecentFiles(const uint32_t limit) const {
-    using FileTime = pair<string, chrono::high_resolution_clock::time_point>;
-    vector<string> recentFiles;
+vector<filesystem::path> ModificationManager::getRecentFiles(const uint32_t limit) const {
+    using FileTime = pair<filesystem::path, chrono::high_resolution_clock::time_point>;
+    vector<filesystem::path> recentFiles;
     priority_queue<FileTime, vector<FileTime>, decltype([](const auto& a, const auto& b) {
         return a.second > b.second;
     })> pq; {
@@ -45,11 +44,11 @@ vector<string> ModificationManager::getRecentFiles(const uint32_t limit) const {
 void ModificationManager::_monitorCurrentFile() {
     thread([this] {
         while (_isRunning) {
-            string currentPath; {
+            filesystem::path currentPath; {
                 const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
-                currentPath = MemoryManipulator::GetInstance()->getFileName();
+                currentPath = MemoryManipulator::GetInstance()->getCurrentFilePath();
             }
-            if (const auto extension = fs::getExtension(currentPath);
+            if (const auto extension = currentPath.extension();
                 extension == ".c" || extension == ".h") {
                 unique_lock lock(_modifingFilesMutex);
                 _recentFiles.emplace(currentPath, chrono::high_resolution_clock::now());

@@ -124,7 +124,7 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
         const auto [key, modifiers] = keyCombinationOpt.value();
         if (configManager->checkCommit(key, modifiers)) {
             WebsocketManager::GetInstance()->send(EditorCommitClientMessage(
-                MemoryManipulator::GetInstance()->getFileName()
+                MemoryManipulator::GetInstance()->getCurrentFilePath()
             ));
             return;
         }
@@ -381,7 +381,7 @@ void InteractionMonitor::_threadReleaseInteractionLock() {
         while (_isRunning.load()) {
             if (_needReleaseInteractionLock.load()) {
                 if (const auto releaseInteractionLockTime = _releaseInteractionLockTime.load();
-                    chrono::high_resolution_clock::now() - releaseInteractionLockTime > 300ms) {
+                    chrono::high_resolution_clock::now() - releaseInteractionLockTime > 200ms) {
                     _needReleaseInteractionLock.store(false);
                     _interactionMutex.unlock();
                     logger::debug("Interaction mutex unlocked");

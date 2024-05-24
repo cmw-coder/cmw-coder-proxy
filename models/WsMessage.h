@@ -76,9 +76,9 @@ namespace models {
     public:
         CompletionGenerateClientMessage(
             const types::CaretPosition& caret,
-            const std::string& path,
+            const std::filesystem::path& path,
             const std::string& prefix,
-            const std::vector<std::string>& recentFiles,
+            const std::vector<std::filesystem::path>& recentFiles,
             const std::string& suffix,
             const std::vector<SymbolInfo>& symbols
         );
@@ -119,7 +119,7 @@ namespace models {
 
     class EditorCommitClientMessage final : public WsMessage {
     public:
-        explicit EditorCommitClientMessage(const std::string& path);
+        explicit EditorCommitClientMessage(const std::filesystem::path& path);
     };
 
     class EditorFocusStateClientMessage final : public WsMessage {
@@ -134,12 +134,12 @@ namespace models {
 
     class EditorSwitchProjectClientMessage final : public WsMessage {
     public:
-        explicit EditorSwitchProjectClientMessage(const std::string& path);
+        explicit EditorSwitchProjectClientMessage(const std::filesystem::path& path);
     };
 
     class EditorSwitchSvnClientMessage final : public WsMessage {
     public:
-        explicit EditorSwitchSvnClientMessage(const std::string& path);
+        explicit EditorSwitchSvnClientMessage(const std::filesystem::path& path);
     };
 
     class HandShakeClientMessage final : public WsMessage {

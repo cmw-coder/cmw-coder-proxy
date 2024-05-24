@@ -73,15 +73,15 @@ void ConfigManager::_threadRetrieveProjectDirectory() {
     thread([this] {
         while (_isRunning) {
             // TODO: Check if need InteractionMonitor::GetInstance()->getInteractionLock();
-            const auto currentProject = MemoryManipulator::GetInstance()->getProjectDirectory().string();
+            const auto currentProject = MemoryManipulator::GetInstance()->getProjectDirectory();
             bool isSameProject; {
                 shared_lock lock(_currentProjectMutex);
-                isSameProject = currentProject == _currentProject;
+                isSameProject = currentProject == _currentProjectPath;
             }
             if (!isSameProject) {
                 WebsocketManager::GetInstance()->send(EditorSwitchProjectClientMessage(currentProject));
                 unique_lock lock(_currentProjectMutex);
-                _currentProject = currentProject;
+                _currentProjectPath = currentProject;
             }
             this_thread::sleep_for(1s);
         }
@@ -91,9 +91,8 @@ void ConfigManager::_threadRetrieveProjectDirectory() {
 void ConfigManager::_threadRetrieveSvnDirectory() {
     thread([this] {
         while (_isRunning) {
-            if (auto tempFolder = filesystem::path(
-                MemoryManipulator::GetInstance()->getFileName()
-            ).lexically_normal().parent_path(); !tempFolder.empty()) {
+            if (auto tempFolder = MemoryManipulator::GetInstance()->getCurrentFilePath().lexically_normal().parent_path();
+                !tempFolder.empty()) {
                 // bool isMismatch; {
                 //     shared_lock lock(_currentSvnMutex);
                 //     if (_currentSvn.empty()) {
@@ -106,10 +105,10 @@ void ConfigManager::_threadRetrieveSvnDirectory() {
                 if (/*isMismatch && */ tempFolder.is_absolute()) {
                     while (!tempFolder.empty()) {
                         if (exists(tempFolder / ".svn")) {
-                            WebsocketManager::GetInstance()->send(EditorSwitchSvnClientMessage(tempFolder.string()));
+                            WebsocketManager::GetInstance()->send(EditorSwitchSvnClientMessage(tempFolder));
                             // logger::debug(format("Switched to SVN directory: {}", tempFolder.string()));
                             unique_lock lock(_currentSvnMutex);
-                            _currentSvn = tempFolder;
+                            _currentSvnPath = tempFolder;
                             break;
                         }
                         const auto parentPath = tempFolder.parent_path();

@@ -473,7 +473,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     const auto memoryManipulator = MemoryManipulator::GetInstance();
                     const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
                     const auto caretPosition = memoryManipulator->getCaretPosition();
-                    if (auto path = memoryManipulator->getFileName();
+                    if (auto path = memoryManipulator->getCurrentFilePath();
                         currentFileHandle && !path.empty()) {
                         SymbolManager::GetInstance()->updateFile(path);
                         string prefix, suffix; {

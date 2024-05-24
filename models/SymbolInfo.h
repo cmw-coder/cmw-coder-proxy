@@ -12,7 +12,8 @@ namespace models {
             Variable,
         };
 
-        std::string name, path, type;
+        std::filesystem::path path;
+        std::string name, type;
         uint32_t startLine, endLine;
     };
 }

@@ -16,9 +16,9 @@ namespace components {
     public:
         struct Components {
             types::CaretPosition caretPosition;
-            std::string path;
+            std::filesystem::path path;
             std::string prefix;
-            std::vector<std::string> recentFiles;
+            std::vector<std::filesystem::path> recentFiles;
             std::string suffix;
             std::vector<models::SymbolInfo> symbols;
         };
