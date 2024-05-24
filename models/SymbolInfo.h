@@ -1,5 +1,7 @@
 #pragma once
 
+#include <filesystem>
+
 namespace models {
     struct SymbolInfo {
         enum class Type {
