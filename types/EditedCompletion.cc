@@ -31,7 +31,7 @@ void EditedCompletion::react(const bool isAccept) {
 
 bool EditedCompletion::canReport() const {
     return _reactTime.has_value()
-               ? chrono::high_resolution_clock::now() - _reactTime.value() >= chrono::minutes(5)
+               ? chrono::high_resolution_clock::now() - _reactTime.value() >= 5min
                : false;
 }
 

@@ -45,15 +45,16 @@ vector<string> ModificationManager::getRecentFiles(const uint32_t limit) const {
 void ModificationManager::_monitorCurrentFile() {
     thread([this] {
         while (_isRunning) {
-            // TODO: Check if this would cause performance issue
-            const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
-            const auto currentPath = MemoryManipulator::GetInstance()->getFileName();
+            string currentPath; {
+                const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
+                currentPath = MemoryManipulator::GetInstance()->getFileName();
+            }
             if (const auto extension = fs::getExtension(currentPath);
                 extension == ".c" || extension == ".h") {
                 unique_lock lock(_modifingFilesMutex);
                 _recentFiles.emplace(currentPath, chrono::high_resolution_clock::now());
             }
-            this_thread::sleep_for(chrono::milliseconds(100));
+            this_thread::sleep_for(100ms);
         }
     }).detach();
 }

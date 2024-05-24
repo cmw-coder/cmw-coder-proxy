@@ -91,11 +91,6 @@ void WindowManager::interactionPaste(const any&) {
     _cancelRetrieveInfo();
 }
 
-void WindowManager::requestRetrieveInfo() {
-    _debounceRetrieveInfoTime.store(chrono::high_resolution_clock::now() + chrono::milliseconds(250));
-    _needRetrieveInfo.store(true);
-}
-
 void WindowManager::sendF13() const {
     if (const auto currentWindowHandleOpt = _currentWindowHandle.load();
         currentWindowHandleOpt.has_value()) {

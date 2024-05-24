@@ -29,8 +29,6 @@ namespace components {
 
         void interactionPaste(const std::any& = {});
 
-        void requestRetrieveInfo();
-
         void sendF13() const;
 
         void sendLeftThenRight() const;

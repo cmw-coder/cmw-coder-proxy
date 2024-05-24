@@ -83,7 +83,7 @@ void ConfigManager::_threadRetrieveProjectDirectory() {
                 unique_lock lock(_currentProjectMutex);
                 _currentProject = currentProject;
             }
-            this_thread::sleep_for(chrono::seconds(1));
+            this_thread::sleep_for(1s);
         }
     }).detach();
 }
@@ -120,7 +120,7 @@ void ConfigManager::_threadRetrieveSvnDirectory() {
                     }
                 }
             }
-            this_thread::sleep_for(chrono::milliseconds(200));
+            this_thread::sleep_for(200ms);
         }
     }).detach();
 }

@@ -122,7 +122,7 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                         if (content = iconv::needEncode ? iconv::utf8ToGbk(content) : content;
                             !content.empty()) {
                             while (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
-                                this_thread::sleep_for(chrono::milliseconds(5));
+                                this_thread::sleep_for(5ms);
                             }
 
                             const auto memoryManipulator = MemoryManipulator::GetInstance();
@@ -161,15 +161,13 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
             );
 
             logger::info(format(
-                "Version: {}, PID: {}, currentTID: {}, mainTID: {}, mainModuleName: {}",
-                VERSION_STRING + ConfigManager::GetInstance()->reportVersion(),
+                "[{}] Comware Coder Proxy {} is ready. CurrentTID: {}, mainTID: {}, mainModuleName: {}",
                 GetCurrentProcessId(),
+                VERSION_STRING + ConfigManager::GetInstance()->reportVersion(),
                 GetCurrentThreadId(),
                 system::getMainThreadId(),
                 system::getModuleFileName(reinterpret_cast<uint64_t>(GetModuleHandle(nullptr)))
             ));
-
-            logger::info("Comware Coder Proxy is ready");
             break;
         }
         case DLL_PROCESS_DETACH: {

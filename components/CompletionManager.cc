@@ -68,7 +68,7 @@ namespace {
 
         auto [height, xPosition, yPosition] = MemoryManipulator::GetInstance()->getCaretDimension();
         while (!height) {
-            this_thread::sleep_for(chrono::milliseconds(5));
+            this_thread::sleep_for(5ms);
             const auto [
                 newHeight,
                 newXPosition,
@@ -440,7 +440,7 @@ void CompletionManager::_threadCheckAcceptedCompletions() {
         while (_isRunning) {
             vector<EditedCompletion> needReportCompletions{}; {
                 const shared_lock lock(_editedCompletionMapMutex);
-                for (auto& [_, acceptedCompletion]: _editedCompletionMap) {
+                for (const auto& acceptedCompletion: _editedCompletionMap | views::values) {
                     if (acceptedCompletion.canReport()) {
                         needReportCompletions.push_back(acceptedCompletion);
                     }
@@ -453,7 +453,7 @@ void CompletionManager::_threadCheckAcceptedCompletions() {
                     WebsocketManager::GetInstance()->send(needReportCompletion.parse());
                 }
             }
-            this_thread::sleep_for(chrono::seconds(1));
+            this_thread::sleep_for(1s);
         }
     }).detach();
 }
@@ -462,12 +462,14 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
     thread([this] {
         while (_isRunning) {
             if (const auto pastTime = chrono::high_resolution_clock::now() - _debounceRetrieveCompletionTime.load();
-                pastTime >= chrono::milliseconds(300) && _needRetrieveCompletion.load()) {
+                pastTime >= 300ms && _needRetrieveCompletion.load()) {
                 WindowManager::GetInstance()->setMenuText("Generating...");
                 try {
                     WindowManager::GetInstance()->sendF13();
                     // TODO: Improve performance
+                    logger::debug("Try to get interaction shared lock");
                     const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
+                    logger::debug("Successfuly got interaction shared lock");
                     const auto memoryManipulator = MemoryManipulator::GetInstance();
                     const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
                     const auto caretPosition = memoryManipulator->getCaretPosition();
@@ -529,7 +531,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     logger::warn(format("Exception when retrieving completion: {}", e.what()));
                 }
             }
-            this_thread::sleep_for(chrono::milliseconds(10));
+            this_thread::sleep_for(10ms);
         }
     }).detach();
 }
