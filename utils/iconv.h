@@ -2,12 +2,8 @@
 
 #include <string>
 
-#include <utils/system.h>
-
 namespace utils::iconv {
-    const auto needEncode = get<0>(system::getVersion()) == 3;
+    std::string autoDecode(const std::string& source);
 
-    std::string gbkToUtf8(const std::string& source);
-
-    std::string utf8ToGbk(const std::string& source);
+    std::string autoEncode(const std::string& source);
 }
