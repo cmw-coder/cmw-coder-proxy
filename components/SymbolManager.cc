@@ -5,10 +5,12 @@
 #include <regex>
 
 #include <magic_enum.hpp>
+#include <nlohmann/json.hpp>
 #include <readtags.h>
 
 #include <components/MemoryManipulator.h>
 #include <components/SymbolManager.h>
+#include <nlohmann/json_fwd.hpp>
 #include <utils/logger.h>
 #include <utils/system.h>
 
@@ -129,19 +131,10 @@ void SymbolManager::updateFile(const filesystem::path& filePath) {
                 needUpdate = !_fileSet.contains(filePath);
             }
             if (needUpdate) {
-                auto fileSet = _collectIncludes(filePath);
-                fileSet.emplace(filePath);
-                if (_updateTags(fileSet)) {
-                    {
-                        unique_lock lock{_fileSetMutex};
-                        _fileSet.merge(fileSet);
-                    }
-                    for (const auto& duplicated: fileSet) {
-                        logger::warn(format("Found duplicated include: {}", duplicated.generic_string()));
-                    }
-                }
-            } else {
-                ignore = _updateTags(filePath);
+                _collectIncludes(filePath);
+            }
+            if (!_updateTags()) {
+                logger::error("Failed to update tags");
             }
         } else if (extension == ".h") {
             unique_lock lock{_tagFileMutex};
@@ -154,7 +147,7 @@ void SymbolManager::updateFile(const filesystem::path& filePath) {
     }).detach();
 }
 
-unordered_set<filesystem::path> SymbolManager::_collectIncludes(const filesystem::path& filePath) const {
+void SymbolManager::_collectIncludes(const filesystem::path& filePath) {
     optional<filesystem::path> publicPathOpt; {
         auto absoluteFilePath = absolute(filePath);
         while (absoluteFilePath != absoluteFilePath.parent_path()) {
@@ -179,7 +172,11 @@ unordered_set<filesystem::path> SymbolManager::_collectIncludes(const filesystem
             }
         }
     }
-    return result;
+    result.emplace(filePath); {
+        unique_lock lock{_fileSetMutex};
+        _fileSet.merge(result);
+    }
+    logger::warn(format("Found duplicated include: {}", nlohmann::json(result)));
 }
 
 unordered_set<filesystem::path> SymbolManager::_getIncludesInFile(
@@ -212,27 +209,15 @@ unordered_set<filesystem::path> SymbolManager::_getIncludesInFile(
     return result;
 }
 
-bool SymbolManager::_updateTags(const filesystem::path& filePath) const {
-    const auto arguments = format(
-        R"(-a --excmd=combine -f "{}" --fields=+e+n --kinds-c=-efhmv "{}")",
-        (MemoryManipulator::GetInstance()->getProjectDirectory() / "tags").generic_string(),
-        filePath.generic_string()
-    );
-    unique_lock lock{_tagFileMutex};
-    if (!system::runCommand("ctags.exe", arguments)) {
-        logger::warn("Failed to generate tags");
-        return false;
-    }
-    return true;
-}
-
-bool SymbolManager::_updateTags(const unordered_set<filesystem::path>& fileSet) const {
-    if (fileSet.empty()) {
-        return false;
-    }
-    string fileList;
-    for (const auto& file: fileSet) {
-        fileList += format(R"("{}" )", file.generic_string());
+bool SymbolManager::_updateTags() const {
+    string fileList; {
+        shared_lock lock{_fileSetMutex};
+        if (_fileSet.empty()) {
+            return false;
+        }
+        for (const auto& file: _fileSet) {
+            fileList += format(R"("{}" )", file.generic_string());
+        }
     }
     const string arguments = format(
         R"(-a --excmd=combine -f "{}" --fields=+e+n --kinds-c=-efhmv {})",
@@ -241,7 +226,6 @@ bool SymbolManager::_updateTags(const unordered_set<filesystem::path>& fileSet) 
     );
     unique_lock lock{_tagFileMutex};
     if (!system::runCommand("ctags.exe", arguments)) {
-        logger::warn("Failed to generate tags");
         return false;
     }
     return true;
