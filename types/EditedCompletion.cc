@@ -1,6 +1,7 @@
 #include <components/MemoryManipulator.h>
 #include <components/WindowManager.h>
 #include <types/EditedCompletion.h>
+#include <utils/iconv.h>
 #include <utils/logger.h>
 
 using namespace components;
@@ -61,15 +62,16 @@ CompletionEditClientMessage EditedCompletion::parse() const {
         WindowManager::GetInstance()->sendF13();
         for (uint32_t line = _references.front() < 10 ? 0 : _references.front() - 10;
              line <= _references.back() + 10; ++line) {
-            const auto currentLine = memoryManipulator->getLineContent(fileHandleOpt.value(), line);
-            currentContent.append(currentLine).append("\n");
+            currentContent
+                    .append(iconv::autoDecode(memoryManipulator->getLineContent(fileHandleOpt.value(), line)))
+                    .append("\n");
         }
         if (_isAccept) {
             auto reference = _references.begin();
             for (const auto originalRange: _completion | views::split("\n"sv)) {
-                if (memoryManipulator->getLineContent(fileHandleOpt.value(), *reference).contains(
-                    string{originalRange.begin(), originalRange.end()}
-                )) {
+                if (iconv::autoDecode(
+                    memoryManipulator->getLineContent(fileHandleOpt.value(), *reference)
+                ).contains(string{originalRange.begin(), originalRange.end()})) {
                     ++count;
                 }
                 ++reference;

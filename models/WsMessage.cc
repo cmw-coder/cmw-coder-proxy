@@ -42,7 +42,7 @@ optional<string> ChatInsertServerMessage::content() const {
 CompletionAcceptClientMessage::CompletionAcceptClientMessage(const string& actionId, uint32_t index)
     : WsMessage(
         WsAction::CompletionAccept, {
-            {"actionId", iconv::needEncode ? iconv::gbkToUtf8(actionId) : actionId},
+            {"actionId", actionId},
             {"index", index},
         }
     ) {}
@@ -53,7 +53,7 @@ CompletionCacheClientMessage::CompletionCacheClientMessage(const bool isDelete)
 CompletionCancelClientMessage::CompletionCancelClientMessage(const string& actionId, bool isExplicit)
     : WsMessage(
         WsAction::CompletionCancel, {
-            {"actionId", iconv::needEncode ? iconv::gbkToUtf8(actionId) : actionId},
+            {"actionId", actionId},
             {"explicit", isExplicit}
         }
     ) {}
@@ -65,9 +65,9 @@ CompletionEditClientMessage::CompletionEditClientMessage(
     const KeptRatio keptRatio
 ): WsMessage(
     WsAction::CompletionEdit, {
-        {"actionId", iconv::needEncode ? iconv::gbkToUtf8(actionId) : actionId},
+        {"actionId", actionId},
         {"count", count},
-        {"editedContent", iconv::needEncode ? iconv::gbkToUtf8(editedContent) : editedContent},
+        {"editedContent", editedContent},
         {"ratio", enum_name(keptRatio)},
     }
 ) {}
@@ -87,15 +87,15 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
                 {"line", caret.line},
             }
         },
-        {"path", iconv::needEncode ? iconv::gbkToUtf8(path.generic_string()) : path.generic_string()},
-        {"prefix", iconv::needEncode ? iconv::gbkToUtf8(prefix) : prefix},
+        {"path", iconv::autoDecode(path.generic_string())},
+        {"prefix", prefix},
         {"recentFiles", nlohmann::json::array()},
-        {"suffix", iconv::needEncode ? iconv::gbkToUtf8(suffix) : suffix},
+        {"suffix", suffix},
         {"symbols", nlohmann::json::array()},
     }
 ) {
     for (const auto& recentFile: recentFiles) {
-        _data["recentFiles"].push_back(iconv::needEncode ? iconv::gbkToUtf8(recentFile.generic_string()) : recentFile);
+        _data["recentFiles"].push_back(iconv::autoDecode(recentFile.generic_string()));
     }
     for (const auto& [path, name, type, startLine, endLine]: symbols) {
         // ctags uses UTF-8 encoding, so we need to convert them to UTF-8
@@ -142,7 +142,7 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
     const int64_t y
 ): WsMessage(
     WsAction::CompletionSelect, {
-        {"actionId", iconv::needEncode ? iconv::gbkToUtf8(actionId) : actionId},
+        {"actionId", actionId},
         {"index", index},
         {
             "dimensions", {
@@ -155,10 +155,7 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
 ) {}
 
 EditorCommitClientMessage::EditorCommitClientMessage(const filesystem::path& path)
-    : WsMessage(
-        WsAction::EditorCommit,
-        iconv::needEncode ? iconv::gbkToUtf8(path.generic_string()) : path.generic_string()
-    ) {}
+    : WsMessage(WsAction::EditorCommit, iconv::autoDecode(path.generic_string())) {}
 
 EditorFocusStateClientMessage::EditorFocusStateClientMessage(const bool isFocused)
     : WsMessage(WsAction::EditorFocusState, isFocused) {}
@@ -171,23 +168,17 @@ EditorPasteClientMessage::EditorPasteClientMessage(const uint32_t count)
     ) {}
 
 EditorSwitchProjectClientMessage::EditorSwitchProjectClientMessage(const filesystem::path& path)
-    : WsMessage(
-        WsAction::EditorSwitchProject,
-        iconv::needEncode ? iconv::gbkToUtf8(path.generic_string()) : path.generic_string()
-    ) {}
+    : WsMessage(WsAction::EditorSwitchProject, iconv::autoDecode(path.generic_string())) {}
 
 EditorSwitchSvnClientMessage::EditorSwitchSvnClientMessage(const std::filesystem::path& path)
-    : WsMessage(
-        WsAction::EditorSwitchSvn,
-        iconv::needEncode ? iconv::gbkToUtf8(path.generic_string()) : path.generic_string()
-    ) {}
+    : WsMessage(WsAction::EditorSwitchSvn, iconv::autoDecode(path.generic_string())) {}
 
-HandShakeClientMessage::HandShakeClientMessage(string&& currentProject, string&& version)
+HandShakeClientMessage::HandShakeClientMessage(const filesystem::path& currentProject, string&& version)
     : WsMessage(
         WsAction::HandShake, {
             {"pid", GetCurrentProcessId()},
-            {"currentProject", iconv::needEncode ? iconv::gbkToUtf8(currentProject) : currentProject},
-            {"version", iconv::needEncode ? iconv::gbkToUtf8(version) : version},
+            {"currentProject", iconv::autoDecode(currentProject.generic_string())},
+            {"version", version},
         }
     ) {}
 
@@ -203,8 +194,8 @@ SettingSyncServerMessage::SettingSyncServerMessage(nlohmann::json&& data)
 
 optional<KeyHelper::KeyCombination> SettingSyncServerMessage::shortcutManualCompletion() const {
     if (_shortcuts.has_value()) {
-        const auto shortcutConfig = _shortcuts.value()["manualCompletion"];
-        if (shortcutConfig.contains("key") && shortcutConfig.contains("modifiers")) {
+        if (const auto shortcutConfig = _shortcuts.value()["manualCompletion"];
+            shortcutConfig.contains("key") && shortcutConfig.contains("modifiers")) {
             // return KeyHelper::KeyCombination{
             //     shortcutConfig["key"].get<int>(),
             //     shortcutConfig["modifiers"].get<int>()

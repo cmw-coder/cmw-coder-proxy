@@ -119,7 +119,7 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                     if (const auto serverMessage = ChatInsertServerMessage(move(data));
                         serverMessage.result == "success") {
                         auto content = serverMessage.content().value();
-                        if (content = iconv::needEncode ? iconv::utf8ToGbk(content) : content;
+                        if (content = iconv::autoEncode(content);
                             !content.empty()) {
                             while (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
                                 this_thread::sleep_for(5ms);

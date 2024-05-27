@@ -6,6 +6,7 @@
 #include <components/MemoryManipulator.h>
 #include <components/WebsocketManager.h>
 #include <models/WsMessage.h>
+#include <utils/iconv.h>
 #include <utils/logger.h>
 #include <utils/system.h>
 

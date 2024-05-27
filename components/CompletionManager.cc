@@ -16,6 +16,7 @@
 #include <types/CaretPosition.h>
 #include <utils/iconv.h>
 #include <utils/logger.h>
+#include <utils/system.h>
 
 using namespace components;
 using namespace helpers;
@@ -348,7 +349,7 @@ void CompletionManager::wsCompletionGenerate(nlohmann::json&& data) {
             _completionsOpt.emplace(completions);
         } {
             unique_lock lock(_completionCacheMutex);
-            _completionCache.reset(iconv::needEncode ? iconv::utf8ToGbk(candidate) : candidate);
+            _completionCache.reset(iconv::autoEncode(candidate));
         }
         if (const auto currentWindowHandleOpt = WindowManager::GetInstance()->getCurrentWindowHandle();
             currentWindowHandleOpt.has_value()) {
@@ -480,21 +481,21 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             const auto currentLine = memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line
                             );
-                            prefix = currentLine.substr(0, caretPosition.character);
-                            suffix = currentLine.substr(caretPosition.character);
+                            prefix = iconv::autoDecode(currentLine.substr(0, caretPosition.character));
+                            suffix = iconv::autoDecode(currentLine.substr(caretPosition.character));
                         }
                         for (uint32_t index = 1; index <= min(caretPosition.line, 100u); ++index) {
-                            const auto tempLine = memoryManipulator->getLineContent(
+                            const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line - index
-                            ).append("\n");
+                            )).append("\n");
                             prefix.insert(0, tempLine);
                             if (regex_search(tempLine, regex(R"~(^\/\/.*|^\/\*\*.*)~"))) {
                                 break;
                             }
                         }
                         for (uint32_t index = 1; index <= 30u; ++index) {
-                            const auto tempLine = memoryManipulator->getLineContent(
-                                currentFileHandle, caretPosition.line + index);
+                            const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
+                                currentFileHandle, caretPosition.line + index));
                             suffix.append("\n").append(tempLine);
                         } {
                             unique_lock lock(_componentsMutex);

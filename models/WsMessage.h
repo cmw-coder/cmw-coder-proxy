@@ -144,7 +144,7 @@ namespace models {
 
     class HandShakeClientMessage final : public WsMessage {
     public:
-        explicit HandShakeClientMessage(std::string&& currentProject, std::string&& version);
+        explicit HandShakeClientMessage(const std::filesystem::path& currentProject, std::string&& version);
     };
 
     class SettingSyncServerMessage final : public WsMessage {

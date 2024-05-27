@@ -4,6 +4,7 @@
 #include <components/ConfigManager.h>
 #include <components/MemoryManipulator.h>
 #include <components/WebsocketManager.h>
+#include <utils/iconv.h>
 #include <utils/logger.h>
 
 using namespace components;
@@ -27,7 +28,7 @@ WebsocketManager::WebsocketManager(string&& url, const chrono::seconds& pingInte
             case WebSocketMessageType::Open: {
                 logger::info("Websocket connection established");
                 send(HandShakeClientMessage(
-                    MemoryManipulator::GetInstance()->getProjectDirectory().string(),
+                    MemoryManipulator::GetInstance()->getProjectDirectory(),
                     ConfigManager::GetInstance()->reportVersion()
                 ));
                 break;
