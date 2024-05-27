@@ -176,7 +176,7 @@ void SymbolManager::_collectIncludes(const filesystem::path& filePath) {
         unique_lock lock{_fileSetMutex};
         _fileSet.merge(result);
     }
-    logger::warn(format("Found duplicated include: {}", nlohmann::json(result)));
+    logger::warn(format("Found duplicated include: {}", nlohmann::json(result).dump()));
 }
 
 unordered_set<filesystem::path> SymbolManager::_getIncludesInFile(
