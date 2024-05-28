@@ -133,9 +133,7 @@ void SymbolManager::updateFile(const filesystem::path& filePath) {
             if (needUpdate) {
                 _collectIncludes(filePath);
             }
-            if (!_updateTags()) {
-                logger::error("Failed to update tags");
-            }
+            ignore = _updateTags();
         } else if (extension == ".h") {
             unique_lock lock{_tagFileMutex};
             // TODO: Check if need InteractionMonitor::GetInstance()->getInteractionLock();
@@ -225,8 +223,5 @@ bool SymbolManager::_updateTags() const {
         fileList
     );
     unique_lock lock{_tagFileMutex};
-    if (!system::runCommand("ctags.exe", arguments)) {
-        return false;
-    }
-    return true;
+    return system::runCommand("ctags.exe", arguments);
 }

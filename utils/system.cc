@@ -1,6 +1,8 @@
+#include <format>
 #include <memory>
 #include <stdexcept>
 
+#include <utils/logger.h>
 #include <utils/system.h>
 
 #include <windows.h>
@@ -177,14 +179,20 @@ tuple<int, int, int, int> system::getVersion() {
 }
 
 bool system::runCommand(const std::string& executable, const std::string& arguments) {
-    return reinterpret_cast<int>(ShellExecute(
-               nullptr,
-               "open",
-               executable.c_str(),
-               arguments.c_str(),
-               nullptr,
-               SW_HIDE
-           )) > 32;
+    const auto code = reinterpret_cast<int>(ShellExecute(
+        nullptr,
+        "open",
+        executable.c_str(),
+        arguments.c_str(),
+        nullptr,
+        SW_HIDE
+    ));
+    if (code <= 32) {
+        logger::error(format(
+            "runCommand failed: {}", formatSystemMessage(static_cast<long>(GetLastError()))
+        ));
+    }
+    return code > 32;
 }
 
 void system::setEnvironmentVariable(const string& name, const string& value) {
