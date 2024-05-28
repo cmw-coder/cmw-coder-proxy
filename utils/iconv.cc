@@ -42,17 +42,13 @@ namespace {
     string encode(const string& source, const Encoding encoding = CHINESE_GB) {
         switch (encoding) {
             case CHINESE_GB: {
-                int len = MultiByteToWideChar(CP_UTF8, 0, source.c_str(), -1, nullptr, 0);
-                const auto wszGBK = new wchar_t[len + 1];
-                memset(wszGBK, 0, len * 2 + 2);
-                MultiByteToWideChar(CP_UTF8, 0, source.c_str(), -1, wszGBK, len);
-                len = WideCharToMultiByte(CP_ACP, 0, wszGBK, -1, nullptr, 0, nullptr, nullptr);
-                const auto szGBK = new char[len + 1];
-                memset(szGBK, 0, len + 1);
-                WideCharToMultiByte(CP_ACP, 0, wszGBK, -1, szGBK, len, nullptr, nullptr);
-                string strTemp(szGBK);
-                delete[] wszGBK;
-                delete[] szGBK;
+                auto len = MultiByteToWideChar(CP_UTF8, 0, source.c_str(), -1, nullptr, 0);
+                vector<wchar_t> wszGBK(len + 1, 0);
+                MultiByteToWideChar(CP_UTF8, 0, source.c_str(), -1, wszGBK.data(), len);
+                len = WideCharToMultiByte(CP_ACP, 0, wszGBK.data(), -1, nullptr, 0, nullptr, nullptr);
+                vector<char> szGBK(len + 1, 0);
+                WideCharToMultiByte(CP_ACP, 0, wszGBK.data(), -1, szGBK.data(), len, nullptr, nullptr);
+                string strTemp = szGBK.data();
                 return strTemp;
             }
             default: {
