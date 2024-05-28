@@ -8,12 +8,12 @@ using namespace types;
 Completions::Completions(string actionId, const vector<string>& candidates)
     : actionId(move(actionId)), _candidates(candidates) {}
 
-uint32_t Completions::size() const {
-    return _candidates.size();
-}
-
 tuple<string, uint32_t> Completions::current() const {
     return {_candidates[_currentIndex], _currentIndex};
+}
+
+bool Completions::empty() const {
+    return _candidates.empty();
 }
 
 tuple<string, uint32_t> Completions::next() {

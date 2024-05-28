@@ -12,9 +12,9 @@ namespace types {
 
         Completions(std::string actionId, const std::vector<std::string>& candidates);
 
-        [[nodiscard]] uint32_t size() const;
-
         [[nodiscard]] std::tuple<std::string, uint32_t> current() const;
+
+        [[nodiscard]] bool empty() const;
 
         [[nodiscard]] std::tuple<std::string, uint32_t> next();
 

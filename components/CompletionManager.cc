@@ -338,6 +338,10 @@ void CompletionManager::wsCompletionGenerate(nlohmann::json&& data) {
     if (const auto serverMessage = CompletionGenerateServerMessage(move(data));
         serverMessage.result == "success") {
         const auto completions = serverMessage.completions().value();
+        if (completions.empty()) {
+            logger::log("(WsAction::CompletionGenerate) Ignore due to empty completions");
+            return;
+        }
         const auto& actionId = completions.actionId;
         if (_needDiscardWsAction.load()) {
             logger::log("(WsAction::CompletionGenerate) Ignore due to debounce");
