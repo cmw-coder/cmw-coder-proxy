@@ -19,16 +19,12 @@ namespace {
         switch (encoding) {
             case CHINESE_GB: {
                 auto len = MultiByteToWideChar(CP_ACP, 0, source.c_str(), -1, nullptr, 0);
-                const auto wstr = new wchar_t[len + 1];
-                memset(wstr, 0, len + 1);
-                MultiByteToWideChar(CP_ACP, 0, source.c_str(), -1, wstr, len);
-                len = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, nullptr, 0, nullptr, nullptr);
-                const auto str = new char[len + 1];
-                memset(str, 0, len + 1);
-                WideCharToMultiByte(CP_UTF8, 0, wstr, -1, str, len, nullptr, nullptr);
-                string strTemp = str;
-                delete[] wstr;
-                delete[] str;
+                vector<wchar_t> wstr(len + 1, 0);
+                MultiByteToWideChar(CP_ACP, 0, source.c_str(), -1, wstr.data(), len);
+                len = WideCharToMultiByte(CP_UTF8, 0, wstr.data(), -1, nullptr, 0, nullptr, nullptr);
+                vector<char> str(len + 1, 0);
+                WideCharToMultiByte(CP_UTF8, 0, wstr.data(), -1, str.data(), len, nullptr, nullptr);
+                string strTemp = str.data();
                 return strTemp;
             }
             case ISO_8859_1:
@@ -67,14 +63,14 @@ namespace {
     }
 }
 
-std::string iconv::autoDecode(const std::string& source) {
+string iconv::autoDecode(const string& source) {
     bool is_reliable;
     int bytes_consumed;
     const auto encoding = DetectEncoding(
         source.c_str(), static_cast<int>(source.length()),
         nullptr, nullptr, nullptr,
-        UNKNOWN_ENCODING,
-        UNKNOWN_LANGUAGE,
+        CHINESE_GB,
+        CHINESE,
         CompactEncDet::EMAIL_CORPUS,
         false,
         &bytes_consumed,
@@ -85,6 +81,6 @@ std::string iconv::autoDecode(const std::string& source) {
     return decode(source, encoding);
 }
 
-std::string iconv::autoEncode(const std::string& source) {
+string iconv::autoEncode(const string& source) {
     return encode(source);
 }
