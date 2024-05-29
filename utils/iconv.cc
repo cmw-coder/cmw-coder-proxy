@@ -17,7 +17,12 @@ using namespace utils;
 namespace {
     string decode(const string& source, const Encoding encoding = CHINESE_GB) {
         switch (encoding) {
-            case CHINESE_GB: {
+            case ISO_8859_1:
+            case UTF8:
+            case ASCII_7BIT: {
+                return source;
+            }
+            default: {
                 auto len = MultiByteToWideChar(CP_ACP, 0, source.c_str(), -1, nullptr, 0);
                 vector<wchar_t> wstr(len + 1, 0);
                 MultiByteToWideChar(CP_ACP, 0, source.c_str(), -1, wstr.data(), len);
@@ -26,15 +31,6 @@ namespace {
                 WideCharToMultiByte(CP_UTF8, 0, wstr.data(), -1, str.data(), len, nullptr, nullptr);
                 string strTemp = str.data();
                 return strTemp;
-            }
-            case ISO_8859_1:
-            case UTF8:
-            case ASCII_7BIT: {
-                return source;
-            }
-            default: {
-                logger::warn(format("Decode: Unsupported encoding: {}", enum_name(encoding)));
-                return source;
             }
         }
     }
@@ -62,19 +58,19 @@ namespace {
 string iconv::autoDecode(const string& source) {
     bool is_reliable;
     int bytes_consumed;
-    const auto encoding = DetectEncoding(
-        source.c_str(), static_cast<int>(source.length()),
-        nullptr, nullptr, nullptr,
-        CHINESE_GB,
-        CHINESE,
-        CompactEncDet::EMAIL_CORPUS,
-        false,
-        &bytes_consumed,
-        &is_reliable);
-    if (!is_reliable) {
-        logger::warn("AutoDecode: Unreliable encoding detected");
-    }
-    return decode(source, encoding);
+    return decode(
+        source,
+        DetectEncoding(
+            source.c_str(), static_cast<int>(source.length()),
+            nullptr, nullptr, nullptr,
+            CHINESE_GB,
+            CHINESE,
+            CompactEncDet::EMAIL_CORPUS,
+            false,
+            &bytes_consumed,
+            &is_reliable
+        )
+    );
 }
 
 string iconv::autoEncode(const string& source) {
