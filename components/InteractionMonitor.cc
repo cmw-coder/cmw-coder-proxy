@@ -232,6 +232,14 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
         return false;
     }
 
+    auto needUpdateReleaseFlag = false;
+    if (!_needReleaseInteractionLock.load()) {
+        logger::debug("Try locking interaction mutex");
+        _interactionMutex.lock();
+        needUpdateReleaseFlag = true;
+        logger::debug("Interaction mutex locked");
+    }
+
     const auto keyFlags = HIWORD(lParam);
     const auto isKeyUp = (keyFlags & KF_UP) == KF_UP;
     bool needBlockMessage{false};
@@ -269,15 +277,9 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
         }
     }
 
-    if (_needReleaseInteractionLock.load()) {
-        _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
-        logger::debug("Update interaction lock release time");
-    } else {
-        logger::debug("Try locking interaction mutex");
-        _interactionMutex.lock();
+    _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
+    if (needUpdateReleaseFlag) {
         _needReleaseInteractionLock.store(true);
-        _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
-        logger::debug("Interaction mutex locked");
     }
 
     return needBlockMessage;
