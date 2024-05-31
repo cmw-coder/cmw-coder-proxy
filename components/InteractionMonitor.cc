@@ -81,6 +81,7 @@ InteractionMonitor::InteractionMonitor()
 
 InteractionMonitor::~InteractionMonitor() {
     _isRunning.store(false);
+    _interactionMutex.unlock();
 }
 
 shared_lock<shared_mutex> InteractionMonitor::getInteractionLock() const {
