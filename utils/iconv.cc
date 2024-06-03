@@ -74,5 +74,10 @@ string iconv::autoDecode(const string& source) {
 }
 
 string iconv::autoEncode(const string& source) {
-    return encode(source, ConfigManager::GetInstance()->version().first == SiVersion::Major::V35 ? CHINESE_GB : UTF8);
+    return encode(
+        source,
+        ConfigManager::GetInstance()->version().first == SiVersion::Major::V35
+            ? CHINESE_GB
+            : UTF8
+    );
 }
