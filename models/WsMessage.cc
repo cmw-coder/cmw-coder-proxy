@@ -98,11 +98,10 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
         _data["recentFiles"].push_back(iconv::autoDecode(recentFile.generic_string()));
     }
     for (const auto& [path, name, type, startLine, endLine]: symbols) {
-        // ctags uses UTF-8 encoding, so we need to convert them to UTF-8
         _data["symbols"].push_back({
             {"endLine", endLine},
             {"name", name},
-            {"path", path.generic_string()},
+            {"path", iconv::autoDecode(path.generic_string())},
             {"startLine", startLine},
             {"type", type},
         });

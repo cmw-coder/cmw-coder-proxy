@@ -6,7 +6,6 @@
 
 #include <components/ConfigManager.h>
 #include <utils/iconv.h>
-#include <utils/logger.h>
 
 #include <windows.h>
 
