@@ -1,17 +1,19 @@
 #include <codecvt>
 #include <format>
-#include <locale>
 
 #include <compact_enc_det/compact_enc_det.h>
 #include <magic_enum.hpp>
 
+#include <components/ConfigManager.h>
 #include <utils/iconv.h>
 #include <utils/logger.h>
 
 #include <windows.h>
 
+using namespace components;
 using namespace magic_enum;
 using namespace std;
+using namespace types;
 using namespace utils;
 
 namespace {
@@ -48,7 +50,6 @@ namespace {
                 return strTemp;
             }
             default: {
-                logger::warn(format("Encode: Unsupported encoding: {}", enum_name(encoding)));
                 return source;
             }
         }
@@ -74,5 +75,5 @@ string iconv::autoDecode(const string& source) {
 }
 
 string iconv::autoEncode(const string& source) {
-    return encode(source);
+    return encode(source, ConfigManager::GetInstance()->version().first == SiVersion::Major::V35 ? CHINESE_GB : UTF8);
 }
