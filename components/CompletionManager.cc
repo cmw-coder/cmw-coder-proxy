@@ -3,7 +3,6 @@
 #include <regex>
 
 #include <magic_enum.hpp>
-#include <nlohmann/json.hpp>
 
 #include <components/CompletionManager.h>
 #include <components/ConfigManager.h>
@@ -334,7 +333,7 @@ void CompletionManager::interactionUndo(const any&, bool&) {
     }
 }
 
-void CompletionManager::wsCompletionGenerate(nlohmann::json&& data) {
+void CompletionManager::wsCompletionGenerate(Json::Value&& data) {
     if (const auto serverMessage = CompletionGenerateServerMessage(move(data));
         serverMessage.result == "success") {
         const auto completions = serverMessage.completions().value();

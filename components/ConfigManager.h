@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <string>
 
-#include <nlohmann/json_fwd.hpp>
+#include <json/json.h>
 #include <singleton_dclp.hpp>
 
 #include <helpers/KeyHelper.h>
@@ -30,7 +30,7 @@ namespace components {
 
         [[nodiscard]] std::string reportVersion() const;
 
-        void wsSettingSync(nlohmann::json&& data);
+        void wsSettingSync(Json::Value&& data);
 
     private:
         mutable std::shared_mutex _currentProjectMutex, _currentSvnMutex, _shortcutMutex;

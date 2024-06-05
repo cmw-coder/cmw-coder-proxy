@@ -3,7 +3,7 @@
 #include <chrono>
 
 #include <ixwebsocket/IXWebSocket.h>
-#include <nlohmann/json.hpp>
+#include <json/json.h>
 #include <singleton_dclp.hpp>
 
 #include <models/WsMessage.h>
@@ -11,7 +11,7 @@
 namespace components {
     class WebsocketManager : public SingletonDclp<WebsocketManager> {
     public:
-        using CallBack = std::function<void(nlohmann::json&&)>;
+        using CallBack = std::function<void(Json::Value&&)>;
 
         explicit WebsocketManager(
             std::string&& url,
@@ -22,7 +22,7 @@ namespace components {
 
         void registerAction(
             const types::WsAction action,
-            std::function<void(nlohmann::json&&)> handleFunction
+            std::function<void(Json::Value&&)> handleFunction
         ) {
             _handlerMap[action].push_back(std::move(handleFunction));
         }
@@ -31,7 +31,7 @@ namespace components {
         void registerAction(
             const types::WsAction action,
             T* const other,
-            void (T::* const memberFunction)(nlohmann::json&&)
+            void (T::* const memberFunction)(Json::Value&&)
         ) {
             _handlerMap[action].push_back(std::bind_front(memberFunction, other));
         }

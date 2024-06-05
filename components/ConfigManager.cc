@@ -1,12 +1,12 @@
 #include <format>
 
+#include <json/json.h>
 #include <magic_enum.hpp>
 
 #include <components/ConfigManager.h>
 #include <components/MemoryManipulator.h>
 #include <components/WebsocketManager.h>
 #include <models/WsMessage.h>
-#include <utils/iconv.h>
 #include <utils/logger.h>
 #include <utils/system.h>
 
@@ -34,6 +34,10 @@ ConfigManager::ConfigManager()
         );
         _siVersionString = "_4.00." + format("{:0>{}}", build, 4);
     }
+
+    Json::Value streamWriterSettings{R"({ "indentation" : "" })"};
+    Json::StreamWriterBuilder::setDefaults(&streamWriterSettings);
+
     _threadRetrieveProjectDirectory();
     _threadRetrieveSvnDirectory();
 
@@ -60,7 +64,7 @@ string ConfigManager::reportVersion() const {
     return _siVersionString;
 }
 
-void ConfigManager::wsSettingSync(nlohmann::json&& data) {
+void ConfigManager::wsSettingSync(Json::Value&& data) {
     if (const auto serverMessage = SettingSyncServerMessage(move(data));
         serverMessage.result == "success") {
         if (const auto shortcutManualCompletionOpt = serverMessage.shortcutManualCompletion();
@@ -92,7 +96,8 @@ void ConfigManager::_threadRetrieveProjectDirectory() {
 void ConfigManager::_threadRetrieveSvnDirectory() {
     thread([this] {
         while (_isRunning) {
-            if (auto tempFolder = MemoryManipulator::GetInstance()->getCurrentFilePath().lexically_normal().parent_path();
+            if (auto tempFolder = MemoryManipulator::GetInstance()->getCurrentFilePath().lexically_normal().
+                        parent_path();
                 !tempFolder.empty()) {
                 // bool isMismatch; {
                 //     shared_lock lock(_currentSvnMutex);

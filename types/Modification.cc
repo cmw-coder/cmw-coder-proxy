@@ -390,7 +390,7 @@ void Modification::_setRangeContent(const Range& range, const string& characters
     const auto subLength = endOffset - startOffset;
     _content.erase(startOffset, subLength);
     const auto enterCount = ranges::count(subContent, '\n');
-    for (auto it = (_lineOffsets.begin() + static_cast<int>(range.start.line) + 1);
+    for (auto it = _lineOffsets.begin() + static_cast<int>(range.start.line) + 1;
          it != _lineOffsets.end();) {
         if (distance(_lineOffsets.begin(), it) <= enterCount) {
             it = _lineOffsets.erase(it);

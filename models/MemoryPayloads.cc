@@ -14,7 +14,7 @@ namespace {
 
 SimpleString::SimpleString(std::string_view str) {
     _data.lengthLow = static_cast<uint8_t>(str.length() & 0xFF);
-    _data.lengthHigh = static_cast<uint8_t>((str.length() >> 8) & 0xFF);
+    _data.lengthHigh = static_cast<uint8_t>(str.length() >> 8 & 0xFF);
     ranges::copy(str, _data.content);
 }
 

@@ -115,7 +115,7 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
 
             WebsocketManager::GetInstance()->registerAction(
                 WsAction::ChatInsert,
-                [](nlohmann::json&& data) {
+                [](Json::Value&& data) {
                     if (const auto serverMessage = ChatInsertServerMessage(move(data));
                         serverMessage.result == "success") {
                         auto content = serverMessage.content().value();

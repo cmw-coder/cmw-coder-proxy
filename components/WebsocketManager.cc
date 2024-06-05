@@ -79,28 +79,31 @@ void WebsocketManager::send(const WsMessage& message) {
 }
 
 void WebsocketManager::_handleEventMessage(const string& messageString) {
-    try {
-        if (auto message = nlohmann::json::parse(messageString);
-            message.contains("action")) {
-            if (const auto actionOpt = enum_cast<WsAction>(message["action"].get<string>());
-                actionOpt.has_value()) {
-                logger::debug(format("Receive websocket action: {}", message["action"].get<string>()));
-                for (const auto& handlers: _handlerMap[actionOpt.value()]) {
-                    handlers(nlohmann::json(message["data"]));
-                }
-            } else {
-                logger::info(format("Invalid websocket message action: {}.", message["action"].get<string>()));
-            }
-        } else {
-            logger::info(format("Invalid websocket message structure: {}.", messageString));
-        }
-    } catch (nlohmann::detail::parse_error& e) {
+    Json::Value message;
+
+    if (Json::Reader reader;
+        !reader.parse(messageString, message)) {
         logger::error(format(
             "Websocket message is not a valid JSON.\n"
             "\tError: '{}'.\n"
             "\tMessage: '{}'.",
-            e.what(),
+            reader.getFormattedErrorMessages(),
             messageString
         ));
+        return;
+    }
+    if (!message.isMember("action")) {
+        logger::warn(format("Invalid websocket message structure: {}.", messageString));
+        return;
+    }
+
+    if (const auto actionOpt = enum_cast<WsAction>(message["action"].asString());
+        actionOpt.has_value()) {
+        logger::debug(format("Receive websocket action: {}", enum_name(actionOpt.value())));
+        for (const auto& handlers: _handlerMap[actionOpt.value()]) {
+            handlers(Json::Value(message["data"]));
+        }
+    } else {
+        logger::warn(format("Invalid websocket message action: {}.", message["action"].asString()));
     }
 }
