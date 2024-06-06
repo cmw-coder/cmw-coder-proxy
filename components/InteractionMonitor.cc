@@ -384,13 +384,13 @@ void InteractionMonitor::_threadReleaseInteractionLock() {
         while (_isRunning.load()) {
             if (_needReleaseInteractionLock.load()) {
                 if (const auto releaseInteractionLockTime = _releaseInteractionLockTime.load();
-                    chrono::high_resolution_clock::now() - releaseInteractionLockTime > 200ms) {
+                    chrono::high_resolution_clock::now() - releaseInteractionLockTime > 50ms) {
                     _needReleaseInteractionLock.store(false);
                     _interactionMutex.unlock();
                     logger::debug("Interaction mutex unlocked");
                 }
             }
-            this_thread::sleep_for(10ms);
+            this_thread::sleep_for(5ms);
         }
     }).detach();
 }
