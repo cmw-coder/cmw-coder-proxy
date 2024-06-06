@@ -451,7 +451,6 @@ void CompletionManager::_threadCheckAcceptedCompletions() {
                     }
                 }
             } {
-                const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
                 const unique_lock editedCompletionMapLock(_editedCompletionMapMutex);
                 for (const auto& needReportCompletion: needReportCompletions) {
                     _editedCompletionMap.erase(needReportCompletion.actionId);
@@ -473,7 +472,6 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     WindowManager::GetInstance()->sendF13();
                     // TODO: Improve performance
                     logger::debug("Try to get interaction shared lock");
-                    const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
                     logger::debug("Successfuly got interaction shared lock");
                     const auto memoryManipulator = MemoryManipulator::GetInstance();
                     const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);

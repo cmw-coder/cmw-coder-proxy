@@ -57,6 +57,7 @@ namespace components {
         void setSelectionContent(const std::string& content) const;
 
     private:
+        mutable std::mutex _mutex;
         const models::MemoryAddress _memoryAddress;
         const std::shared_ptr<void> _processHandle;
     };

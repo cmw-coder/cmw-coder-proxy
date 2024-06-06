@@ -73,7 +73,6 @@ void ConfigManager::wsSettingSync(nlohmann::json&& data) {
 void ConfigManager::_threadRetrieveProjectDirectory() {
     thread([this] {
         while (_isRunning) {
-            // TODO: Check if need InteractionMonitor::GetInstance()->getInteractionLock();
             const auto currentProject = MemoryManipulator::GetInstance()->getProjectDirectory();
             bool isSameProject; {
                 shared_lock lock(_currentProjectMutex);

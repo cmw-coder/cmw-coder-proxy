@@ -44,10 +44,7 @@ vector<filesystem::path> ModificationManager::getRecentFiles(const uint32_t limi
 void ModificationManager::_monitorCurrentFile() {
     thread([this] {
         while (_isRunning) {
-            filesystem::path currentPath; {
-                const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
-                currentPath = MemoryManipulator::GetInstance()->getCurrentFilePath();
-            }
+            const auto currentPath = MemoryManipulator::GetInstance()->getCurrentFilePath();
             if (const auto extension = currentPath.extension();
                 extension == ".c" || extension == ".h") {
                 unique_lock lock(_modifingFilesMutex);

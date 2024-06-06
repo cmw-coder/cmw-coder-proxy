@@ -74,18 +74,12 @@ InteractionMonitor::InteractionMonitor()
     }
 
     _threadMonitorCaretPosition();
-    _threadReleaseInteractionLock();
 
     logger::info("InteractionMonitor is initialized.");
 }
 
 InteractionMonitor::~InteractionMonitor() {
     _isRunning.store(false);
-    _interactionMutex.unlock();
-}
-
-shared_lock<shared_mutex> InteractionMonitor::getInteractionLock() const {
-    return shared_lock(_interactionMutex);
 }
 
 long InteractionMonitor::_cbtProcedureHook(const int nCode, const unsigned int wParam, const long lParam) {
@@ -233,14 +227,6 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
         return false;
     }
 
-    auto needUpdateReleaseFlag = false;
-    if (!_needReleaseInteractionLock.load()) {
-        logger::debug("Try locking interaction mutex");
-        _interactionMutex.lock();
-        needUpdateReleaseFlag = true;
-        logger::debug("Interaction mutex locked");
-    }
-
     const auto keyFlags = HIWORD(lParam);
     const auto isKeyUp = (keyFlags & KF_UP) == KF_UP;
     bool needBlockMessage{false};
@@ -276,11 +262,6 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
         default: {
             break;
         }
-    }
-
-    _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
-    if (needUpdateReleaseFlag) {
-        _needReleaseInteractionLock.store(true);
     }
 
     return needBlockMessage;
@@ -361,7 +342,6 @@ void InteractionMonitor::_threadMonitorCaretPosition() {
                 continue;
             }
 
-            // TODO: Check if need InteractionMonitor::GetInstance()->getInteractionLock();
             auto newCursorPosition = MemoryManipulator::GetInstance()->getCaretPosition();
             newCursorPosition.maxCharacter = newCursorPosition.character;
             if (const auto oldCursorPosition = _currentCaretPosition.load();
@@ -375,22 +355,6 @@ void InteractionMonitor::_threadMonitorCaretPosition() {
                 }
             }
             this_thread::sleep_for(10ms);
-        }
-    }).detach();
-}
-
-void InteractionMonitor::_threadReleaseInteractionLock() {
-    thread([this] {
-        while (_isRunning.load()) {
-            if (_needReleaseInteractionLock.load()) {
-                if (const auto releaseInteractionLockTime = _releaseInteractionLockTime.load();
-                    chrono::high_resolution_clock::now() - releaseInteractionLockTime > 50ms) {
-                    _needReleaseInteractionLock.store(false);
-                    _interactionMutex.unlock();
-                    logger::debug("Interaction mutex unlocked");
-                }
-            }
-            this_thread::sleep_for(5ms);
         }
     }).detach();
 }
