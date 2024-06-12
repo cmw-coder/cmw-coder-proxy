@@ -233,7 +233,6 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
         return false;
     }
 
-    logger::debug("[_processKeyMessage] Try to get interaction shared lock");
     if (!_needReleaseInteractionLock.load()) {
         _interactionMutex.lock_shared();
         _needReleaseInteractionLock = true;
