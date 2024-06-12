@@ -161,9 +161,9 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
             );
 
             logger::info(format(
-                "[{}] Comware Coder Proxy {} is ready. CurrentTID: {}, mainTID: {}, mainModuleName: {}",
+                R"([{}] Comware Coder Proxy {} is ready. CurrentTID: {}, mainTID: {}, mainModuleName: "{}")",
                 GetCurrentProcessId(),
-                VERSION_STRING + ConfigManager::GetInstance()->reportVersion(),
+                VERSION_STRING,
                 GetCurrentThreadId(),
                 system::getMainThreadId(),
                 system::getModuleFileName(reinterpret_cast<uint64_t>(GetModuleHandle(nullptr)))

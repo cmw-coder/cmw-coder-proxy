@@ -472,9 +472,9 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                 try {
                     WindowManager::GetInstance()->sendF13();
                     // TODO: Improve performance
-                    logger::debug("Try to get interaction shared lock");
+                    logger::debug("[_threadDebounceRetrieveCompletion] Try to get interaction unique lock");
                     const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
-                    logger::debug("Successfuly got interaction shared lock");
+                    logger::debug("[_threadDebounceRetrieveCompletion] Successfuly got interaction unique lock");
                     const auto memoryManipulator = MemoryManipulator::GetInstance();
                     const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
                     const auto caretPosition = memoryManipulator->getCaretPosition();

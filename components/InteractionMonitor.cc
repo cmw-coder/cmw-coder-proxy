@@ -84,8 +84,8 @@ InteractionMonitor::~InteractionMonitor() {
     _interactionMutex.unlock();
 }
 
-shared_lock<shared_mutex> InteractionMonitor::getInteractionLock() const {
-    return shared_lock(_interactionMutex);
+unique_lock<shared_mutex> InteractionMonitor::getInteractionLock() const {
+    return unique_lock(_interactionMutex);
 }
 
 long InteractionMonitor::_cbtProcedureHook(const int nCode, const unsigned int wParam, const long lParam) {
@@ -233,12 +233,12 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
         return false;
     }
 
-    auto needUpdateReleaseFlag = false;
+    logger::debug("[_processKeyMessage] Try to get interaction shared lock");
     if (!_needReleaseInteractionLock.load()) {
-        logger::debug("Try locking interaction mutex");
-        _interactionMutex.lock();
-        needUpdateReleaseFlag = true;
-        logger::debug("Interaction mutex locked");
+        _interactionMutex.lock_shared();
+        _needReleaseInteractionLock = true;
+        _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
+        logger::debug("[_processKeyMessage] Successfuly got interaction shared lock");
     }
 
     const auto keyFlags = HIWORD(lParam);
@@ -252,6 +252,7 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
             } else if (WindowManager::GetInstance()->hasPopListWindow()) {
                 ignore = _handleInteraction(Interaction::CompletionCancel, true);
             }
+            _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
             break;
         }
         case VK_ESCAPE: {
@@ -261,6 +262,7 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
                 ignore = _handleInteraction(Interaction::CompletionCancel, false);
             }
             _isSelecting.store(false);
+            _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
             break;
         }
         case VK_TAB: {
@@ -271,16 +273,12 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
             } else {
                 needBlockMessage = _handleInteraction(Interaction::CompletionAccept);
             }
+            _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
             break;
         }
         default: {
             break;
         }
-    }
-
-    _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
-    if (needUpdateReleaseFlag) {
-        _needReleaseInteractionLock.store(true);
     }
 
     return needBlockMessage;
@@ -328,6 +326,7 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
         switch (windowProcData->message) {
             case UM_KEYCODE: {
                 _handleKeycode(windowProcData->wParam);
+                _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
                 break;
             }
             case WM_KILLFOCUS: {
@@ -384,10 +383,10 @@ void InteractionMonitor::_threadReleaseInteractionLock() {
         while (_isRunning.load()) {
             if (_needReleaseInteractionLock.load()) {
                 if (const auto releaseInteractionLockTime = _releaseInteractionLockTime.load();
-                    chrono::high_resolution_clock::now() - releaseInteractionLockTime > 50ms) {
+                    chrono::high_resolution_clock::now() - releaseInteractionLockTime > 200ms) {
                     _needReleaseInteractionLock.store(false);
-                    _interactionMutex.unlock();
-                    logger::debug("Interaction mutex unlocked");
+                    _interactionMutex.unlock_shared();
+                    logger::debug("[_processKeyMessage] Interaction mutex shared unlocked");
                 }
             }
             this_thread::sleep_for(5ms);
