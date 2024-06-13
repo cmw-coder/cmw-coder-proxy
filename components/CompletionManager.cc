@@ -493,9 +493,9 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                                 currentFileHandle, caretPosition.line - index
                             )).append("\n");
                             prefix.insert(0, tempLine);
-                            if (regex_search(tempLine, regex(R"~(^\/\/.*|^\/\*\*.*)~"))) {
-                                break;
-                            }
+                            // if (regex_search(tempLine, regex(R"~(^\/\/.*|^\/\*\*.*)~"))) {
+                            //     break;
+                            // }
                         }
                         for (uint32_t index = 1; index <= 30u; ++index) {
                             const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
