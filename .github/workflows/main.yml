@@ -47,7 +47,7 @@ jobs:
         run: |
           ls "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/"
           ls "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.40.33807/bin/Hostx86/x86"
-          cmake.exe -DCMAKE_BUILD_TYPE=Release -DCMAKE_GENERATOR_PLATFORM=x86 -DCMAKE_GENERATOR_TOOLSET="host=x86,version=14.29.30133" -DVCPKG_DEFAULT_TRIPLET=${{ env.VCPKG_DEFAULT_TRIPLET }} -G "Visual Studio 17 2022" -S "${{ github.workspace }}" -B "${{ github.workspace }}/${{ env.RELEASE_FOLDER }}"
+          cmake.exe -DCMAKE_BUILD_TYPE=Release -DCMAKE_GENERATOR_PLATFORM="win32" -DCMAKE_GENERATOR_TOOLSET="host=x86,version=14.29.30133" -DVCPKG_DEFAULT_TRIPLET=${{ env.VCPKG_DEFAULT_TRIPLET }} -G "Visual Studio 17 2022" -S "${{ github.workspace }}" -B "${{ github.workspace }}/${{ env.RELEASE_FOLDER }}"
           cmake.exe --build "${{ github.workspace }}/${{ env.RELEASE_FOLDER }}" --target msimg32
 #      - name: CMake Configure and Build
 #        run: |
