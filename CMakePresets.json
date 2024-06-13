@@ -11,10 +11,12 @@
             "hidden": true,
             "binaryDir": "${sourceDir}/build",
             "architecture": {
-                "value": "x86"
+                "value": "x86",
+                "strategy": "external"
             },
             "toolset": {
-                "value": "host=x86,version=14.29.30133"
+                "value": "host=x86,version=14.29.30133",
+                "strategy": "external"
             }
         },
         {
