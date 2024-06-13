@@ -32,7 +32,7 @@ jobs:
       VCPKG_DEFAULT_TRIPLET: x86-windows
     strategy:
       matrix:
-        config: [ Debug, Release ]
+        config: [ debug, release ]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,14 +52,14 @@ jobs:
           name: cmw-coder-proxy_${{ needs.get-info.outputs.commitHash }}_${{ GITHUB.RUN_NUMBER }}_${{ matrix.config }}
           path: "${{ env.OUTPUT_FOLDER }}/${{ matrix.config }}"
       - name: Prepare for release
-        if: ${{ (startsWith(github.ref, 'refs/tags/pre') || startsWith(github.ref, 'refs/tags/v')) && matrix.config == 'Release'}}
+        if: ${{ (startsWith(github.ref, 'refs/tags/pre') || startsWith(github.ref, 'refs/tags/v')) && matrix.config == 'release'}}
         shell: bash
         run: |
           mkdir -p ${{ env.RELEASE_FOLDER }}
           cp ${{ env.OUTPUT_FOLDER }}/${{ matrix.config }}/msimg32.dll ${{ env.RELEASE_FOLDER }}/loaderdll.dll
           cp ${{ env.OUTPUT_FOLDER }}/${{ matrix.config }}/zlib1.dll ${{ env.RELEASE_FOLDER }}/zlib1.dll
       - name: Upload release
-        if: ${{ (startsWith(github.ref, 'refs/tags/pre') || startsWith(github.ref, 'refs/tags/v')) && matrix.config == 'Release'}}
+        if: ${{ (startsWith(github.ref, 'refs/tags/pre') || startsWith(github.ref, 'refs/tags/v')) && matrix.config == 'release'}}
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true
