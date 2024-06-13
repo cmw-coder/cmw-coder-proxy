@@ -24,7 +24,7 @@ jobs:
           echo "commitHash=$COMMIT_HASH" >> $GITHUB_OUTPUT
 
   build:
-    runs-on: windows-2019
+    runs-on: windows-latest
     needs: get-info
     env:
       OUTPUT_FOLDER: ./build
