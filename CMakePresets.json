@@ -7,21 +7,48 @@
     },
     "configurePresets": [
         {
+            "name": "ninja",
+            "displayName": "Ninja native",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
+            "architecture": {
+                "value": "x86,version=14.39",
+                "strategy": "external"
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "hostOS": [ "Windows" ]
+                }
+            }
+        },
+        {
             "name": "ninja-multi-config",
             "displayName": "Ninja Multi-Config",
-            "binaryDir": "${sourceDir}/build",
-            "generator": "Ninja Multi-Config"
+            "generator": "Ninja Multi-Config",
+            "binaryDir": "${sourceDir}/build"
         }
     ],
     "buildPresets": [
         {
             "name": "Debug",
+            "configurePreset": "ninja",
+            "configuration": "Debug",
+            "displayName": "Build ninja Debug Configuration"
+        },
+        {
+            "name": "Release",
+            "configurePreset": "ninja",
+            "configuration": "Release",
+            "displayName": "Build ninja Release Configuration"
+        },
+        {
+            "name": "Multi-Config-Debug",
             "configurePreset": "ninja-multi-config",
             "configuration": "Debug",
             "displayName": "Build Debug Configuration"
         },
         {
-            "name": "Release",
+            "name": "Multi-Config-Release",
             "configurePreset": "ninja-multi-config",
             "configuration": "Release",
             "displayName": "Build Release Configuration"
@@ -33,7 +60,7 @@
             "steps": [
                 {
                     "type": "configure",
-                    "name": "ninja-multi-config"
+                    "name": "ninja"
                 },
                 {
                     "type": "build",
@@ -46,11 +73,37 @@
             "steps": [
                 {
                     "type": "configure",
-                    "name": "ninja-multi-config"
+                    "name": "ninja"
                 },
                 {
                     "type": "build",
                     "name": "Release"
+                }
+            ]
+        },
+        {
+            "name": "Multi-Config-Debug",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "ninja-multi-config"
+                },
+                {
+                    "type": "build",
+                    "name": "Multi-Config-Debug"
+                }
+            ]
+        },
+        {
+            "name": "Multi-Config-Release",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "ninja-multi-config"
+                },
+                {
+                    "type": "build",
+                    "name": "Multi-Config-Release"
                 }
             ]
         }
