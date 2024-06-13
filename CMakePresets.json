@@ -7,24 +7,14 @@
     },
     "configurePresets": [
         {
-            "name": "base",
-            "hidden": true,
-            "binaryDir": "${sourceDir}/build"
-        },
-        {
             "name": "windows-x86",
-            "inherits": "base",
             "hidden": true,
-            "condition": {
-                "type": "equals",
-                "lhs": "${hostSystemName}",
-                "rhs": "Windows"
-            },
+            "binaryDir": "${sourceDir}/build",
             "architecture": {
                 "value": "x86"
             },
             "toolset": {
-                "value": "host=x86,version=14.39.33519"
+                "value": "host=x86,version=14.29.30133"
             }
         },
         {
