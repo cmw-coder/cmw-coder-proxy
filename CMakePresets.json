@@ -9,28 +9,22 @@
         {
             "name": "base",
             "hidden": true,
-            "binaryDir": "${sourceDir}/out/build/${presetName}",
-            "installDir": "${sourceDir}/out/install/${presetName}",
-            "cacheVariables": {
-                "CMAKE_DIR": "${fileDir}"
-            }
+            "binaryDir": "${sourceDir}/build"
         },
         {
             "name": "windows-x86",
-            "hidden": true,
             "inherits": "base",
+            "hidden": true,
             "condition": {
                 "type": "equals",
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             },
             "architecture": {
-                "value": "x86",
-                "strategy": "external"
+                "value": "x86"
             },
             "toolset": {
-                "value": "host=x86,version=14.39",
-                "strategy": "external"
+                "value": "host=x86,version=14.39.33519"
             }
         },
         {
@@ -40,15 +34,6 @@
             "generator": "Ninja Multi-Config"
         },
         {
-            "name": "windows-ninja-clang-x86",
-            "displayName": "Windows Ninja Clang x86",
-            "inherits": "windows-ninja-x86",
-            "cacheVariables": {
-                "CMAKE_C_COMPILER": "clang-cl.exe",
-                "CMAKE_CXX_COMPILER": "clang-cl.exe"
-            }
-        },
-        {
             "name": "windows-ninja-msvc-x86",
             "displayName": "Windows Ninja MSVC x86",
             "inherits": "windows-ninja-x86",
@@ -56,28 +41,9 @@
                 "CMAKE_C_COMPILER": "cl.exe",
                 "CMAKE_CXX_COMPILER": "cl.exe"
             }
-        },
-        {
-            "name": "windows-vs-msvc-x86",
-            "displayName": "Windows VS MSVC x86",
-            "description": "Generates Visual Studio solution and project files. Slower build than ninja.",
-            "inherits": "windows-x86",
-            "generator": "Visual Studio 17 2022"
         }
     ],
     "buildPresets": [
-        {
-            "name": "windows-ninja-clang-x86-debug",
-            "displayName": "Windows Ninja Clang MSVC x86 Debug",
-            "configurePreset": "windows-ninja-clang-x86",
-            "configuration": "Debug"
-        },
-        {
-            "name": "windows-ninja-clang-x86-release",
-            "displayName": "Windows Ninja Clang MSVC x86 Release",
-            "configurePreset": "windows-ninja-clang-x86",
-            "configuration": "Release"
-        },
         {
             "name": "windows-ninja-msvc-x86-debug",
             "displayName": "Windows Ninja MSVC x86 Debug",
@@ -88,18 +54,6 @@
             "name": "windows-ninja-msvc-x86-release",
             "displayName": "Windows Ninja MSVC x86 Release",
             "configurePreset": "windows-ninja-msvc-x86",
-            "configuration": "Release"
-        },
-        {
-            "name": "windows-vs-msvc-x86-debug",
-            "displayName": "Windows Ninja MSVC x86 Debug",
-            "configurePreset": "windows-vs-msvc-x86",
-            "configuration": "Debug"
-        },
-        {
-            "name": "windows-vs-msvc-x86-release",
-            "displayName": "Windows VS MSVC x86 Release",
-            "configurePreset": "windows-vs-msvc-x86",
             "configuration": "Release"
         }
     ],

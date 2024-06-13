@@ -45,7 +45,7 @@ jobs:
 #          workflowPreset: ${{ matrix.config }}
       - name: CMake Configure and Build
         run: |
-          cmake.exe -DCMAKE_BUILD_TYPE=Release -G "CodeBlocks - NMake Makefiles" -S "${{ github.workspace }}" -B "${{ github.workspace }}/${{ env.RELEASE_FOLDER }}"
+          cmake.exe -DCMAKE_BUILD_TYPE=Release -DVCPKG_DEFAULT_TRIPLET=${{ env.VCPKG_DEFAULT_TRIPLET }} -G Ninja -S "${{ github.workspace }}" -B "${{ github.workspace }}/${{ env.RELEASE_FOLDER }}"
           cmake.exe --build "${{ github.workspace }}/${{ env.RELEASE_FOLDER }}" --target msimg32
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
