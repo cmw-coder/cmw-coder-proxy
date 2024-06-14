@@ -29,7 +29,6 @@ jobs:
     env:
       OUTPUT_FOLDER: ./build
       RELEASE_FOLDER: ./release
-      VCPKG_DEFAULT_TRIPLET: x86-windows
     strategy:
       matrix:
         config: [ Debug, Release ]
@@ -37,26 +36,30 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'recursive'
-      - name: Setup vcpkg
-        uses: lukka/run-vcpkg@v11
+      - name: Install MSVC 14.34
+        shell: cmd
+        run: |
+          "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe" modify --installPath "C:\Program Files\Microsoft Visual Studio\2022\Enterprise" --quiet --norestart --nocache --add Microsoft.VisualStudio.Component.VC.14.34.17.4.x86.x64
       - name: CMake Configure and Build
-        uses: lukka/run-cmake@v10
-        with:
-          workflowPreset: ${{ matrix.config }}
+        run: |
+          ls "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/"
+          Add-Content -Path .\vcpkg\triplets\x86-windows.cmake, .\vcpkg\triplets\x64-windows.cmake -Value 'set(VCPKG_PLATFORM_TOOLSET_VERSION "14.34" CACHE STRING "Vcpkg platform toolset version")'
+          cmake -G "Visual Studio 17 2022" -A Win32 -T v143,host=x86,version=14.34 -S "${{ github.workspace }}" -B "${{ github.workspace }}/${{ env.OUTPUT_FOLDER }}"
+          cmake --build "${{ github.workspace }}/${{ env.OUTPUT_FOLDER }}" --target msimg32 --config ${{ matrix.config }}
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: cmw-coder-proxy_${{ needs.get-info.outputs.commitHash }}_${{ GITHUB.RUN_NUMBER }}_${{ matrix.config }}
           path: "${{ env.OUTPUT_FOLDER }}/${{ matrix.config }}"
       - name: Prepare for release
-        if: ${{ (startsWith(github.ref, 'refs/tags/pre') || startsWith(github.ref, 'refs/tags/v')) && matrix.config == 'Release'}}
+        if: ${{ (startsWith(github.ref, 'refs/tags/pre') || startsWith(github.ref, 'refs/tags/v')) && matrix.config == 'release'}}
         shell: bash
         run: |
           mkdir -p ${{ env.RELEASE_FOLDER }}
           cp ${{ env.OUTPUT_FOLDER }}/${{ matrix.config }}/msimg32.dll ${{ env.RELEASE_FOLDER }}/loaderdll.dll
           cp ${{ env.OUTPUT_FOLDER }}/${{ matrix.config }}/zlib1.dll ${{ env.RELEASE_FOLDER }}/zlib1.dll
       - name: Upload release
-        if: ${{ (startsWith(github.ref, 'refs/tags/pre') || startsWith(github.ref, 'refs/tags/v')) && matrix.config == 'Release'}}
+        if: ${{ (startsWith(github.ref, 'refs/tags/pre') || startsWith(github.ref, 'refs/tags/v')) && matrix.config == 'release'}}
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true
