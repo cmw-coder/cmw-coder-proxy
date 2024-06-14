@@ -481,7 +481,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     if (auto path = memoryManipulator->getCurrentFilePath();
                         currentFileHandle && !path.empty()) {
                         SymbolManager::GetInstance()->updateFile(path);
-                        string prefix, suffix; {
+                        string prefix, prefixForSymbol, suffix; {
                             const auto currentLine = memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line
                             );
@@ -493,21 +493,22 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                                 currentFileHandle, caretPosition.line - index
                             )).append("\n");
                             prefix.insert(0, tempLine);
-                            // if (regex_search(tempLine, regex(R"~(^\/\/.*|^\/\*\*.*)~"))) {
-                            //     break;
-                            // }
+                            if (regex_search(tempLine, regex(R"~(^\/\/.*|^\/\*\*.*)~"))) {
+                                prefixForSymbol = prefix;
+                            }
                         }
-                        for (uint32_t index = 1; index <= 30u; ++index) {
-                            const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
-                                currentFileHandle, caretPosition.line + index));
+                        for (uint32_t index = 1; index <= 50u; ++index) {
+                            const auto tempLine = iconv::autoDecode(
+                                memoryManipulator->getLineContent(currentFileHandle, caretPosition.line + index)
+                            );
                             suffix.append("\n").append(tempLine);
                         } {
                             unique_lock lock(_componentsMutex);
                             _components.caretPosition = caretPosition;
                             _components.path = move(path);
-                            _components.symbols = SymbolManager::GetInstance()->getSymbols(prefix);
                             _components.prefix = move(prefix);
                             _components.recentFiles = ModificationManager::GetInstance()->getRecentFiles();
+                            _components.symbols = SymbolManager::GetInstance()->getSymbols(prefixForSymbol);
                             _components.suffix = move(suffix);
                         }
                         _isNewLine = false;
