@@ -49,7 +49,7 @@ jobs:
       - name: CMake Configure and Build
         run: |
           ls "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/"
-          cmake.exe -A Win32 -G "Visual Studio 17 2022" -DCMAKE_VS_PLATFORM_TOOLSET="v143,version=14.29" -DCMAKE_BUILD_TYPE=Release -S "${{ github.workspace }}" -B "${{ github.workspace }}/${{ env.RELEASE_FOLDER }}"
+          cmake.exe -A Win32 -G "Visual Studio 17 2022" -DCMAKE_VS_PLATFORM_TOOLSET="v143,version=14.39" -DCMAKE_BUILD_TYPE=Release -S "${{ github.workspace }}" -B "${{ github.workspace }}/${{ env.RELEASE_FOLDER }}"
           cmake.exe --build "${{ github.workspace }}/${{ env.RELEASE_FOLDER }}" --target msimg32
       #      - name: CMake Configure and Build
       #        run: |
