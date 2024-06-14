@@ -59,8 +59,9 @@ jobs:
         shell: cmd
         run: |
           ls "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/"
-          "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86 -vcvars_ver="14.29"
-          cmake -G "Visual Studio 17 2022" -A Win32 -DVCPKG_PLATFORM_TOOLSET_VERSION="14.29" -DCMAKE_VS_PLATFORM_TOOLSET="v143,version=14.29" -DCMAKE_BUILD_TYPE=Release -S "${{ github.workspace }}" -B "${{ github.workspace }}/${{ env.OUTPUT_FOLDER }}"
+          echo set(VCPKG_PLATFORM_TOOLSET_VERSION "14.29" CACHE STRING "Vcpkg platform toolset version") >> .\vcpkg\triplets\x86-windows.cmake
+          echo set(VCPKG_PLATFORM_TOOLSET_VERSION "14.29" CACHE STRING "Vcpkg platform toolset version") >> .\vcpkg\triplets\x64-windows.cmake
+          cmake -G "Visual Studio 17 2022" -A Win32 -DCMAKE_VS_PLATFORM_TOOLSET="v143,version=14.29" -S "${{ github.workspace }}" -B "${{ github.workspace }}/${{ env.OUTPUT_FOLDER }}"
           cmake --build "${{ github.workspace }}/${{ env.OUTPUT_FOLDER }}" --target msimg32 --config ${{ matrix.config }}
       #      - name: CMake Configure and Build
       #        run: |
