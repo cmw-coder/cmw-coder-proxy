@@ -46,19 +46,18 @@ jobs:
       #        shell: bash
       #        run: |
       #          "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe" modify --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2022\Enterprise" --passive --add Microsoft.VisualStudio.Component.VC.14.34.17.4.x86.x64
-      #      - name: Install MSVC 14.34
-      #        run: |
-      #          Start-Process "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe" -ArgumentList 'modify --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2022\Enterprise" --quiet --add Microsoft.VisualStudio.Component.VC.14.34.17.4.x86.x64' -Wait -PassThru
       - name: Install MSVC 14.34
-        uses: thepwrtank18/install-vs-components@v1.1.1
-        with:
-          components: Microsoft.VisualStudio.Component.VC.14.34.17.4.x86.x64
-      - name: CMake Configure and Build
         shell: cmd
         run: |
+          "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe" modify --installPath "C:\Program Files\Microsoft Visual Studio\2022\Enterprise" --quiet --norestart --nocache --add Microsoft.VisualStudio.Component.VC.14.34.17.4.x86.x64
+#      - name: Install MSVC 14.34
+#        uses: thepwrtank18/install-vs-components@v1.1.1
+#        with:
+#          components: Microsoft.VisualStudio.Component.VC.14.34.17.4.x86.x64
+      - name: CMake Configure and Build
+        run: |
           ls "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/"
-          echo set(VCPKG_PLATFORM_TOOLSET_VERSION "14.34" CACHE STRING "Vcpkg platform toolset version") >> .\vcpkg\triplets\x86-windows.cmake
-          echo set(VCPKG_PLATFORM_TOOLSET_VERSION "14.34" CACHE STRING "Vcpkg platform toolset version") >> .\vcpkg\triplets\x64-windows.cmake
+          Add-Content -Path .\vcpkg\triplets\x86-windows.cmake, .\vcpkg\triplets\x64-windows.cmake -Value 'set(VCPKG_PLATFORM_TOOLSET_VERSION "14.34" CACHE STRING "Vcpkg platform toolset version")'
           cmake -G "Visual Studio 17 2022" -A Win32 -T v143,host=x86,version=14.34 -S "${{ github.workspace }}" -B "${{ github.workspace }}/${{ env.OUTPUT_FOLDER }}"
           cmake --build "${{ github.workspace }}/${{ env.OUTPUT_FOLDER }}" --target msimg32 --config ${{ matrix.config }}
       - name: Upload Artifacts
