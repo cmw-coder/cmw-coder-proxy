@@ -42,17 +42,20 @@ jobs:
       #        uses: lukka/run-cmake@v10
       #        with:
       #          workflowPreset: ${{ matrix.config }}
-      - name: Uninstall MSVC 14.40
-        run: |
-          Start-Process "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe" -ArgumentList 'modify --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise" --quiet --remove Microsoft.VisualStudio.Component.VC.14.40.17.10.x86.x64' -Wait -PassThru
+      #      - name: Uninstall MSVC 14.40
+      #        run: |
+      #          Start-Process "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe" -ArgumentList 'modify --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2022\Enterprise" --quiet --remove Microsoft.VisualStudio.Component.VC.14.40.17.10.x86.x64' -Wait -PassThru
+      #      - name: Install MSVC 14.39
+      #        run: |
+      #          Start-Process "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe" -ArgumentList 'modify --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2022\Enterprise" --quiet --add Microsoft.VisualStudio.Component.VC.14.39.17.9.x86.x64' -Wait -PassThru
       - name: Install MSVC 14.39
-        run: |
-          Start-Process "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe" -ArgumentList 'modify --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise" --quiet --add Microsoft.VisualStudio.Component.VC.14.39.17.9.x86.x64' -Wait -PassThru
+        uses: thepwrtank18/install-vs-components@v1.1.1
+        with:
+          components: Microsoft.VisualStudio.Component.VC.14.39.17.9.x86.x64
       - name: CMake Configure and Build
         run: |
           ls "C:\Program Files (x86)/Microsoft Visual Studio/Installer/"
-          ls "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/"
-          cmake.exe -A Win32 -G "Visual Studio 17 2022" -DCMAKE_VS_PLATFORM_TOOLSET="v143,version=14.39" -DCMAKE_BUILD_TYPE=Release -S "${{ github.workspace }}" -B "${{ github.workspace }}/${{ env.OUTPUT_FOLDER }}"
+          cmake.exe -G "Visual Studio 17 2022" -A Win32 -DCMAKE_GENERATOR_TOOLSET="v143,version=14.29" -DCMAKE_VS_PLATFORM_TOOLSET="v143,version=14.29" -DCMAKE_BUILD_TYPE=Release -S "${{ github.workspace }}" -B "${{ github.workspace }}/${{ env.OUTPUT_FOLDER }}"
           cmake.exe --build "${{ github.workspace }}/${{ env.OUTPUT_FOLDER }}" --target msimg32 --config ${{ matrix.config }}
       #      - name: CMake Configure and Build
       #        run: |
