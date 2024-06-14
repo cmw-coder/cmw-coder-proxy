@@ -15,7 +15,7 @@
                 "strategy": "external"
             },
             "toolset": {
-                "value": "host=x86,version=14.29.30133",
+                "value": "host=x86,version=14.34",
                 "strategy": "external"
             }
         },
