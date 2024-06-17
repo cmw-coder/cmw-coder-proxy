@@ -84,7 +84,7 @@ unsigned long system::getMainThreadId() {
                 CloseHandle
             );
             if (sharedThreadHandle) {
-                FILETIME afTimes[4] = {0};
+                FILETIME afTimes[4] = {};
                 if (GetThreadTimes(sharedThreadHandle.get(), &afTimes[0], &afTimes[1], &afTimes[2], &afTimes[3])) {
                     if (const uint64_t ullTest = fileTime2Timestamp(afTimes[0]); ullTest && ullTest < minCreateTime) {
                         minCreateTime = ullTest;

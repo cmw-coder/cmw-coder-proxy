@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nlohmann/json.hpp>
+#include <json/json.h>
 
 #include <helpers/KeyHelper.h>
 #include <models/SymbolInfo.h>
@@ -16,11 +16,11 @@ namespace models {
         [[nodiscard]] std::string parse() const;
 
     protected:
-        nlohmann::json _data;
+        Json::Value _data;
 
         explicit WsMessage(types::WsAction action);
 
-        WsMessage(types::WsAction action, nlohmann::json&& data);
+        WsMessage(types::WsAction action, Json::Value&& data);
 
         virtual ~WsMessage() = default;
     };
@@ -29,7 +29,7 @@ namespace models {
     public:
         const std::string result;
 
-        explicit ChatInsertServerMessage(nlohmann::json&& data);
+        explicit ChatInsertServerMessage(Json::Value&& data);
 
         [[nodiscard]] std::string message() const;
 
@@ -94,7 +94,7 @@ namespace models {
 
         const std::string result;
 
-        explicit CompletionGenerateServerMessage(nlohmann::json&& data);
+        explicit CompletionGenerateServerMessage(Json::Value&& data);
 
         [[nodiscard]] std::string message() const;
 
@@ -151,7 +151,7 @@ namespace models {
     public:
         const std::string result;
 
-        explicit SettingSyncServerMessage(nlohmann::json&& data);
+        explicit SettingSyncServerMessage(Json::Value&& data);
 
         [[nodiscard]] std::string message() const;
 
@@ -159,6 +159,6 @@ namespace models {
 
     private:
         std::string _message;
-        std::optional<nlohmann::json> _shortcuts{};
+        std::optional<Json::Value> _shortcuts{};
     };
 }

@@ -45,14 +45,14 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_libreadtags.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_singleton.cmake)
 
 find_package(ixwebsocket CONFIG REQUIRED)
+find_package(jsoncpp CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
-find_package(nlohmann_json CONFIG REQUIRED)
 
 target_link_libraries(${PROXY_MODULE_NAME} PRIVATE
         ced
         ixwebsocket::ixwebsocket
+        JsonCpp::JsonCpp
         magic_enum::magic_enum
-        nlohmann_json::nlohmann_json
         singleton::singleton
         universal-ctags::readtags
         Version.lib

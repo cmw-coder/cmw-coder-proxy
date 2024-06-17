@@ -2,6 +2,7 @@
 
 #include <any>
 
+#include <json/json.h>
 #include <singleton_dclp.hpp>
 
 #include <models/SymbolInfo.h>
@@ -47,7 +48,7 @@ namespace components {
 
         void interactionUndo(const std::any&, bool&);
 
-        void wsCompletionGenerate(nlohmann::json&& data);
+        void wsCompletionGenerate(Json::Value&& data);
 
     private:
         mutable std::shared_mutex _editedCompletionMapMutex, _completionsMutex, _completionCacheMutex, _componentsMutex;

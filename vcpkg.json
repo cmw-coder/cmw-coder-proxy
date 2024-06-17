@@ -13,7 +13,7 @@
             "name": "ixwebsocket",
             "default-features": false
         },
-        "magic-enum",
-        "nlohmann-json"
+        "jsoncpp",
+        "magic-enum"
     ]
 }

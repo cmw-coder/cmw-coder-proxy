@@ -5,12 +5,10 @@
 #include <regex>
 
 #include <magic_enum.hpp>
-#include <nlohmann/json.hpp>
 #include <readtags.h>
 
 #include <components/MemoryManipulator.h>
 #include <components/SymbolManager.h>
-#include <nlohmann/json_fwd.hpp>
 #include <utils/logger.h>
 #include <utils/system.h>
 
@@ -174,7 +172,6 @@ void SymbolManager::_collectIncludes(const filesystem::path& filePath) {
         unique_lock lock{_fileSetMutex};
         _fileSet.merge(result);
     }
-    logger::warn(format("Found duplicated include: {}", nlohmann::json(result).dump()));
 }
 
 unordered_set<filesystem::path> SymbolManager::_getIncludesInFile(
