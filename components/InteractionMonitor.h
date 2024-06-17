@@ -22,7 +22,7 @@ namespace components {
 
         ~InteractionMonitor() override;
 
-        std::shared_lock<std::shared_mutex> getInteractionLock() const;
+        std::unique_lock<std::shared_mutex> getInteractionLock() const;
 
         template<class T>
         void registerInteraction(

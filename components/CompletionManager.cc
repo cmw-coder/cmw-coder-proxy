@@ -469,18 +469,18 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                 pastTime >= 300ms && _needRetrieveCompletion.load()) {
                 WindowManager::GetInstance()->setMenuText("Generating...");
                 try {
-                    WindowManager::GetInstance()->sendF13();
+                    // WindowManager::GetInstance()->sendF13();
                     // TODO: Improve performance
-                    logger::debug("Try to get interaction shared lock");
+                    logger::debug("[_threadDebounceRetrieveCompletion] Try to get interaction unique lock");
                     const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
-                    logger::debug("Successfuly got interaction shared lock");
+                    logger::debug("[_threadDebounceRetrieveCompletion] Successfuly got interaction unique lock");
                     const auto memoryManipulator = MemoryManipulator::GetInstance();
                     const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
                     const auto caretPosition = memoryManipulator->getCaretPosition();
                     if (auto path = memoryManipulator->getCurrentFilePath();
                         currentFileHandle && !path.empty()) {
                         SymbolManager::GetInstance()->updateFile(path);
-                        string prefix, suffix; {
+                        string prefix, prefixForSymbol, suffix; {
                             const auto currentLine = memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line
                             );
@@ -493,20 +493,21 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             )).append("\n");
                             prefix.insert(0, tempLine);
                             if (regex_search(tempLine, regex(R"~(^\/\/.*|^\/\*\*.*)~"))) {
-                                break;
+                                prefixForSymbol = prefix;
                             }
                         }
-                        for (uint32_t index = 1; index <= 30u; ++index) {
-                            const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
-                                currentFileHandle, caretPosition.line + index));
+                        for (uint32_t index = 1; index <= 50u; ++index) {
+                            const auto tempLine = iconv::autoDecode(
+                                memoryManipulator->getLineContent(currentFileHandle, caretPosition.line + index)
+                            );
                             suffix.append("\n").append(tempLine);
                         } {
                             unique_lock lock(_componentsMutex);
                             _components.caretPosition = caretPosition;
                             _components.path = move(path);
-                            _components.symbols = SymbolManager::GetInstance()->getSymbols(prefix);
                             _components.prefix = move(prefix);
                             _components.recentFiles = ModificationManager::GetInstance()->getRecentFiles();
+                            _components.symbols = SymbolManager::GetInstance()->getSymbols(prefixForSymbol);
                             _components.suffix = move(suffix);
                         }
                         _isNewLine = false;
