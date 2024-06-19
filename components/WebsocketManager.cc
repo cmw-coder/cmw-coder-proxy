@@ -74,7 +74,7 @@ void WebsocketManager::send(const WsMessage& message) {
     try {
         _client.send(message.parse());
     } catch (exception& e) {
-        logger::error(e.what());
+        logger::warn(e.what());
     }
 }
 

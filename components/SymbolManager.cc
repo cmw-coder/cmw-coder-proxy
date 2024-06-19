@@ -11,6 +11,7 @@
 #include <components/MemoryManipulator.h>
 #include <components/SymbolManager.h>
 #include <nlohmann/json_fwd.hpp>
+#include <utils/iconv.h>
 #include <utils/logger.h>
 #include <utils/system.h>
 
@@ -98,24 +99,28 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix) {
         return result;
     }
     for (const auto& symbol: collectSymbols(prefix).references) {
-        tagEntry entry;
-        if (tagsFind(tagsFileHandle, &entry, symbol.c_str(), TAG_OBSERVECASE) == TagSuccess) {
-            if (const auto typeReferenceOpt = getTypeReference(getSymbolFields(entry.fields));
-                typeReferenceOpt.has_value()) {
-                if (const auto& [type, reference] = typeReferenceOpt.value();
-                    tagsFind(tagsFileHandle, &entry, reference.c_str(), TAG_OBSERVECASE) == TagSuccess) {
-                    if (const auto endLineOpt = getEndLine(getSymbolFields(entry.fields));
-                        endLineOpt.has_value()) {
-                        result.emplace_back(
-                            entry.file,
-                            entry.name,
-                            type,
-                            static_cast<uint32_t>(entry.address.lineNumber - 1),
-                            endLineOpt.value() - 1
-                        );
+        try {
+            tagEntry entry;
+            if (tagsFind(tagsFileHandle, &entry, symbol.c_str(), TAG_OBSERVECASE) == TagSuccess) {
+                if (const auto typeReferenceOpt = getTypeReference(getSymbolFields(entry.fields));
+                    typeReferenceOpt.has_value()) {
+                    if (const auto& [type, reference] = typeReferenceOpt.value();
+                        tagsFind(tagsFileHandle, &entry, reference.c_str(), TAG_OBSERVECASE) == TagSuccess) {
+                        if (const auto endLineOpt = getEndLine(getSymbolFields(entry.fields));
+                            endLineOpt.has_value()) {
+                            result.emplace_back(
+                                iconv::toPath(entry.file),
+                                entry.name,
+                                type,
+                                static_cast<uint32_t>(entry.address.lineNumber - 1),
+                                endLineOpt.value() - 1
+                            );
+                        }
                     }
                 }
             }
+        } catch (exception& e) {
+            logger::warn(format("Exception when getting info of symbol '{}': {}", symbol, e.what()));
         }
     }
     tagsClose(tagsFileHandle);
@@ -156,20 +161,20 @@ void SymbolManager::_collectIncludes(const filesystem::path& filePath) {
             absoluteFilePath = absoluteFilePath.parent_path();
         }
     }
-    unordered_set<filesystem::path> result = _getIncludesInFile(filePath, publicPathOpt), newIncludeSet = result;
-    while (!newIncludeSet.empty()) {
-        unordered_set<filesystem::path> tempIncludeSet;
-        for (const auto& includePath: newIncludeSet) {
-            const auto tempIncludes = _getIncludesInFile(includePath, publicPathOpt);
-            tempIncludeSet.insert(tempIncludes.begin(), tempIncludes.end());
-        }
-        newIncludeSet.clear();
-        for (const auto& tempIncludePath: tempIncludeSet) {
-            if (result.insert(tempIncludePath).second) {
-                newIncludeSet.insert(tempIncludePath);
-            }
-        }
-    }
+    unordered_set<filesystem::path> result = _getIncludesInFile(filePath, publicPathOpt)/*, newIncludeSet = result*/;
+    // while (!newIncludeSet.empty()) {
+    //     unordered_set<filesystem::path> tempIncludeSet;
+    //     for (const auto& includePath: newIncludeSet) {
+    //         const auto tempIncludes = _getIncludesInFile(includePath, publicPathOpt);
+    //         tempIncludeSet.insert(tempIncludes.begin(), tempIncludes.end());
+    //     }
+    //     newIncludeSet.clear();
+    //     for (const auto& tempIncludePath: tempIncludeSet) {
+    //         if (result.insert(tempIncludePath).second) {
+    //             newIncludeSet.insert(tempIncludePath);
+    //         }
+    //     }
+    // }
     result.emplace(filePath); {
         unique_lock lock{_fileSetMutex};
         _fileSet.merge(result);

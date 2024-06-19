@@ -36,6 +36,21 @@ namespace {
         }
     }
 
+    Encoding detectEncoding(const string& source) {
+        bool is_reliable;
+        int bytes_consumed;
+        return DetectEncoding(
+            source.c_str(), static_cast<int>(source.length()),
+            nullptr, nullptr, nullptr,
+            CHINESE_GB,
+            CHINESE,
+            CompactEncDet::EMAIL_CORPUS,
+            false,
+            &bytes_consumed,
+            &is_reliable
+        );
+    }
+
     string encode(const string& source, const Encoding encoding = CHINESE_GB) {
         switch (encoding) {
             case CHINESE_GB: {
@@ -56,21 +71,7 @@ namespace {
 }
 
 string iconv::autoDecode(const string& source) {
-    bool is_reliable;
-    int bytes_consumed;
-    return decode(
-        source,
-        DetectEncoding(
-            source.c_str(), static_cast<int>(source.length()),
-            nullptr, nullptr, nullptr,
-            CHINESE_GB,
-            CHINESE,
-            CompactEncDet::EMAIL_CORPUS,
-            false,
-            &bytes_consumed,
-            &is_reliable
-        )
-    );
+    return decode(source, detectEncoding(source));
 }
 
 string iconv::autoEncode(const string& source) {
@@ -80,4 +81,13 @@ string iconv::autoEncode(const string& source) {
             ? CHINESE_GB
             : UTF8
     );
+}
+
+filesystem::path iconv::toPath(const std::string& source) {
+    if (detectEncoding(source) == UTF8) {
+        // TODO: Use better way to convert string to path
+        // ReSharper disable once CppDeprecatedEntity
+        return filesystem::u8path(source);
+    }
+    return {source};
 }
