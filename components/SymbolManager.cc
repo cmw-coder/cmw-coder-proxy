@@ -128,26 +128,26 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix) {
 }
 
 void SymbolManager::updateFile(const filesystem::path& filePath) {
-    thread([this, filePath] {
-        if (const auto extension = filePath.extension();
-            extension == ".c") {
-            bool needUpdate; {
-                shared_lock lock{_fileSetMutex};
-                needUpdate = !_fileSet.contains(filePath);
-            }
-            if (needUpdate) {
-                _collectIncludes(filePath);
-            }
-            ignore = _updateTags();
-        } else if (extension == ".h") {
-            unique_lock lock{_tagFileMutex};
-            // TODO: Check if need InteractionMonitor::GetInstance()->getInteractionLock();
-            if (const auto tagsFilePath = MemoryManipulator::GetInstance()->getProjectDirectory() / "tags";
-                exists(tagsFilePath)) {
-                remove(MemoryManipulator::GetInstance()->getProjectDirectory() / "tags");
-            }
+    // thread([this, filePath] {
+    if (const auto extension = filePath.extension();
+        extension == ".c") {
+        bool needUpdate; {
+            shared_lock lock{_fileSetMutex};
+            needUpdate = !_fileSet.contains(filePath);
         }
-    }).detach();
+        if (needUpdate) {
+            _collectIncludes(filePath);
+        }
+        ignore = _updateTags();
+    } else if (extension == ".h") {
+        unique_lock lock{_tagFileMutex};
+        // TODO: Check if need InteractionMonitor::GetInstance()->getInteractionLock();
+        if (const auto tagsFilePath = MemoryManipulator::GetInstance()->getProjectDirectory() / "tags";
+            exists(tagsFilePath)) {
+            remove(MemoryManipulator::GetInstance()->getProjectDirectory() / "tags");
+        }
+    }
+    // }).detach();
 }
 
 void SymbolManager::_collectIncludes(const filesystem::path& filePath) {
@@ -191,7 +191,7 @@ unordered_set<filesystem::path> SymbolManager::_getIncludesInFile(
     ifstream fileStream{filePath};
     uint32_t searchLimit{};
     string line;
-    while (getline(fileStream, line) && searchLimit < 100) {
+    while (getline(fileStream, line) && searchLimit < 50) {
         if (smatch match; regex_search(line, match, includePattern)) {
             const auto pathToCheck = match[2].matched
                                          ? publicPathOpt.value_or(relativePath) / match[2].str()
