@@ -473,7 +473,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     // WindowManager::GetInstance()->sendF13();
                     // TODO: Improve performance
                     logger::debug("[_threadDebounceRetrieveCompletion] Try to get interaction unique lock");
-                    const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
+                    const auto interactionLock = InteractionMonitor::GetInstance()-> getInteractionLock();
                     logger::debug("[_threadDebounceRetrieveCompletion] Successfuly got interaction unique lock");
                     const auto memoryManipulator = MemoryManipulator::GetInstance();
                     const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
@@ -531,11 +531,11 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                         //     }
                         //     logger::info("Retrieve completion with current line prefix");
                         _sendCompletionGenerate();
-                        _needRetrieveCompletion.store(false);
                     }
                 } catch (const exception& e) {
                     logger::warn(format("Exception when retrieving completion: {}", e.what()));
                 }
+                _needRetrieveCompletion.store(false);
             }
             this_thread::sleep_for(10ms);
         }
