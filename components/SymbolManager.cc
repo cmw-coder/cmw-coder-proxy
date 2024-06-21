@@ -10,7 +10,6 @@
 
 #include <components/MemoryManipulator.h>
 #include <components/SymbolManager.h>
-#include <nlohmann/json_fwd.hpp>
 #include <utils/iconv.h>
 #include <utils/logger.h>
 #include <utils/system.h>
@@ -127,27 +126,27 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix) {
     return result;
 }
 
-void SymbolManager::updateFile(const filesystem::path& filePath) {
-    // thread([this, filePath] {
-    if (const auto extension = filePath.extension();
-        extension == ".c") {
-        bool needUpdate; {
-            shared_lock lock{_fileSetMutex};
-            needUpdate = !_fileSet.contains(filePath);
+void SymbolManager::tryUpdateFile(const filesystem::path& filePath, uint32_t line) {
+    thread([this, filePath, line] {
+        if (const auto extension = filePath.extension();
+            extension == ".c" && line < 200) {
+            bool needUpdate; {
+                shared_lock lock{_fileSetMutex};
+                needUpdate = !_fileSet.contains(filePath);
+            }
+            if (needUpdate) {
+                _collectIncludes(filePath);
+            }
+            ignore = _updateTags();
+        } else if (extension == ".h") {
+            unique_lock lock{_tagFileMutex};
+            // TODO: Check if need InteractionMonitor::GetInstance()->getInteractionLock();
+            if (const auto tagsFilePath = MemoryManipulator::GetInstance()->getProjectDirectory() / "tags";
+                exists(tagsFilePath)) {
+                remove(MemoryManipulator::GetInstance()->getProjectDirectory() / "tags");
+            }
         }
-        if (needUpdate) {
-            _collectIncludes(filePath);
-        }
-        ignore = _updateTags();
-    } else if (extension == ".h") {
-        unique_lock lock{_tagFileMutex};
-        // TODO: Check if need InteractionMonitor::GetInstance()->getInteractionLock();
-        if (const auto tagsFilePath = MemoryManipulator::GetInstance()->getProjectDirectory() / "tags";
-            exists(tagsFilePath)) {
-            remove(MemoryManipulator::GetInstance()->getProjectDirectory() / "tags");
-        }
-    }
-    // }).detach();
+    }).detach();
 }
 
 void SymbolManager::_collectIncludes(const filesystem::path& filePath) {
@@ -180,7 +179,7 @@ void SymbolManager::_collectIncludes(const filesystem::path& filePath) {
         unique_lock lock{_fileSetMutex};
         _fileSet.merge(result);
     }
-    logger::warn(format("Found duplicated include: {}", nlohmann::json(result).dump()));
+    // logger::warn(format("Found duplicated include: {}", nlohmann::json(result).dump()));
 }
 
 unordered_set<filesystem::path> SymbolManager::_getIncludesInFile(
@@ -199,14 +198,10 @@ unordered_set<filesystem::path> SymbolManager::_getIncludesInFile(
     }
     for (const auto& line: totalLines) {
         if (smatch match; regex_search(line, match, includePattern)) {
-            const auto pathToCheck = match[2].matched
-                                         ? publicPathOpt.value_or(relativePath) / match[2].str()
-                                         : relativePath / match[3].str();
-            bool needRecord; {
-                shared_lock lock{_fileSetMutex};
-                needRecord = !_fileSet.contains(pathToCheck) && exists(pathToCheck);
-            }
-            if (needRecord) {
+            if (const auto pathToCheck = match[2].matched
+                                             ? publicPathOpt.value_or(relativePath) / match[2].str()
+                                             : relativePath / match[3].str();
+                exists(pathToCheck)) {
                 result.insert(pathToCheck.lexically_normal());
             }
         }

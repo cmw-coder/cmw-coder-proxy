@@ -472,14 +472,14 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                 try {
                     // TODO: Improve performance
                     logger::debug("[_threadDebounceRetrieveCompletion] Try to get interaction unique lock");
-                    const auto interactionLock = InteractionMonitor::GetInstance()-> getInteractionLock();
+                    const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
                     logger::debug("[_threadDebounceRetrieveCompletion] Successfuly got interaction unique lock");
                     const auto memoryManipulator = MemoryManipulator::GetInstance();
                     const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
                     const auto caretPosition = memoryManipulator->getCaretPosition();
                     if (auto path = memoryManipulator->getCurrentFilePath();
                         currentFileHandle && !path.empty()) {
-                        SymbolManager::GetInstance()->updateFile(path);
+                        SymbolManager::GetInstance()->tryUpdateFile(path, caretPosition.line);
                         string prefix, prefixForSymbol, suffix; {
                             const auto currentLine = memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line

@@ -15,7 +15,7 @@ namespace components {
 
         std::vector<models::SymbolInfo> getSymbols(const std::string& prefix);
 
-        void updateFile(const std::filesystem::path& filePath);
+        void tryUpdateFile(const std::filesystem::path& filePath, uint32_t line);
 
     private:
         mutable std::shared_mutex _fileSetMutex, _tagFileMutex;
