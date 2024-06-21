@@ -467,10 +467,9 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
     thread([this] {
         while (_isRunning) {
             if (const auto pastTime = chrono::high_resolution_clock::now() - _debounceRetrieveCompletionTime.load();
-                pastTime >= 300ms && _needRetrieveCompletion.load()) {
+                pastTime >= 150ms && _needRetrieveCompletion.load()) {
                 WindowManager::GetInstance()->setMenuText("Generating...");
                 try {
-                    // WindowManager::GetInstance()->sendF13();
                     // TODO: Improve performance
                     logger::debug("[_threadDebounceRetrieveCompletion] Try to get interaction unique lock");
                     const auto interactionLock = InteractionMonitor::GetInstance()-> getInteractionLock();

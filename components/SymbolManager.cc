@@ -157,6 +157,7 @@ void SymbolManager::_collectIncludes(const filesystem::path& filePath) {
             if (const auto tempPath = absoluteFilePath / "PUBLIC" / "include" / "comware";
                 exists(tempPath)) {
                 publicPathOpt.emplace(tempPath.lexically_normal());
+                break;
             }
             absoluteFilePath = absoluteFilePath.parent_path();
         }
@@ -188,10 +189,15 @@ unordered_set<filesystem::path> SymbolManager::_getIncludesInFile(
 ) const {
     const auto relativePath = is_directory(filePath) ? filePath : filePath.parent_path();
     unordered_set<filesystem::path> result;
-    ifstream fileStream{filePath};
-    uint32_t searchLimit{};
-    string line;
-    while (getline(fileStream, line) && searchLimit < 50) {
+    vector<string> totalLines;
+    totalLines.reserve(200); {
+        ifstream fileStream{filePath};
+        string line;
+        for (auto index = 0; index < 200 && getline(fileStream, line); index++) {
+            totalLines.push_back(line);
+        }
+    }
+    for (const auto& line: totalLines) {
         if (smatch match; regex_search(line, match, includePattern)) {
             const auto pathToCheck = match[2].matched
                                          ? publicPathOpt.value_or(relativePath) / match[2].str()
@@ -201,12 +207,8 @@ unordered_set<filesystem::path> SymbolManager::_getIncludesInFile(
                 needRecord = !_fileSet.contains(pathToCheck) && exists(pathToCheck);
             }
             if (needRecord) {
-                searchLimit = 0;
                 result.insert(pathToCheck.lexically_normal());
             }
-        }
-        if (!result.empty()) {
-            searchLimit++;
         }
     }
     return result;
