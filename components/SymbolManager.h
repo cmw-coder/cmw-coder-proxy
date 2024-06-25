@@ -16,7 +16,7 @@ namespace components {
         void updateRootPath(const std::filesystem::path& currentFilePath);
 
     private:
-        consteval char _tagFile[] = "current.ctags", _tempTagFile[] = "temp.ctags";
+        const std::string _tagFile = "current.ctags", _tempTagFile = "temp.ctags";
         mutable std::shared_mutex _rootPathMutex, _tagFileMutex;
         std::atomic<bool> _isRunning{true}, _needUpdateTags{false};
         std::filesystem::path _rootPath;

@@ -159,7 +159,7 @@ void SymbolManager::_threadUpdateTags() const {
                     arguments = format(
                         R"(-a --excmd=combine -f "{}" --fields=+e+n --kinds-c=-ehmv --languages=C,C++ -R {})",
                         (MemoryManipulator::GetInstance()->getProjectDirectory() / _tempTagFile).generic_string(),
-                        _rootPath
+                        _rootPath.generic_string()
                     );
                 }
                 try {
