@@ -130,6 +130,7 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix) {
 }
 
 void SymbolManager::updateRootPath(const std::filesystem::path& currentFilePath) {
+    _needUpdateTags.store(true);
     thread([this, currentFilePath] {
         auto tempPath = absolute(currentFilePath).lexically_normal();
         while (tempPath != tempPath.parent_path()) {
@@ -142,11 +143,10 @@ void SymbolManager::updateRootPath(const std::filesystem::path& currentFilePath)
                     unique_lock lock{_rootPathMutex};
                     _rootPath = tempPath;
                 }
-                break;
+                return;
             }
             tempPath = tempPath.parent_path();
         }
-        _needUpdateTags.store(true);
     }).detach();
 }
 
@@ -156,6 +156,10 @@ void SymbolManager::_threadUpdateTags() const {
             if (_needUpdateTags.load()) {
                 string arguments; {
                     shared_lock lock{_rootPathMutex};
+                    if (_rootPath.empty() || !exists(_rootPath)) {
+                        _needUpdateTags.store(false);
+                        continue;
+                    }
                     arguments = format(
                         R"(-a --excmd=combine -f "{}" --fields=+e+n --kinds-c=-ehmv --languages=C,C++ -R {})",
                         (MemoryManipulator::GetInstance()->getProjectDirectory() / _tempTagFile).generic_string(),
