@@ -479,7 +479,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     const auto caretPosition = memoryManipulator->getCaretPosition();
                     if (auto path = memoryManipulator->getCurrentFilePath();
                         currentFileHandle && !path.empty()) {
-                        SymbolManager::GetInstance()->tryUpdateFile(path, caretPosition.line);
+                        SymbolManager::GetInstance()->updateRootPath(path);
                         string prefix, prefixForSymbol, suffix; {
                             const auto currentLine = memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line
