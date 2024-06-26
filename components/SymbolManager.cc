@@ -27,6 +27,36 @@ namespace {
 
     const auto symbolPattern = regex(R"~(\b[A-Z][A-Z0-9]*(_[A-Z0-9]+)*\b)~");
 
+    const array<filesystem::path, 27> modulePaths{
+        "ACCESS/src/sbin",
+        "CRYPTO/src/sbin",
+        "DC/src/sbin",
+        "DEV/src/sbin",
+        "DLP/src/sbin",
+        "DPI/src/sbin",
+        "DRV_SIMSWITCH/src/sbin",
+        "DRV_SIMWARE9/src/sbin",
+        "FE/src/sbin",
+        "FW/src/sbin",
+        "IP/src/sbin",
+        "L2VPN/src/sbin",
+        "LAN/src/sbin",
+        "LB/src/sbin",
+        "LINK/src/sbin",
+        "LSM/src/sbin",
+        "MCAST/src/sbin",
+        "NETFWD/src/sbin",
+        "OFP/src/sbin",
+        "PSEC/src/sbin",
+        "PUBLIC/include/comware",
+        "QACL/src/sbin",
+        "TEST/src/sbin",
+        "VOICE/src/sbin",
+        "VPN/src/sbin",
+        "WLAN/src/sbin",
+        "X86PLAT/src/sbin",
+    };
+
     SymbolCollection collectSymbols(const string& prefixLines) {
         SymbolCollection result;
         vector<string> symbolList;
@@ -131,15 +161,34 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix) {
 
 void SymbolManager::updateRootPath(const std::filesystem::path& currentFilePath) {
     _needUpdateTags.store(true);
-    thread([this, currentFilePath] {
-        auto tempPath = absolute(currentFilePath).lexically_normal();
+    thread([this, originalPath = absolute(currentFilePath).lexically_normal()] {
+        auto tempPath = originalPath;
         while (tempPath != tempPath.parent_path()) {
-            if (exists(tempPath / "PUBLIC" / "include" / "comware")) {
+            if (ranges::any_of(modulePaths, [&tempPath](const auto& modulePath) {
+                return exists(tempPath / modulePath);
+            })) {
                 bool isSameRoot; {
                     shared_lock lock{_rootPathMutex};
                     isSameRoot = tempPath == _rootPath;
                 }
                 if (!isSameRoot) {
+                    logger::info(format("Root path updated to Comware style: '{}'", tempPath.generic_string()));
+                    unique_lock lock{_rootPathMutex};
+                    _rootPath = tempPath;
+                }
+                return;
+            }
+            tempPath = tempPath.parent_path();
+        }
+        tempPath = originalPath;
+        while (tempPath != tempPath.parent_path()) {
+            if (exists(tempPath / "src" )) {
+                bool isSameRoot; {
+                    shared_lock lock{_rootPathMutex};
+                    isSameRoot = tempPath == _rootPath;
+                }
+                if (!isSameRoot) {
+                    logger::info(format("Root path updated to normal style: '{}'", tempPath.generic_string()));
                     unique_lock lock{_rootPathMutex};
                     _rootPath = tempPath;
                 }
