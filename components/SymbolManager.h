@@ -21,6 +21,6 @@ namespace components {
         std::atomic<bool> _isRunning{true}, _needUpdateTags{false};
         std::filesystem::path _rootPath;
 
-        void _threadUpdateTags() const;
+        void _threadUpdateTags();
     };
 }

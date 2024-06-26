@@ -150,7 +150,7 @@ void SymbolManager::updateRootPath(const std::filesystem::path& currentFilePath)
     }).detach();
 }
 
-void SymbolManager::_threadUpdateTags() const {
+void SymbolManager::_threadUpdateTags() {
     thread([this] {
         while (_isRunning) {
             if (_needUpdateTags.load()) {
