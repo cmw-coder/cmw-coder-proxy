@@ -225,6 +225,7 @@ void SymbolManager::_threadUpdateTags() {
                 } catch (exception& e) {
                     logger::warn(format("Exception when updating tags: {}", e.what()));
                 }
+                _needUpdateTags.store(false);
             }
             this_thread::sleep_for(1s);
         }

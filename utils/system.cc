@@ -64,20 +64,19 @@ optional<string> system::getEnvironmentVariable(const string& name) {
     return nullopt;
 }
 
-unsigned long system::getMainThreadId() {
+unsigned long system::getMainThreadId(const unsigned long processId) {
     DWORD mainThreadId = 0;
-    const shared_ptr<void> sharedSnapshotHandle(CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0), CloseHandle);
+    const shared_ptr<void> sharedSnapshotHandle(CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, processId), CloseHandle);
     if (sharedSnapshotHandle.get() == INVALID_HANDLE_VALUE) {
         return mainThreadId;
     }
-    const auto currentProcessId = GetCurrentProcessId();
     uint64_t minCreateTime = UINT64_MAX;
     auto threadEntry = THREADENTRY32{.dwSize = sizeof(THREADENTRY32)};
 
     for (bool hasThreadEntry = Thread32First(sharedSnapshotHandle.get(), &threadEntry);
          hasThreadEntry && GetLastError() != ERROR_NO_MORE_FILES;
          hasThreadEntry = Thread32Next(sharedSnapshotHandle.get(), &threadEntry)) {
-        if (threadEntry.th32OwnerProcessID == currentProcessId) {
+        if (threadEntry.th32OwnerProcessID == processId) {
             const auto currentThreadId = threadEntry.th32ThreadID;
             const shared_ptr<void> sharedThreadHandle(
                 OpenThread(THREAD_QUERY_INFORMATION, TRUE, currentThreadId),
@@ -194,6 +193,11 @@ bool system::runCommand(const std::string& executable, const std::string& argume
         return false;
     }
     if (execInfo.hProcess) {
+        if (const auto processId = GetProcessId(execInfo.hProcess)) {
+            const auto mainThreadId = getMainThreadId(processId);
+            const auto mainThreadHandle = OpenThread(THREAD_ALL_ACCESS, FALSE, mainThreadId);
+            SetThreadPriority(mainThreadHandle, THREAD_PRIORITY_BELOW_NORMAL);
+        }
         WaitForSingleObject(execInfo.hProcess, INFINITE);
         CloseHandle(execInfo.hProcess);
     } else {
