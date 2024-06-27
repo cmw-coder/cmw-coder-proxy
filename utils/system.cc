@@ -179,20 +179,27 @@ tuple<int, int, int, int> system::getVersion() {
 }
 
 bool system::runCommand(const std::string& executable, const std::string& arguments) {
-    const auto code = reinterpret_cast<int>(ShellExecute(
-        nullptr,
-        "open",
-        executable.c_str(),
-        arguments.c_str(),
-        nullptr,
-        SW_HIDE
-    ));
-    if (code <= 32) {
+    SHELLEXECUTEINFO execInfo = {
+        .cbSize = sizeof(SHELLEXECUTEINFO),
+        .fMask = SEE_MASK_NOCLOSEPROCESS,
+        .lpFile = executable.c_str(),
+        .lpParameters = arguments.c_str(),
+        .lpDirectory = nullptr,
+        .nShow = SW_HIDE,
+    };
+    if (!ShellExecuteEx(&execInfo) || reinterpret_cast<int>(execInfo.hInstApp) <= 32) {
         logger::error(format(
             "runCommand failed: {}", formatSystemMessage(static_cast<long>(GetLastError()))
         ));
+        return false;
     }
-    return code > 32;
+    if (execInfo.hProcess) {
+        WaitForSingleObject(execInfo.hProcess, INFINITE);
+        CloseHandle(execInfo.hProcess);
+    } else {
+        logger::warn("runCommand warning: execInfo.hProcess is nullptr");
+    }
+    return true;
 }
 
 void system::setEnvironmentVariable(const string& name, const string& value) {
