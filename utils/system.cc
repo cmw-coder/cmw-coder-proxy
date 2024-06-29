@@ -64,20 +64,19 @@ optional<string> system::getEnvironmentVariable(const string& name) {
     return nullopt;
 }
 
-unsigned long system::getMainThreadId() {
+unsigned long system::getMainThreadId(const unsigned long processId) {
     DWORD mainThreadId = 0;
-    const shared_ptr<void> sharedSnapshotHandle(CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0), CloseHandle);
+    const shared_ptr<void> sharedSnapshotHandle(CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, processId), CloseHandle);
     if (sharedSnapshotHandle.get() == INVALID_HANDLE_VALUE) {
         return mainThreadId;
     }
-    const auto currentProcessId = GetCurrentProcessId();
     uint64_t minCreateTime = UINT64_MAX;
     auto threadEntry = THREADENTRY32{.dwSize = sizeof(THREADENTRY32)};
 
     for (bool hasThreadEntry = Thread32First(sharedSnapshotHandle.get(), &threadEntry);
          hasThreadEntry && GetLastError() != ERROR_NO_MORE_FILES;
          hasThreadEntry = Thread32Next(sharedSnapshotHandle.get(), &threadEntry)) {
-        if (threadEntry.th32OwnerProcessID == currentProcessId) {
+        if (threadEntry.th32OwnerProcessID == processId) {
             const auto currentThreadId = threadEntry.th32ThreadID;
             const shared_ptr<void> sharedThreadHandle(
                 OpenThread(THREAD_QUERY_INFORMATION, TRUE, currentThreadId),
@@ -179,20 +178,32 @@ tuple<int, int, int, int> system::getVersion() {
 }
 
 bool system::runCommand(const std::string& executable, const std::string& arguments) {
-    const auto code = reinterpret_cast<int>(ShellExecute(
-        nullptr,
-        "open",
-        executable.c_str(),
-        arguments.c_str(),
-        nullptr,
-        SW_HIDE
-    ));
-    if (code <= 32) {
+    SHELLEXECUTEINFO execInfo = {
+        .cbSize = sizeof(SHELLEXECUTEINFO),
+        .fMask = SEE_MASK_NOCLOSEPROCESS,
+        .lpFile = executable.c_str(),
+        .lpParameters = arguments.c_str(),
+        .lpDirectory = nullptr,
+        .nShow = SW_HIDE,
+    };
+    if (!ShellExecuteEx(&execInfo) || reinterpret_cast<int>(execInfo.hInstApp) <= 32) {
         logger::error(format(
             "runCommand failed: {}", formatSystemMessage(static_cast<long>(GetLastError()))
         ));
+        return false;
     }
-    return code > 32;
+    if (execInfo.hProcess) {
+        if (const auto processId = GetProcessId(execInfo.hProcess)) {
+            const auto mainThreadId = getMainThreadId(processId);
+            const auto mainThreadHandle = OpenThread(THREAD_ALL_ACCESS, FALSE, mainThreadId);
+            SetThreadPriority(mainThreadHandle, THREAD_PRIORITY_BELOW_NORMAL);
+        }
+        WaitForSingleObject(execInfo.hProcess, INFINITE);
+        CloseHandle(execInfo.hProcess);
+    } else {
+        logger::warn("runCommand warning: execInfo.hProcess is nullptr");
+    }
+    return true;
 }
 
 void system::setEnvironmentVariable(const string& name, const string& value) {

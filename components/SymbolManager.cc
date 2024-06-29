@@ -1,8 +1,8 @@
 #include <filesystem>
-#include <fstream>
 #include <optional>
 #include <ranges>
 #include <regex>
+#include <unordered_set>
 
 #include <magic_enum.hpp>
 #include <nlohmann/json.hpp>
@@ -25,8 +25,37 @@ namespace {
         unordered_set<string> references, unknown;
     };
 
-    const auto includePattern = regex(R"~(#\s*include\s*(<([^>\s]+)>|"([^"\s]+)"))~");
     const auto symbolPattern = regex(R"~(\b[A-Z][A-Z0-9]*(_[A-Z0-9]+)*\b)~");
+
+    const array<filesystem::path, 27> modulePaths{
+        "ACCESS/src/sbin",
+        "CRYPTO/src/sbin",
+        "DC/src/sbin",
+        "DEV/src/sbin",
+        "DLP/src/sbin",
+        "DPI/src/sbin",
+        "DRV_SIMSWITCH/src/sbin",
+        "DRV_SIMWARE9/src/sbin",
+        "FE/src/sbin",
+        "FW/src/sbin",
+        "IP/src/sbin",
+        "L2VPN/src/sbin",
+        "LAN/src/sbin",
+        "LB/src/sbin",
+        "LINK/src/sbin",
+        "LSM/src/sbin",
+        "MCAST/src/sbin",
+        "NETFWD/src/sbin",
+        "OFP/src/sbin",
+        "PSEC/src/sbin",
+        "PUBLIC/include/comware",
+        "QACL/src/sbin",
+        "TEST/src/sbin",
+        "VOICE/src/sbin",
+        "VPN/src/sbin",
+        "WLAN/src/sbin",
+        "X86PLAT/src/sbin",
+    };
 
     SymbolCollection collectSymbols(const string& prefixLines) {
         SymbolCollection result;
@@ -51,9 +80,13 @@ namespace {
     }
 }
 
-SymbolManager::SymbolManager() = default;
+SymbolManager::SymbolManager() {
+    _threadUpdateTags();
+}
 
-SymbolManager::~SymbolManager() = default;
+SymbolManager::~SymbolManager() {
+    _isRunning.store(false);
+}
 
 vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix) {
     vector<SymbolInfo> result;
@@ -126,104 +159,75 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix) {
     return result;
 }
 
-void SymbolManager::tryUpdateFile(const filesystem::path& filePath, uint32_t line) {
-    thread([this, filePath, line] {
-        if (const auto extension = filePath.extension();
-            extension == ".c" && line < 200) {
-            bool needUpdate; {
-                shared_lock lock{_fileSetMutex};
-                needUpdate = !_fileSet.contains(filePath);
+void SymbolManager::updateRootPath(const std::filesystem::path& currentFilePath) {
+    _needUpdateTags.store(true);
+    thread([this, originalPath = absolute(currentFilePath).lexically_normal()] {
+        auto tempPath = originalPath;
+        while (tempPath != tempPath.parent_path()) {
+            if (ranges::any_of(modulePaths, [&tempPath](const auto& modulePath) {
+                return exists(tempPath / modulePath);
+            })) {
+                bool isSameRoot; {
+                    shared_lock lock{_rootPathMutex};
+                    isSameRoot = tempPath == _rootPath;
+                }
+                if (!isSameRoot) {
+                    logger::info(format("Root path updated to Comware style: '{}'", tempPath.generic_string()));
+                    unique_lock lock{_rootPathMutex};
+                    _rootPath = tempPath;
+                }
+                return;
             }
-            if (needUpdate) {
-                _collectIncludes(filePath);
+            tempPath = tempPath.parent_path();
+        }
+        tempPath = originalPath;
+        while (tempPath != tempPath.parent_path()) {
+            if (exists(tempPath / "src" )) {
+                bool isSameRoot; {
+                    shared_lock lock{_rootPathMutex};
+                    isSameRoot = tempPath == _rootPath;
+                }
+                if (!isSameRoot) {
+                    logger::info(format("Root path updated to normal style: '{}'", tempPath.generic_string()));
+                    unique_lock lock{_rootPathMutex};
+                    _rootPath = tempPath;
+                }
+                return;
             }
-            ignore = _updateTags();
-        } else if (extension == ".h") {
-            unique_lock lock{_tagFileMutex};
-            // TODO: Check if need InteractionMonitor::GetInstance()->getInteractionLock();
-            if (const auto tagsFilePath = MemoryManipulator::GetInstance()->getProjectDirectory() / "tags";
-                exists(tagsFilePath)) {
-                remove(MemoryManipulator::GetInstance()->getProjectDirectory() / "tags");
-            }
+            tempPath = tempPath.parent_path();
         }
     }).detach();
 }
 
-void SymbolManager::_collectIncludes(const filesystem::path& filePath) {
-    optional<filesystem::path> publicPathOpt; {
-        auto absoluteFilePath = absolute(filePath);
-        while (absoluteFilePath != absoluteFilePath.parent_path()) {
-            if (const auto tempPath = absoluteFilePath / "PUBLIC" / "include" / "comware";
-                exists(tempPath)) {
-                publicPathOpt.emplace(tempPath.lexically_normal());
-                break;
+void SymbolManager::_threadUpdateTags() {
+    thread([this] {
+        while (_isRunning) {
+            if (_needUpdateTags.load()) {
+                string arguments; {
+                    shared_lock lock{_rootPathMutex};
+                    if (_rootPath.empty() || !exists(_rootPath)) {
+                        _needUpdateTags.store(false);
+                        continue;
+                    }
+                    arguments = format(
+                        R"(-a --excmd=combine -f "{}" --fields=+e+n --kinds-c=-ehmv --languages=C,C++ -R {})",
+                        (MemoryManipulator::GetInstance()->getProjectDirectory() / _tempTagFile).generic_string(),
+                        _rootPath.generic_string()
+                    );
+                }
+                try {
+                    system::runCommand("ctags.exe", arguments);
+                    unique_lock lock{_tagFileMutex};
+                    rename(
+                        MemoryManipulator::GetInstance()->getProjectDirectory() / _tempTagFile,
+                        MemoryManipulator::GetInstance()->getProjectDirectory() / _tagFile
+                    );
+                } catch (exception& e) {
+                    logger::warn(format("Exception when updating tags: {}", e.what()));
+                }
+                _needUpdateTags.store(false);
             }
-            absoluteFilePath = absoluteFilePath.parent_path();
+            this_thread::sleep_for(1s);
         }
-    }
-    unordered_set<filesystem::path> result = _getIncludesInFile(filePath, publicPathOpt)/*, newIncludeSet = result*/;
-    // while (!newIncludeSet.empty()) {
-    //     unordered_set<filesystem::path> tempIncludeSet;
-    //     for (const auto& includePath: newIncludeSet) {
-    //         const auto tempIncludes = _getIncludesInFile(includePath, publicPathOpt);
-    //         tempIncludeSet.insert(tempIncludes.begin(), tempIncludes.end());
-    //     }
-    //     newIncludeSet.clear();
-    //     for (const auto& tempIncludePath: tempIncludeSet) {
-    //         if (result.insert(tempIncludePath).second) {
-    //             newIncludeSet.insert(tempIncludePath);
-    //         }
-    //     }
-    // }
-    result.emplace(filePath); {
-        unique_lock lock{_fileSetMutex};
-        _fileSet.merge(result);
-    }
-    // logger::warn(format("Found duplicated include: {}", nlohmann::json(result).dump()));
-}
-
-unordered_set<filesystem::path> SymbolManager::_getIncludesInFile(
-    const filesystem::path& filePath,
-    const optional<filesystem::path>& publicPathOpt
-) const {
-    const auto relativePath = is_directory(filePath) ? filePath : filePath.parent_path();
-    unordered_set<filesystem::path> result;
-    vector<string> totalLines;
-    totalLines.reserve(200); {
-        ifstream fileStream{filePath};
-        string line;
-        for (auto index = 0; index < 200 && getline(fileStream, line); index++) {
-            totalLines.push_back(line);
-        }
-    }
-    for (const auto& line: totalLines) {
-        if (smatch match; regex_search(line, match, includePattern)) {
-            if (const auto pathToCheck = match[2].matched
-                                             ? publicPathOpt.value_or(relativePath) / match[2].str()
-                                             : relativePath / match[3].str();
-                exists(pathToCheck)) {
-                result.insert(pathToCheck.lexically_normal());
-            }
-        }
-    }
-    return result;
-}
-
-bool SymbolManager::_updateTags() const {
-    string fileList; {
-        shared_lock lock{_fileSetMutex};
-        if (_fileSet.empty()) {
-            return false;
-        }
-        for (const auto& file: _fileSet) {
-            fileList += format(R"("{}" )", file.generic_string());
-        }
-    }
-    const string arguments = format(
-        R"(-a --excmd=combine -f "{}" --fields=+e+n --kinds-c=-efhmv {})",
-        (MemoryManipulator::GetInstance()->getProjectDirectory() / "tags").generic_string(),
-        fileList
-    );
-    unique_lock lock{_tagFileMutex};
-    return system::runCommand("ctags.exe", arguments);
+    }).detach();
 }

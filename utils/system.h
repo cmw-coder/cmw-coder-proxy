@@ -13,7 +13,7 @@ namespace utils::system {
 
     std::optional<std::string> getEnvironmentVariable(const std::string& name);
 
-    unsigned long getMainThreadId();
+    unsigned long getMainThreadId(unsigned long processId);
 
     std::string getModuleFileName(uint64_t moduleAddress);
 

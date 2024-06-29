@@ -165,7 +165,7 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 GetCurrentProcessId(),
                 VERSION_STRING,
                 GetCurrentThreadId(),
-                system::getMainThreadId(),
+                system::getMainThreadId(GetCurrentProcessId()),
                 system::getModuleFileName(reinterpret_cast<uint64_t>(GetModuleHandle(nullptr)))
             ));
             break;

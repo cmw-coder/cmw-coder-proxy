@@ -22,7 +22,7 @@ using namespace types;
 using namespace utils;
 
 namespace {
-    const auto mainThreadId = system::getMainThreadId();
+    const auto mainThreadId = system::getMainThreadId(GetCurrentProcessId());
 }
 
 InteractionMonitor::InteractionMonitor()

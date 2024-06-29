@@ -1,7 +1,5 @@
 #pragma once
 
-#include <unordered_set>
-
 #include <singleton_dclp.hpp>
 
 #include <models/SymbolInfo.h>
@@ -15,19 +13,14 @@ namespace components {
 
         std::vector<models::SymbolInfo> getSymbols(const std::string& prefix);
 
-        void tryUpdateFile(const std::filesystem::path& filePath, uint32_t line);
+        void updateRootPath(const std::filesystem::path& currentFilePath);
 
     private:
-        mutable std::shared_mutex _fileSetMutex, _tagFileMutex;
-        std::unordered_set<std::filesystem::path> _fileSet;
+        const std::string _tagFile = "current.ctags", _tempTagFile = "temp.ctags";
+        mutable std::shared_mutex _rootPathMutex, _tagFileMutex;
+        std::atomic<bool> _isRunning{true}, _needUpdateTags{false};
+        std::filesystem::path _rootPath;
 
-        void _collectIncludes(const std::filesystem::path& filePath);
-
-        std::unordered_set<std::filesystem::path> _getIncludesInFile(
-            const std::filesystem::path& filePath,
-            const std::optional<std::filesystem::path>& publicPathOpt
-        ) const;
-
-        bool _updateTags() const;
+        void _threadUpdateTags();
     };
 }
