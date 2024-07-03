@@ -295,11 +295,11 @@ void Modification::selectionClear() {
     _lastSelect.reset();
 }
 
-void Modification::selectionSet(const Range& range) {
+void Modification::selectionSet(const Selection& range) {
     _lastSelect = range;
 }
 
-string Modification::_addRangeIndent(const Range& range) const {
+string Modification::_addRangeIndent(const Selection& range) const {
     string selectcontent;
     const auto rangeContent = _getRangeContent(range);
     const auto rangeContentLines = ranges::count(rangeContent, '\n');
@@ -366,13 +366,13 @@ pair<uint32_t, uint32_t> Modification::_getLineOffsets(const uint32_t lineIndex)
     };
 }
 
-string Modification::_getRangeContent(const Range& range) const {
+string Modification::_getRangeContent(const Selection& range) const {
     const auto [startOffset, endOffset] = _getRangeOffsets(range);
     const auto content = _content.substr(startOffset, endOffset - startOffset);
     return content;
 }
 
-pair<uint32_t, uint32_t> Modification::_getRangeOffsets(const Range& range) const {
+pair<uint32_t, uint32_t> Modification::_getRangeOffsets(const Selection& range) const {
     uint32_t startCharactorOffset = _lineOffsets.at(range.start.line) + range.start.character;
     uint32_t endCharactorOffset;
     if (range.end.character == 4096) {
@@ -384,7 +384,7 @@ pair<uint32_t, uint32_t> Modification::_getRangeOffsets(const Range& range) cons
     return make_pair(startCharactorOffset, endCharactorOffset);
 }
 
-void Modification::_setRangeContent(const Range& range, const string& characters) {
+void Modification::_setRangeContent(const Selection& range, const string& characters) {
     const auto [startOffset, endOffset] = _getRangeOffsets(range);
     const auto subContent = _getRangeContent(range);
     const auto subLength = endOffset - startOffset;

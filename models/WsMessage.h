@@ -137,6 +137,11 @@ namespace models {
         explicit EditorSwitchProjectClientMessage(const std::filesystem::path& path);
     };
 
+    class EditorSelectionClientMessage final : public WsMessage {
+    public:
+        explicit EditorSelectionClientMessage(const std::filesystem::path& path);
+    };
+
     class EditorSwitchSvnClientMessage final : public WsMessage {
     public:
         explicit EditorSwitchSvnClientMessage(const std::filesystem::path& path);

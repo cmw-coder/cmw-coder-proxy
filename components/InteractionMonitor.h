@@ -36,8 +36,7 @@ namespace components {
     private:
         const helpers::KeyHelper _keyHelper;
         mutable std::shared_mutex _interactionMutex;
-        std::atomic<bool> _isRunning{true}, _isMouseLeftDown{false}, _isSelecting{false},
-                _needReleaseInteractionLock{false};
+        std::atomic<bool> _isRunning{true}, _isMouseLeftDown{false}, _needReleaseInteractionLock{false};
         std::atomic<types::CaretPosition> _currentCaretPosition, _downCursorPosition;
         std::atomic<std::optional<types::Key>> _navigateWithKey;
         std::atomic<std::optional<types::Mouse>> _navigateWithMouse;
@@ -56,6 +55,8 @@ namespace components {
         void _handleKeycode(types::Keycode keycode) noexcept;
 
         bool _handleInteraction(types::Interaction interaction, const std::any& data = {}) const noexcept;
+
+        void _interactionLockShared();
 
         bool _processKeyMessage(unsigned wParam, unsigned lParam);
 

@@ -13,6 +13,7 @@
 #include <utils/window.h>
 
 #include <windows.h>
+#include <utils/iconv.h>
 
 using namespace components;
 using namespace magic_enum;
@@ -115,7 +116,6 @@ long InteractionMonitor::_windowProcedureHook(const int nCode, const unsigned in
 void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
     if (_keyHelper.isPrintable(keycode)) {
         ignore = _handleInteraction(Interaction::NormalInput, _keyHelper.toPrintable(keycode));
-        _isSelecting.store(false);
         return;
     }
 
@@ -131,7 +131,6 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
         }
         if (configManager->checkManualCompletion(key, modifiers)) {
             ignore = _handleInteraction(Interaction::EnterInput);
-            _isSelecting.store(false);
             return;
         }
         try {
@@ -139,12 +138,10 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                 switch (key) {
                     case Key::BackSpace: {
                         ignore = _handleInteraction(Interaction::DeleteInput);
-                        _isSelecting.store(false);
                         break;
                     }
                     case Key::Enter: {
                         ignore = _handleInteraction(Interaction::EnterInput);
-                        _isSelecting.store(false);
                         break;
                     }
                     case Key::Home:
@@ -156,7 +153,6 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                     case Key::Right:
                     case Key::Down: {
                         _navigateWithKey.store(key);
-                        _isSelecting.store(false);
                         // ignore = _handleInteraction(Interaction::SelectionClear);
                         break;
                     }
@@ -228,17 +224,21 @@ bool InteractionMonitor::_handleInteraction(const Interaction interaction, const
     return needBlockMessage;
 }
 
-bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigned lParam) {
-    if (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
-        return false;
-    }
-
+void InteractionMonitor::_interactionLockShared() {
     if (!_needReleaseInteractionLock.load()) {
         _interactionMutex.lock_shared();
         _needReleaseInteractionLock = true;
         _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
         logger::debug("[_processKeyMessage] Successfuly got interaction shared lock");
     }
+}
+
+bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigned lParam) {
+    if (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
+        return false;
+    }
+
+    _interactionLockShared();
 
     const auto keyFlags = HIWORD(lParam);
     const auto isKeyUp = (keyFlags & KF_UP) == KF_UP;
@@ -260,7 +260,6 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
             } else if (!WindowManager::GetInstance()->hasPopListWindow()) {
                 ignore = _handleInteraction(Interaction::CompletionCancel, false);
             }
-            _isSelecting.store(false);
             _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
             break;
         }
@@ -284,32 +283,49 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
 }
 
 void InteractionMonitor::_processMouseMessage(const unsigned wParam) {
+    if (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
+        return;
+    }
+
     switch (wParam) {
         case WM_LBUTTONDOWN: {
+            _interactionLockShared();
+
             if (!_isMouseLeftDown.load()) {
                 _isMouseLeftDown.store(true);
             }
             _navigateWithMouse.store(Mouse::Left);
-            break;
-        }
-        case WM_MOUSEMOVE: {
-            if (_isMouseLeftDown.load()) {
-                _isSelecting.store(true);
-            }
+            _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
             break;
         }
         case WM_LBUTTONUP: {
-            // if (_isSelecting.load()) {
-            //     auto selectRange = _monitorCursorSelect();
-            //     ignore = _handleInteraction(Interaction::SelectionSet, selectRange);
-            // } else {
-            //     ignore = _handleInteraction(Interaction::SelectionClear);
-            // }
+            _interactionLockShared();
+
+            const auto selection = MemoryManipulator::GetInstance()->getSelection();
+            logger::debug(format(
+                "Selection: ({}, {}) ~ ({}, {})",
+                selection.start.line, selection.start.character,
+                selection.end.line, selection.end.character
+            ));
+            const auto memoryManipulator = MemoryManipulator::GetInstance();
+            if (const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File)) {
+                string content;
+                for (uint32_t index = selection.start.line; index <= selection.end.line; ++index) {
+                    const auto tempLine = iconv::autoDecode(
+                        memoryManipulator->getLineContent(currentFileHandle, index)
+                    );
+                    if (index == selection.start.line) {
+                        content.append(tempLine.substr(selection.start.character)).append("\n");
+                    } else if (index == selection.end.line) {
+                        content.append(tempLine.substr(0, selection.end.character + 1));
+                    } else {
+                        content.append(tempLine).append("\n");
+                    }
+                }
+                logger::debug(format("Content: ", content));
+            }
             _isMouseLeftDown.store(false);
-            break;
-        }
-        case WM_LBUTTONDBLCLK: {
-            _isSelecting.store(true);
+            _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
             break;
         }
         default: {

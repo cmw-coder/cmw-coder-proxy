@@ -12,6 +12,7 @@ namespace types {
         EditorCommit,
         EditorFocusState,
         EditorPaste,
+        EditorSelection,
         EditorSwitchProject,
         EditorSwitchSvn,
         HandShake,

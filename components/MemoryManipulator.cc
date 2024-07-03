@@ -145,10 +145,10 @@ CaretDimension MemoryManipulator::getCaretDimension(const uint32_t line) const {
 }
 
 CaretPosition MemoryManipulator::getCaretPosition() const {
+    const auto [lineStart, characterStart, lineEnd, characterEnd] = _memoryAddress.window.dataSelection;
     CaretPosition cursorPosition{};
-    memory::read(memory::offset(_memoryAddress.window.dataSelection.lineStart.base), cursorPosition.line);
-    memory::read(memory::offset(_memoryAddress.window.dataSelection.characterStart.base),
-                 cursorPosition.character);
+    memory::read(memory::offset(lineStart.base), cursorPosition.line);
+    memory::read(memory::offset(characterStart.base), cursorPosition.character);
     return cursorPosition;
 }
 
@@ -230,6 +230,16 @@ filesystem::path MemoryManipulator::getProjectDirectory() const {
     memory::read(memory::offset(_memoryAddress.project.projectPath), tempBuffer);
     const auto filePath = filesystem::path(string(tempBuffer));
     return is_directory(filePath) ? filePath : filePath.parent_path();
+}
+
+Selection MemoryManipulator::getSelection() const {
+    const auto [lineStart, characterStart, lineEnd, characterEnd] = _memoryAddress.window.dataSelection;
+    CaretPosition start{}, end{};
+    memory::read(memory::offset(lineStart.base), start.line);
+    memory::read(memory::offset(characterStart.base), start.character);
+    memory::read(memory::offset(lineEnd.base), end.line);
+    memory::read(memory::offset(characterEnd.base), end.character);
+    return {start, end};
 }
 
 optional<SymbolName> MemoryManipulator::getSymbolName() const {
