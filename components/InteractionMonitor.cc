@@ -361,64 +361,65 @@ void InteractionMonitor::_processMouseMessage(const unsigned wParam) {
                     selection.end.line, selection.end.character
                 ));
                 if (const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File)) {
-                    string selectionContent, selectionBlock;
-                    if (selection.begin.line == selection.end.line) {
-                        const auto currentLine = iconv::autoDecode(
-                            memoryManipulator->getLineContent(currentFileHandle, selection.begin.line)
-                        );
-                        selectionContent = currentLine.substr(
-                            selection.begin.character, selection.end.character - selection.begin.character
-                        );
-                        if (const auto blockContextOpt = getBlockContext(
-                            currentFileHandle, selection.begin.line, selection.end.line
-                        ); blockContextOpt.has_value()) {
-                            auto [blockPrefix, blockSuffix] = blockContextOpt.value();
-                            selectionBlock = blockPrefix.append(currentLine).append(blockSuffix);
-                        }
-                    } else {
-                        bool needFindBlockContext{true};
-                        uint32_t lastLineRemovalCount{};
-                        string lineContent;
-                        for (uint32_t index = selection.begin.line; index <= selection.end.line; ++index) {
+                    if (const auto [height, xPosition,yPosition] = common::getCaretDimensions(false); height) {
+                        string selectionContent, selectionBlock;
+                        if (selection.begin.line == selection.end.line) {
                             const auto currentLine = iconv::autoDecode(
-                                memoryManipulator->getLineContent(currentFileHandle, index)
+                                memoryManipulator->getLineContent(currentFileHandle, selection.begin.line)
                             );
-                            if (currentLine[0] == '{' || currentLine[0] == '}') {
-                                needFindBlockContext = false;
-                            }
-                            if (index == selection.end.line) {
-                                lastLineRemovalCount = currentLine.length() - selection.end.character;
-                            }
-                            if (index == selection.begin.line) {
-                                lineContent.append(currentLine);
-                            } else {
-                                lineContent.append("\n").append(currentLine);
-                            }
-                        }
-                        selectionContent = lineContent.substr(
-                            selection.begin.character, lineContent.length() - lastLineRemovalCount
-                        );
-                        if (needFindBlockContext) {
+                            selectionContent = currentLine.substr(
+                                selection.begin.character, selection.end.character - selection.begin.character
+                            );
                             if (const auto blockContextOpt = getBlockContext(
                                 currentFileHandle, selection.begin.line, selection.end.line
                             ); blockContextOpt.has_value()) {
                                 auto [blockPrefix, blockSuffix] = blockContextOpt.value();
-                                selectionBlock = blockPrefix.append(lineContent).append(blockSuffix);
+                                selectionBlock = blockPrefix.append(currentLine).append(blockSuffix);
+                            }
+                        } else {
+                            bool needFindBlockContext{true};
+                            uint32_t lastLineRemovalCount{};
+                            string lineContent;
+                            for (uint32_t index = selection.begin.line; index <= selection.end.line; ++index) {
+                                const auto currentLine = iconv::autoDecode(
+                                    memoryManipulator->getLineContent(currentFileHandle, index)
+                                );
+                                if (currentLine[0] == '{' || currentLine[0] == '}') {
+                                    needFindBlockContext = false;
+                                }
+                                if (index == selection.end.line) {
+                                    lastLineRemovalCount = currentLine.length() - selection.end.character;
+                                }
+                                if (index == selection.begin.line) {
+                                    lineContent.append(currentLine);
+                                } else {
+                                    lineContent.append("\n").append(currentLine);
+                                }
+                            }
+                            selectionContent = lineContent.substr(
+                                selection.begin.character, lineContent.length() - lastLineRemovalCount
+                            );
+                            if (needFindBlockContext) {
+                                if (const auto blockContextOpt = getBlockContext(
+                                    currentFileHandle, selection.begin.line, selection.end.line
+                                ); blockContextOpt.has_value()) {
+                                    auto [blockPrefix, blockSuffix] = blockContextOpt.value();
+                                    selectionBlock = blockPrefix.append(lineContent).append(blockSuffix);
+                                }
                             }
                         }
+                        logger::debug(format("selectionContent: {}", selectionContent));
+                        logger::debug(format("selectionBlock: {}", selectionBlock));
+                        WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(
+                            path,
+                            selectionContent,
+                            selectionBlock,
+                            selection,
+                            height,
+                            xPosition,
+                            yPosition
+                        ));
                     }
-                    logger::debug(format("selectionContent: {}", selectionContent));
-                    logger::debug(format("selectionBlock: {}", selectionBlock));
-                    const auto [height, xPosition,yPosition] = common::getCaretDimensions();
-                    WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(
-                        path,
-                        selectionContent,
-                        selectionBlock,
-                        selection,
-                        height,
-                        xPosition,
-                        yPosition
-                    ));
                 }
             } else {
                 WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(path));

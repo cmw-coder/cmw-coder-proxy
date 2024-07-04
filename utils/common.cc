@@ -7,11 +7,11 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
-CaretDimension common::getCaretDimensions() {
+CaretDimension common::getCaretDimensions(bool waitTillAvailable) {
     const auto [clientX, clientY] = WindowManager::GetInstance()->getClientPosition();
 
     auto [height, xPosition, yPosition] = MemoryManipulator::GetInstance()->getCaretDimension();
-    while (!height) {
+    while (waitTillAvailable && !height) {
         std::this_thread::sleep_for(5ms);
         const auto [
             newHeight,
