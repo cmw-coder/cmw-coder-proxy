@@ -5,11 +5,11 @@
 namespace types {
     class Selection {
     public:
-        CaretPosition end, start;
+        CaretPosition begin, end;
 
         Selection() = default;
 
-        Selection(const CaretPosition& start, const CaretPosition& end);
+        Selection(const CaretPosition& begin, const CaretPosition& end);
 
         [[nodiscard]] bool contains(const Selection& other) const;
 

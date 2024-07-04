@@ -60,8 +60,8 @@ void Modification::add(const char character) {
     if (!_lastSelect.isEmpty()) {
         logger::info(format(
             "Remove selection from ({}, {}) to ({}, {})",
-            _lastSelect.start.line,
-            _lastSelect.start.character,
+            _lastSelect.begin.line,
+            _lastSelect.begin.character,
             _lastSelect.end.line,
             _lastSelect.end.character
         ));
@@ -264,8 +264,8 @@ void Modification::remove() {
     if (!_lastSelect.isEmpty()) {
         logger::info(format(
             "Remove selection from ({}, {}) to ({}, {})",
-            _lastSelect.start.line,
-            _lastSelect.start.character,
+            _lastSelect.begin.line,
+            _lastSelect.begin.character,
             _lastSelect.end.line,
             _lastSelect.end.character
         ));
@@ -373,7 +373,7 @@ string Modification::_getRangeContent(const Selection& range) const {
 }
 
 pair<uint32_t, uint32_t> Modification::_getRangeOffsets(const Selection& range) const {
-    uint32_t startCharactorOffset = _lineOffsets.at(range.start.line) + range.start.character;
+    uint32_t startCharactorOffset = _lineOffsets.at(range.begin.line) + range.begin.character;
     uint32_t endCharactorOffset;
     if (range.end.character == 4096) {
         endCharactorOffset = _lineOffsets.at(range.end.line) + _getLineLength(range.end.line) + 1;
@@ -390,7 +390,7 @@ void Modification::_setRangeContent(const Selection& range, const string& charac
     const auto subLength = endOffset - startOffset;
     _content.erase(startOffset, subLength);
     const auto enterCount = ranges::count(subContent, '\n');
-    for (auto it = (_lineOffsets.begin() + static_cast<int>(range.start.line) + 1);
+    for (auto it = (_lineOffsets.begin() + static_cast<int>(range.begin.line) + 1);
          it != _lineOffsets.end();) {
         if (distance(_lineOffsets.begin(), it) <= enterCount) {
             it = _lineOffsets.erase(it);
@@ -399,7 +399,7 @@ void Modification::_setRangeContent(const Selection& range, const string& charac
             ++it;
         }
     }
-    _lastPosition = range.start;
+    _lastPosition = range.begin;
     _lastPosition.maxCharacter = _lastPosition.character;
     if (!characters.empty()) {
         add(characters);
