@@ -53,7 +53,13 @@ namespace {
                                         },
                                         {
                                             0x1CCD44,
-                                            {0x1BE0CC, 0x1C574C, 0x1E3B9C, 0x1E3BA4},
+                                            {
+                                                {0x1E3B84},
+                                                {0x1BE0CC},
+                                                {0x1C574C},
+                                                {0x1E3B9C},
+                                                {0x1E3BA4},
+                                            },
                                             {0x000024},
                                             {0x1CCD3C},
                                             {0x09180C, 0X1CCD48},
@@ -87,7 +93,13 @@ namespace {
                                         {},
                                         {
                                             0x288F30,
-                                            {0x25A9B4, 0x28A0FC, 0x26DAE0, 0x26DAE8},
+                                            {
+                                                {0x26DAD0},
+                                                {0x25A9B4},
+                                                {0x28A0FC},
+                                                {0x26DAE0},
+                                                {0x26DAE8}
+                                            },
                                             {0x000024},
                                             {0x288F48},
                                             {0x0C88C0, 0X288F2C},
@@ -130,25 +142,25 @@ CaretDimension MemoryManipulator::getCaretDimension() const {
 }
 
 CaretDimension MemoryManipulator::getCaretDimension(const uint32_t line) const {
-    CaretDimension caretDimension{};
+    uint32_t height{}, xPosition{}, yPosition{};
     if (const auto windowHandle = getHandle(MemoryAddress::HandleType::Window)) {
         {
-            caretDimension.yPosition = AddressToFunction<uint32_t(uint32_t, uint32_t)>(
+            yPosition = AddressToFunction<uint32_t(uint32_t, uint32_t)>(
                 memory::offset(_memoryAddress.window.funcYPosFromLine.base)
             )(windowHandle, line);
         }
 
-        memory::read(windowHandle + _memoryAddress.window.dataXPos.offset1, caretDimension.xPosition);
-        memory::read(memory::offset(_memoryAddress.window.dataYDim.base), caretDimension.height);
+        memory::read(windowHandle + _memoryAddress.window.dataXPos.offset1, xPosition);
+        memory::read(memory::offset(_memoryAddress.window.dataYDim.base), height);
     }
-    return caretDimension;
+    return {height, xPosition, yPosition};
 }
 
 CaretPosition MemoryManipulator::getCaretPosition() const {
-    const auto [lineStart, characterStart, lineEnd, characterEnd] = _memoryAddress.window.dataSelection;
+    const auto [_0, lineBegin, characterBegin, _1, _2] = _memoryAddress.window.dataSelection;
     CaretPosition cursorPosition{};
-    memory::read(memory::offset(lineStart.base), cursorPosition.line);
-    memory::read(memory::offset(characterStart.base), cursorPosition.character);
+    memory::read(memory::offset(lineBegin.base), cursorPosition.line);
+    memory::read(memory::offset(characterBegin.base), cursorPosition.character);
     return cursorPosition;
 }
 
@@ -232,14 +244,19 @@ filesystem::path MemoryManipulator::getProjectDirectory() const {
     return is_directory(filePath) ? filePath : filePath.parent_path();
 }
 
-Selection MemoryManipulator::getSelection() const {
-    const auto [lineStart, characterStart, lineEnd, characterEnd] = _memoryAddress.window.dataSelection;
-    CaretPosition start{}, end{};
-    memory::read(memory::offset(lineStart.base), start.line);
-    memory::read(memory::offset(characterStart.base), start.character);
-    memory::read(memory::offset(lineEnd.base), end.line);
-    memory::read(memory::offset(characterEnd.base), end.character);
-    return {start, end};
+optional<Selection> MemoryManipulator::getSelection() const {
+    const auto [isSelecting, lineStart, characterStart, lineEnd, characterEnd] = _memoryAddress.window.dataSelection;
+    bool isSelection;
+    memory::read(memory::offset(isSelecting.base), isSelection);
+    if (isSelection) {
+        CaretPosition start{}, end{};
+        memory::read(memory::offset(lineStart.base), start.line);
+        memory::read(memory::offset(characterStart.base), start.character);
+        memory::read(memory::offset(lineEnd.base), end.line);
+        memory::read(memory::offset(characterEnd.base), end.character);
+        return Selection(start, end);
+    }
+    return nullopt;
 }
 
 optional<SymbolName> MemoryManipulator::getSymbolName() const {

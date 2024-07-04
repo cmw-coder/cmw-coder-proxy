@@ -98,7 +98,11 @@ namespace models {
             struct {
                 struct {
                     uint32_t base;
-                } lineStart, characterStart, lineEnd, characterEnd;
+                } isSelecting;
+
+                struct {
+                    uint32_t base;
+                } lineBegin, characterBegin, lineEnd, characterEnd;
             } dataSelection;
 
             struct {
