@@ -169,7 +169,42 @@ EditorPasteClientMessage::EditorPasteClientMessage(const uint32_t count)
 EditorSwitchProjectClientMessage::EditorSwitchProjectClientMessage(const filesystem::path& path)
     : WsMessage(WsAction::EditorSwitchProject, iconv::autoDecode(path.generic_string())) {}
 
-EditorSwitchSvnClientMessage::EditorSwitchSvnClientMessage(const std::filesystem::path& path)
+EditorSelectionClientMessage::EditorSelectionClientMessage(
+    const filesystem::path& path,
+    const string& content,
+    const string& block,
+    const Selection& selection,
+    int64_t height,
+    int64_t x,
+    int64_t y
+) : WsMessage(
+    WsAction::EditorSelection, {
+        {"path", iconv::autoDecode(path.generic_string())},
+        {"content", content},
+        {"block", block},
+        {
+            "begin", {
+                {"character", selection.begin.character},
+                {"line", selection.begin.line},
+            }
+        },
+        {
+            "end", {
+                {"character", selection.end.character},
+                {"line", selection.end.line},
+            }
+        },
+        {
+            "dimensions", {
+                {"height", height},
+                {"x", x},
+                {"y", y},
+            }
+        }
+    }
+) {}
+
+EditorSwitchSvnClientMessage::EditorSwitchSvnClientMessage(const filesystem::path& path)
     : WsMessage(WsAction::EditorSwitchSvn, iconv::autoDecode(path.generic_string())) {}
 
 HandShakeClientMessage::HandShakeClientMessage(const filesystem::path& currentProject, string&& version)

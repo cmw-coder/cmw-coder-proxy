@@ -13,6 +13,7 @@
 #include <utils/window.h>
 
 #include <windows.h>
+#include <utils/common.h>
 #include <utils/iconv.h>
 
 using namespace components;
@@ -24,6 +25,55 @@ using namespace utils;
 
 namespace {
     const auto mainThreadId = system::getMainThreadId(GetCurrentProcessId());
+
+    optional<tuple<string, string>> getBlockContext(
+        const uint32_t fileHandle,
+        const uint32_t beginLine,
+        const uint32_t endLine
+    ) {
+        const auto memoryManipulator = MemoryManipulator::GetInstance();
+        string blockPrefix, blockSuffix;
+        bool isInBlock{false};
+        for (uint32_t index = 1; index <= min(beginLine, 200u); ++index) {
+            auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
+                fileHandle, beginLine - index
+            ));
+            if (tempLine[0] == '}' || regex_search(tempLine, regex(R"~(^\/\*\*)~"))) {
+                break;
+            }
+            if (regex_search(tempLine, regex(R"~(\*\*\/$)~"))) {
+                isInBlock = true;
+                break;
+            }
+            blockPrefix.insert(0, tempLine.append("\n"));
+        }
+        if (!isInBlock) {
+            return nullopt;
+        }
+
+        isInBlock = false;
+        for (uint32_t index = 1; index <= 200u; ++index) {
+            const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
+                fileHandle, endLine + index
+            ));
+            if (regex_search(tempLine, regex(R"~(\*\*\/$)~"))) {
+                break;
+            }
+            if (regex_search(tempLine, regex(R"~(^\/\*\*)~"))) {
+                isInBlock = true;
+                break;
+            }
+            blockSuffix.append("\n").append(tempLine);
+            if (tempLine[0] == '}') {
+                isInBlock = true;
+                break;
+            }
+        }
+        if (!isInBlock) {
+            return nullopt;
+        }
+        return make_tuple(blockPrefix, blockSuffix);
+    }
 }
 
 InteractionMonitor::InteractionMonitor()
@@ -300,29 +350,78 @@ void InteractionMonitor::_processMouseMessage(const unsigned wParam) {
         }
         case WM_LBUTTONUP: {
             _interactionLockShared();
-
-            const auto selection = MemoryManipulator::GetInstance()->getSelection();
-            logger::debug(format(
-                "Selection: ({}, {}) ~ ({}, {})",
-                selection.start.line, selection.start.character,
-                selection.end.line, selection.end.character
-            ));
             const auto memoryManipulator = MemoryManipulator::GetInstance();
-            if (const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File)) {
-                string content;
-                for (uint32_t index = selection.start.line; index <= selection.end.line; ++index) {
-                    const auto tempLine = iconv::autoDecode(
-                        memoryManipulator->getLineContent(currentFileHandle, index)
-                    );
-                    if (index == selection.start.line) {
-                        content.append(tempLine.substr(selection.start.character)).append("\n");
-                    } else if (index == selection.end.line) {
-                        content.append(tempLine.substr(0, selection.end.character + 1));
+            const auto path = memoryManipulator->getCurrentFilePath();
+            if (const auto selectionOpt = memoryManipulator->getSelection();
+                selectionOpt.has_value()) {
+                const auto selection = selectionOpt.value();
+                logger::debug(format(
+                    "Selection: ({}, {}) ~ ({}, {})",
+                    selection.begin.line, selection.begin.character,
+                    selection.end.line, selection.end.character
+                ));
+                if (const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File)) {
+                    string selectionContent, selectionBlock;
+                    if (selection.begin.line == selection.end.line) {
+                        const auto currentLine = iconv::autoDecode(
+                            memoryManipulator->getLineContent(currentFileHandle, selection.begin.line)
+                        );
+                        selectionContent = currentLine.substr(
+                            selection.begin.character, selection.end.character - selection.begin.character
+                        );
+                        if (const auto blockContextOpt = getBlockContext(
+                            currentFileHandle, selection.begin.line, selection.end.line
+                        ); blockContextOpt.has_value()) {
+                            auto [blockPrefix, blockSuffix] = blockContextOpt.value();
+                            selectionBlock = blockPrefix.append(currentLine).append(blockSuffix);
+                        }
                     } else {
-                        content.append(tempLine).append("\n");
+                        bool needFindBlockContext{true};
+                        uint32_t lastLineRemovalCount{};
+                        string lineContent;
+                        for (uint32_t index = selection.begin.line; index <= selection.end.line; ++index) {
+                            const auto currentLine = iconv::autoDecode(
+                                memoryManipulator->getLineContent(currentFileHandle, index)
+                            );
+                            if (currentLine[0] == '{' || currentLine[0] == '}') {
+                                needFindBlockContext = false;
+                            }
+                            if (index == selection.end.line) {
+                                lastLineRemovalCount = currentLine.length() - selection.end.character;
+                            }
+                            if (index == selection.begin.line) {
+                                lineContent.append(currentLine);
+                            } else {
+                                lineContent.append("\n").append(currentLine);
+                            }
+                        }
+                        selectionContent = lineContent.substr(
+                            selection.begin.character, lineContent.length() - lastLineRemovalCount
+                        );
+                        if (needFindBlockContext) {
+                            if (const auto blockContextOpt = getBlockContext(
+                                currentFileHandle, selection.begin.line, selection.end.line
+                            ); blockContextOpt.has_value()) {
+                                auto [blockPrefix, blockSuffix] = blockContextOpt.value();
+                                selectionBlock = blockPrefix.append(lineContent).append(blockSuffix);
+                            }
+                        }
                     }
+                    logger::debug(format("selectionContent: {}", selectionContent));
+                    logger::debug(format("selectionBlock: {}", selectionBlock));
+                    const auto [height, xPosition,yPosition] = common::getCaretDimensions();
+                    WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(
+                        path,
+                        selectionContent,
+                        selectionBlock,
+                        selection,
+                        height,
+                        xPosition,
+                        yPosition
+                    ));
                 }
-                logger::debug(format("Content: ", content));
+            } else {
+                WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(path));
             }
             _isMouseLeftDown.store(false);
             _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
