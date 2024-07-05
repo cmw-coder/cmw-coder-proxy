@@ -10,7 +10,7 @@
 
 #include <types/CaretPosition.h>
 #include <types/Key.h>
-#include <types/Range.h>
+#include <types/Selection.h>
 
 
 namespace types {
@@ -43,15 +43,15 @@ namespace types {
 
         void selectionClear();
 
-        void selectionSet(const Range& range);
+        void selectionSet(const Selection& range);
 
     private:
         CaretPosition _lastPosition{};
-        Range _lastSelect{};
+        Selection _lastSelect{};
         std::string _content;
         std::vector<uint32_t> _lineOffsets;
 
-        [[nodiscard]] std::string _addRangeIndent(const Range& range) const;
+        [[nodiscard]] std::string _addRangeIndent(const Selection& range) const;
 
         [[nodiscard]] std::string _getLineContent(uint32_t lineIndex) const;
 
@@ -61,10 +61,10 @@ namespace types {
 
         [[nodiscard]] std::pair<uint32_t, uint32_t> _getLineOffsets(uint32_t lineIndex) const;
 
-        [[nodiscard]] std::string _getRangeContent(const Range& range) const;
+        [[nodiscard]] std::string _getRangeContent(const Selection& range) const;
 
-        [[nodiscard]] std::pair<uint32_t, uint32_t> _getRangeOffsets(const Range& range) const;
+        [[nodiscard]] std::pair<uint32_t, uint32_t> _getRangeOffsets(const Selection& range) const;
 
-        void _setRangeContent(const Range& range, const std::string& characters = {});
+        void _setRangeContent(const Selection& range, const std::string& characters = {});
     };
 }

@@ -60,8 +60,8 @@ void Modification::add(const char character) {
     if (!_lastSelect.isEmpty()) {
         logger::info(format(
             "Remove selection from ({}, {}) to ({}, {})",
-            _lastSelect.start.line,
-            _lastSelect.start.character,
+            _lastSelect.begin.line,
+            _lastSelect.begin.character,
             _lastSelect.end.line,
             _lastSelect.end.character
         ));
@@ -264,8 +264,8 @@ void Modification::remove() {
     if (!_lastSelect.isEmpty()) {
         logger::info(format(
             "Remove selection from ({}, {}) to ({}, {})",
-            _lastSelect.start.line,
-            _lastSelect.start.character,
+            _lastSelect.begin.line,
+            _lastSelect.begin.character,
             _lastSelect.end.line,
             _lastSelect.end.character
         ));
@@ -295,11 +295,11 @@ void Modification::selectionClear() {
     _lastSelect.reset();
 }
 
-void Modification::selectionSet(const Range& range) {
+void Modification::selectionSet(const Selection& range) {
     _lastSelect = range;
 }
 
-string Modification::_addRangeIndent(const Range& range) const {
+string Modification::_addRangeIndent(const Selection& range) const {
     string selectcontent;
     const auto rangeContent = _getRangeContent(range);
     const auto rangeContentLines = ranges::count(rangeContent, '\n');
@@ -366,14 +366,14 @@ pair<uint32_t, uint32_t> Modification::_getLineOffsets(const uint32_t lineIndex)
     };
 }
 
-string Modification::_getRangeContent(const Range& range) const {
+string Modification::_getRangeContent(const Selection& range) const {
     const auto [startOffset, endOffset] = _getRangeOffsets(range);
     const auto content = _content.substr(startOffset, endOffset - startOffset);
     return content;
 }
 
-pair<uint32_t, uint32_t> Modification::_getRangeOffsets(const Range& range) const {
-    uint32_t startCharactorOffset = _lineOffsets.at(range.start.line) + range.start.character;
+pair<uint32_t, uint32_t> Modification::_getRangeOffsets(const Selection& range) const {
+    uint32_t startCharactorOffset = _lineOffsets.at(range.begin.line) + range.begin.character;
     uint32_t endCharactorOffset;
     if (range.end.character == 4096) {
         endCharactorOffset = _lineOffsets.at(range.end.line) + _getLineLength(range.end.line) + 1;
@@ -384,13 +384,13 @@ pair<uint32_t, uint32_t> Modification::_getRangeOffsets(const Range& range) cons
     return make_pair(startCharactorOffset, endCharactorOffset);
 }
 
-void Modification::_setRangeContent(const Range& range, const string& characters) {
+void Modification::_setRangeContent(const Selection& range, const string& characters) {
     const auto [startOffset, endOffset] = _getRangeOffsets(range);
     const auto subContent = _getRangeContent(range);
     const auto subLength = endOffset - startOffset;
     _content.erase(startOffset, subLength);
     const auto enterCount = ranges::count(subContent, '\n');
-    for (auto it = (_lineOffsets.begin() + static_cast<int>(range.start.line) + 1);
+    for (auto it = (_lineOffsets.begin() + static_cast<int>(range.begin.line) + 1);
          it != _lineOffsets.end();) {
         if (distance(_lineOffsets.begin(), it) <= enterCount) {
             it = _lineOffsets.erase(it);
@@ -399,7 +399,7 @@ void Modification::_setRangeContent(const Range& range, const string& characters
             ++it;
         }
     }
-    _lastPosition = range.start;
+    _lastPosition = range.begin;
     _lastPosition.maxCharacter = _lastPosition.character;
     if (!characters.empty()) {
         add(characters);

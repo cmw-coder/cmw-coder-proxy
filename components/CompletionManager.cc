@@ -14,6 +14,7 @@
 #include <components/WebsocketManager.h>
 #include <components/WindowManager.h>
 #include <types/CaretPosition.h>
+#include <utils/common.h>
 #include <utils/iconv.h>
 #include <utils/logger.h>
 #include <utils/system.h>
@@ -60,31 +61,6 @@ namespace {
                 return true;
             }
         }
-    }
-
-    struct {
-        int64_t height, x, y;
-    } getCaretDimensions() {
-        const auto [clientX, clientY] = WindowManager::GetInstance()->getClientPosition();
-
-        auto [height, xPosition, yPosition] = MemoryManipulator::GetInstance()->getCaretDimension();
-        while (!height) {
-            this_thread::sleep_for(5ms);
-            const auto [
-                newHeight,
-                newXPosition,
-                newYPosition
-            ] = MemoryManipulator::GetInstance()->getCaretDimension();
-            height = newHeight;
-            xPosition = newXPosition;
-            yPosition = newYPosition;
-        }
-
-        return {
-            height,
-            clientX + xPosition,
-            clientY + yPosition - 1,
-        };
     }
 }
 
@@ -369,9 +345,9 @@ void CompletionManager::wsCompletionGenerate(nlohmann::json&& data) {
             );
         }
 
-        const auto [height, x, y] = getCaretDimensions();
+        const auto [height, xPosition,yPosition] = common::getCaretDimensions();
         WebsocketManager::GetInstance()->send(
-            CompletionSelectClientMessage(completions.actionId, index, height, x, y)
+            CompletionSelectClientMessage(completions.actionId, index, height, xPosition, yPosition)
         );
     } else {
         logger::warn(format(

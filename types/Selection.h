@@ -3,23 +3,23 @@
 #include <types/CaretPosition.h>
 
 namespace types {
-    class Range {
+    class Selection {
     public:
-        CaretPosition end, start;
+        CaretPosition begin, end;
 
-        Range() = default;
+        Selection() = default;
 
-        Range(const CaretPosition& start, const CaretPosition& end);
+        Selection(const CaretPosition& begin, const CaretPosition& end);
 
-        [[nodiscard]] bool contains(const Range& other) const;
+        [[nodiscard]] bool contains(const Selection& other) const;
 
         [[nodiscard]] bool isEmpty() const;
 
         [[nodiscard]] bool isSingleLine() const;
 
-        [[nodiscard]] bool isEqual(const Range& other) const;
+        [[nodiscard]] bool isEqual(const Selection& other) const;
 
-        [[nodiscard]] bool isBefore(const Range& other) const;
+        [[nodiscard]] bool isBefore(const Selection& other) const;
 
         void reset();
     };

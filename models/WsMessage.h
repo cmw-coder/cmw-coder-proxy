@@ -6,6 +6,7 @@
 #include <models/SymbolInfo.h>
 #include <types/CaretPosition.h>
 #include <types/Completions.h>
+#include <types/Selection.h>
 #include <types/WsAction.h>
 
 namespace models {
@@ -135,6 +136,19 @@ namespace models {
     class EditorSwitchProjectClientMessage final : public WsMessage {
     public:
         explicit EditorSwitchProjectClientMessage(const std::filesystem::path& path);
+    };
+
+    class EditorSelectionClientMessage final : public WsMessage {
+    public:
+        explicit EditorSelectionClientMessage(
+            const std::filesystem::path &path,
+            const std::string &content = {},
+            const std::string &block = {},
+            const types::Selection &selection = {},
+            int64_t height = {},
+            int64_t x = {},
+            int64_t y = {}
+        );
     };
 
     class EditorSwitchSvnClientMessage final : public WsMessage {

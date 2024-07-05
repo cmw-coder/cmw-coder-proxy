@@ -13,6 +13,8 @@
 #include <utils/window.h>
 
 #include <windows.h>
+#include <utils/common.h>
+#include <utils/iconv.h>
 
 using namespace components;
 using namespace magic_enum;
@@ -23,6 +25,55 @@ using namespace utils;
 
 namespace {
     const auto mainThreadId = system::getMainThreadId(GetCurrentProcessId());
+
+    optional<tuple<string, string>> getBlockContext(
+        const uint32_t fileHandle,
+        const uint32_t beginLine,
+        const uint32_t endLine
+    ) {
+        const auto memoryManipulator = MemoryManipulator::GetInstance();
+        string blockPrefix, blockSuffix;
+        bool isInBlock{false};
+        for (uint32_t index = 1; index <= min(beginLine, 200u); ++index) {
+            auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
+                fileHandle, beginLine - index
+            ));
+            if (tempLine[0] == '}' || regex_search(tempLine, regex(R"~(^\/\*\*)~"))) {
+                break;
+            }
+            if (regex_search(tempLine, regex(R"~(\*\*\/$)~"))) {
+                isInBlock = true;
+                break;
+            }
+            blockPrefix.insert(0, tempLine.append("\n"));
+        }
+        if (!isInBlock) {
+            return nullopt;
+        }
+
+        isInBlock = false;
+        for (uint32_t index = 1; index <= 200u; ++index) {
+            const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
+                fileHandle, endLine + index
+            ));
+            if (regex_search(tempLine, regex(R"~(\*\*\/$)~"))) {
+                break;
+            }
+            if (regex_search(tempLine, regex(R"~(^\/\*\*)~"))) {
+                isInBlock = true;
+                break;
+            }
+            blockSuffix.append("\n").append(tempLine);
+            if (tempLine[0] == '}') {
+                isInBlock = true;
+                break;
+            }
+        }
+        if (!isInBlock) {
+            return nullopt;
+        }
+        return make_tuple(blockPrefix, blockSuffix);
+    }
 }
 
 InteractionMonitor::InteractionMonitor()
@@ -115,7 +166,6 @@ long InteractionMonitor::_windowProcedureHook(const int nCode, const unsigned in
 void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
     if (_keyHelper.isPrintable(keycode)) {
         ignore = _handleInteraction(Interaction::NormalInput, _keyHelper.toPrintable(keycode));
-        _isSelecting.store(false);
         return;
     }
 
@@ -131,7 +181,6 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
         }
         if (configManager->checkManualCompletion(key, modifiers)) {
             ignore = _handleInteraction(Interaction::EnterInput);
-            _isSelecting.store(false);
             return;
         }
         try {
@@ -139,12 +188,10 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                 switch (key) {
                     case Key::BackSpace: {
                         ignore = _handleInteraction(Interaction::DeleteInput);
-                        _isSelecting.store(false);
                         break;
                     }
                     case Key::Enter: {
                         ignore = _handleInteraction(Interaction::EnterInput);
-                        _isSelecting.store(false);
                         break;
                     }
                     case Key::Home:
@@ -156,7 +203,6 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                     case Key::Right:
                     case Key::Down: {
                         _navigateWithKey.store(key);
-                        _isSelecting.store(false);
                         // ignore = _handleInteraction(Interaction::SelectionClear);
                         break;
                     }
@@ -228,17 +274,21 @@ bool InteractionMonitor::_handleInteraction(const Interaction interaction, const
     return needBlockMessage;
 }
 
-bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigned lParam) {
-    if (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
-        return false;
-    }
-
+void InteractionMonitor::_interactionLockShared() {
     if (!_needReleaseInteractionLock.load()) {
         _interactionMutex.lock_shared();
         _needReleaseInteractionLock = true;
         _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
         logger::debug("[_processKeyMessage] Successfuly got interaction shared lock");
     }
+}
+
+bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigned lParam) {
+    if (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
+        return false;
+    }
+
+    _interactionLockShared();
 
     const auto keyFlags = HIWORD(lParam);
     const auto isKeyUp = (keyFlags & KF_UP) == KF_UP;
@@ -260,7 +310,6 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
             } else if (!WindowManager::GetInstance()->hasPopListWindow()) {
                 ignore = _handleInteraction(Interaction::CompletionCancel, false);
             }
-            _isSelecting.store(false);
             _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
             break;
         }
@@ -284,32 +333,99 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
 }
 
 void InteractionMonitor::_processMouseMessage(const unsigned wParam) {
+    if (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
+        return;
+    }
+
     switch (wParam) {
         case WM_LBUTTONDOWN: {
+            _interactionLockShared();
+
             if (!_isMouseLeftDown.load()) {
                 _isMouseLeftDown.store(true);
             }
             _navigateWithMouse.store(Mouse::Left);
-            break;
-        }
-        case WM_MOUSEMOVE: {
-            if (_isMouseLeftDown.load()) {
-                _isSelecting.store(true);
-            }
+            _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
             break;
         }
         case WM_LBUTTONUP: {
-            // if (_isSelecting.load()) {
-            //     auto selectRange = _monitorCursorSelect();
-            //     ignore = _handleInteraction(Interaction::SelectionSet, selectRange);
-            // } else {
-            //     ignore = _handleInteraction(Interaction::SelectionClear);
-            // }
+            _interactionLockShared();
+            const auto memoryManipulator = MemoryManipulator::GetInstance();
+            const auto path = memoryManipulator->getCurrentFilePath();
+            if (const auto selectionOpt = memoryManipulator->getSelection();
+                selectionOpt.has_value()) {
+                const auto selection = selectionOpt.value();
+                logger::debug(format(
+                    "Selection: ({}, {}) ~ ({}, {})",
+                    selection.begin.line, selection.begin.character,
+                    selection.end.line, selection.end.character
+                ));
+                if (const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File)) {
+                    if (const auto [height, xPosition,yPosition] = common::getCaretDimensions(false); height) {
+                        string selectionContent, selectionBlock;
+                        if (selection.begin.line == selection.end.line) {
+                            const auto currentLine = iconv::autoDecode(
+                                memoryManipulator->getLineContent(currentFileHandle, selection.begin.line)
+                            );
+                            selectionContent = currentLine.substr(
+                                selection.begin.character, selection.end.character - selection.begin.character
+                            );
+                            if (const auto blockContextOpt = getBlockContext(
+                                currentFileHandle, selection.begin.line, selection.end.line
+                            ); blockContextOpt.has_value()) {
+                                auto [blockPrefix, blockSuffix] = blockContextOpt.value();
+                                selectionBlock = blockPrefix.append(currentLine).append(blockSuffix);
+                            }
+                        } else {
+                            bool needFindBlockContext{true};
+                            uint32_t lastLineRemovalCount{};
+                            string lineContent;
+                            for (uint32_t index = selection.begin.line; index <= selection.end.line; ++index) {
+                                const auto currentLine = iconv::autoDecode(
+                                    memoryManipulator->getLineContent(currentFileHandle, index)
+                                );
+                                if (currentLine[0] == '{' || currentLine[0] == '}') {
+                                    needFindBlockContext = false;
+                                }
+                                if (index == selection.end.line) {
+                                    lastLineRemovalCount = currentLine.length() - selection.end.character;
+                                }
+                                if (index == selection.begin.line) {
+                                    lineContent.append(currentLine);
+                                } else {
+                                    lineContent.append("\n").append(currentLine);
+                                }
+                            }
+                            selectionContent = lineContent.substr(
+                                selection.begin.character, lineContent.length() - lastLineRemovalCount
+                            );
+                            if (needFindBlockContext) {
+                                if (const auto blockContextOpt = getBlockContext(
+                                    currentFileHandle, selection.begin.line, selection.end.line
+                                ); blockContextOpt.has_value()) {
+                                    auto [blockPrefix, blockSuffix] = blockContextOpt.value();
+                                    selectionBlock = blockPrefix.append(lineContent).append(blockSuffix);
+                                }
+                            }
+                        }
+                        logger::debug(format("selectionContent: {}", selectionContent));
+                        logger::debug(format("selectionBlock: {}", selectionBlock));
+                        WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(
+                            path,
+                            selectionContent,
+                            selectionBlock,
+                            selection,
+                            height,
+                            xPosition,
+                            yPosition
+                        ));
+                    }
+                }
+            } else {
+                WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(path));
+            }
             _isMouseLeftDown.store(false);
-            break;
-        }
-        case WM_LBUTTONDBLCLK: {
-            _isSelecting.store(true);
+            _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
             break;
         }
         default: {
