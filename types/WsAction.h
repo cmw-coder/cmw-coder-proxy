@@ -16,6 +16,7 @@ namespace types {
         EditorSwitchProject,
         EditorSwitchSvn,
         HandShake,
+        ReviewRequest,
         SettingSync,
     };
 }

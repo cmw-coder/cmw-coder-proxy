@@ -11,7 +11,7 @@ namespace components {
 
         ~SymbolManager() override;
 
-        std::vector<models::SymbolInfo> getSymbols(const std::string& prefix);
+        std::vector<models::SymbolInfo> getSymbols(const std::string& prefix, bool full = false) const;
 
         void updateRootPath(const std::filesystem::path& currentFilePath);
 

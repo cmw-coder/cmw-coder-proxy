@@ -3,6 +3,7 @@
 #include <nlohmann/json.hpp>
 
 #include <helpers/KeyHelper.h>
+#include <models/ReviewReference.h>
 #include <models/SymbolInfo.h>
 #include <types/CaretPosition.h>
 #include <types/Completions.h>
@@ -141,10 +142,10 @@ namespace models {
     class EditorSelectionClientMessage final : public WsMessage {
     public:
         explicit EditorSelectionClientMessage(
-            const std::filesystem::path &path,
-            const std::string &content = {},
-            const std::string &block = {},
-            const types::Selection &selection = {},
+            const std::filesystem::path& path,
+            const std::string& content = {},
+            const std::string& block = {},
+            const types::Selection& selection = {},
             int64_t height = {},
             int64_t x = {},
             int64_t y = {}
@@ -159,6 +160,25 @@ namespace models {
     class HandShakeClientMessage final : public WsMessage {
     public:
         explicit HandShakeClientMessage(const std::filesystem::path& currentProject, std::string&& version);
+    };
+
+    class ReviewRequestClientMessage final : public WsMessage {
+    public:
+        explicit ReviewRequestClientMessage(const std::vector<ReviewReference>& reviewReferences);
+    };
+
+    class ReviewRequestServerMessage final : public WsMessage {
+    public:
+        const std::string result;
+
+        explicit ReviewRequestServerMessage(nlohmann::json&& data);
+
+        [[nodiscard]] std::string content() const;
+
+        [[nodiscard]] std::string message() const;
+
+    private:
+        std::string _content, _message;
     };
 
     class SettingSyncServerMessage final : public WsMessage {

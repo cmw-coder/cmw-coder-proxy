@@ -103,7 +103,7 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
             {"name", name},
             {"path", iconv::autoDecode(path.generic_string())},
             {"startLine", startLine},
-            {"type", type},
+            {"type", enum_name(type)},
         });
     }
 }
@@ -216,6 +216,43 @@ HandShakeClientMessage::HandShakeClientMessage(const filesystem::path& currentPr
         }
     ) {}
 
+ReviewRequestClientMessage::ReviewRequestClientMessage(const std::vector<ReviewReference>& reviewReferences)
+    : WsMessage(WsAction::ReviewRequest, nlohmann::json::array()) {
+    for (const auto& [path, name, content, type, startLine, endLine, depth]: reviewReferences) {
+        _data.push_back({
+            {"name", name},
+            {"type", enum_name(type)},
+            {"content", content},
+            {"depth", depth},
+            {"path", iconv::autoDecode(path.generic_string())},
+            {
+                "range", {
+                    {"startLine", startLine},
+                    {"endLine", endLine},
+                }
+            },
+        });
+    }
+}
+
+ReviewRequestServerMessage::ReviewRequestServerMessage(nlohmann::json&& data)
+    : WsMessage(WsAction::ReviewRequest, move(data)),
+      result(_data["result"].get<string>()) {
+    if (result == "success") {
+        _content = _data["content"].get<string>();
+    } else if (_data.contains("message")) {
+        _message = _data["message"].get<string>();
+    }
+}
+
+string ReviewRequestServerMessage::content() const {
+    return _content;
+}
+
+string ReviewRequestServerMessage::message() const {
+    return _message;
+}
+
 SettingSyncServerMessage::SettingSyncServerMessage(nlohmann::json&& data)
     : WsMessage(WsAction::SettingSync, move(data)),
       result(_data["result"].get<string>()) {
@@ -224,6 +261,10 @@ SettingSyncServerMessage::SettingSyncServerMessage(nlohmann::json&& data)
     } else if (_data.contains("message")) {
         _message = _data["message"].get<string>();
     }
+}
+
+string SettingSyncServerMessage::message() const {
+    return _message;
 }
 
 optional<KeyHelper::KeyCombination> SettingSyncServerMessage::shortcutManualCompletion() const {

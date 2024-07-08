@@ -9,11 +9,13 @@
 #include <components/SymbolManager.h>
 #include <components/WindowManager.h>
 #include <components/WebsocketManager.h>
+#include <models/WsMessage.h>
 #include <utils/iconv.h>
 #include <utils/logger.h>
 #include <utils/system.h>
 
 #include <windows.h>
+#include <utils/fs.h>
 
 using namespace components;
 using namespace models;
@@ -153,6 +155,32 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 WsAction::CompletionGenerate,
                 CompletionManager::GetInstance(),
                 &CompletionManager::wsCompletionGenerate
+            );
+            WebsocketManager::GetInstance()->registerAction(
+                WsAction::ReviewRequest,
+                [](nlohmann::json&& data) {
+                    if (const auto serverMessage = ReviewRequestServerMessage(move(data));
+                        serverMessage.result == "success") {
+                        const auto symbols = SymbolManager::GetInstance()->getSymbols(serverMessage.content(), true);
+                        vector<ReviewReference> reviewReferences;
+                        reviewReferences.reserve(symbols.size());
+                        ranges::transform(
+                            symbols, back_inserter(reviewReferences),
+                            [](const SymbolInfo& symbol) {
+                                return ReviewReference{
+                                    symbol.path,
+                                    symbol.name,
+                                    fs::readFile(symbol.path.generic_string(), symbol.startLine, symbol.endLine),
+                                    symbol.type,
+                                    symbol.startLine,
+                                    symbol.endLine,
+                                    0
+                                };
+                            }
+                        );
+                        WebsocketManager::GetInstance()->send(ReviewRequestClientMessage{reviewReferences});
+                    }
+                }
             );
             WebsocketManager::GetInstance()->registerAction(
                 WsAction::SettingSync,

@@ -279,7 +279,7 @@ void InteractionMonitor::_interactionLockShared() {
         _interactionMutex.lock_shared();
         _needReleaseInteractionLock = true;
         _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
-        logger::debug("[_processKeyMessage] Successfuly got interaction shared lock");
+        // logger::debug("[_processKeyMessage] Successfuly got interaction shared lock");
     }
 }
 
@@ -355,11 +355,6 @@ void InteractionMonitor::_processMouseMessage(const unsigned wParam) {
             if (const auto selectionOpt = memoryManipulator->getSelection();
                 selectionOpt.has_value()) {
                 const auto selection = selectionOpt.value();
-                logger::debug(format(
-                    "Selection: ({}, {}) ~ ({}, {})",
-                    selection.begin.line, selection.begin.character,
-                    selection.end.line, selection.end.character
-                ));
                 if (const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File)) {
                     if (const auto [height, xPosition,yPosition] = common::getCaretDimensions(false); height) {
                         string selectionContent, selectionBlock;
@@ -408,8 +403,6 @@ void InteractionMonitor::_processMouseMessage(const unsigned wParam) {
                                 }
                             }
                         }
-                        logger::debug(format("selectionContent: {}", selectionContent));
-                        logger::debug(format("selectionBlock: {}", selectionBlock));
                         WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(
                             path,
                             selectionContent,
@@ -501,7 +494,7 @@ void InteractionMonitor::_threadReleaseInteractionLock() {
                     chrono::high_resolution_clock::now() - releaseInteractionLockTime > 200ms) {
                     _needReleaseInteractionLock.store(false);
                     _interactionMutex.unlock_shared();
-                    logger::debug("[_processKeyMessage] Interaction mutex shared unlocked");
+                    // logger::debug("[_processKeyMessage] Interaction mutex shared unlocked");
                 }
             }
             this_thread::sleep_for(5ms);
