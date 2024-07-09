@@ -27,7 +27,7 @@ string fs::readFile(const string& path) {
 }
 
 string fs::readFile(const string& path, const uint32_t startLine, const uint32_t endLine) {
-    if (path.empty()) {
+    if (path.empty() || startLine > endLine) {
         return {};
     }
     auto stream = ifstream{path.data()};
@@ -37,14 +37,14 @@ string fs::readFile(const string& path, const uint32_t startLine, const uint32_t
     uint32_t count{};
 
     while (getline(stream, line)) {
-        if (count < startLine) {
+        ++count;
+        if (count <= startLine) {
             continue;
         }
-        if (count > endLine) {
+        if (count > endLine + 1) {
             break;
         }
         out.append(line).append("\n");
-        ++count;
     }
     // Remove \r using ranges::remove
     erase(out, '\r');

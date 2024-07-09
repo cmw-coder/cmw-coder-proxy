@@ -178,6 +178,7 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                                 };
                             }
                         );
+                        logger::debug(format("reviewReferences count: {}", reviewReferences.size()));
                         WebsocketManager::GetInstance()->send(ReviewRequestClientMessage{reviewReferences});
                     }
                 }
@@ -196,6 +197,7 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 system::getMainThreadId(GetCurrentProcessId()),
                 system::getModuleFileName(reinterpret_cast<uint64_t>(GetModuleHandle(nullptr)))
             ));
+
             break;
         }
         case DLL_PROCESS_DETACH: {
