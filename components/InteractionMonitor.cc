@@ -352,67 +352,54 @@ void InteractionMonitor::_processMouseMessage(const unsigned wParam) {
             _interactionLockShared();
             const auto memoryManipulator = MemoryManipulator::GetInstance();
             const auto path = memoryManipulator->getCurrentFilePath();
+            const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
             if (const auto selectionOpt = memoryManipulator->getSelection();
-                selectionOpt.has_value()) {
+                currentFileHandle &&
+                selectionOpt.has_value() &&
+                selectionOpt.value().end.line - selectionOpt.value().begin.line > 2) {
                 const auto selection = selectionOpt.value();
-                if (const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File)) {
-                    if (const auto [height, xPosition,yPosition] = common::getCaretDimensions(false); height) {
-                        string selectionContent, selectionBlock;
-                        if (selection.begin.line == selection.end.line) {
-                            const auto currentLine = iconv::autoDecode(
-                                memoryManipulator->getLineContent(currentFileHandle, selection.begin.line)
-                            );
-                            selectionContent = currentLine.substr(
-                                selection.begin.character, selection.end.character - selection.begin.character
-                            );
-                            if (const auto blockContextOpt = getBlockContext(
-                                currentFileHandle, selection.begin.line, selection.end.line
-                            ); blockContextOpt.has_value()) {
-                                auto [blockPrefix, blockSuffix] = blockContextOpt.value();
-                                selectionBlock = blockPrefix.append(currentLine).append(blockSuffix);
-                            }
-                        } else {
-                            bool needFindBlockContext{true};
-                            uint32_t lastLineRemovalCount{};
-                            string lineContent;
-                            for (uint32_t index = selection.begin.line; index <= selection.end.line; ++index) {
-                                const auto currentLine = iconv::autoDecode(
-                                    memoryManipulator->getLineContent(currentFileHandle, index)
-                                );
-                                if (currentLine[0] == '{' || currentLine[0] == '}') {
-                                    needFindBlockContext = false;
-                                }
-                                if (index == selection.end.line) {
-                                    lastLineRemovalCount = currentLine.length() - selection.end.character;
-                                }
-                                if (index == selection.begin.line) {
-                                    lineContent.append(currentLine);
-                                } else {
-                                    lineContent.append("\n").append(currentLine);
-                                }
-                            }
-                            selectionContent = lineContent.substr(
-                                selection.begin.character, lineContent.length() - lastLineRemovalCount
-                            );
-                            if (needFindBlockContext) {
-                                if (const auto blockContextOpt = getBlockContext(
-                                    currentFileHandle, selection.begin.line, selection.end.line
-                                ); blockContextOpt.has_value()) {
-                                    auto [blockPrefix, blockSuffix] = blockContextOpt.value();
-                                    selectionBlock = blockPrefix.append(lineContent).append(blockSuffix);
-                                }
-                            }
+                if (const auto [height, xPosition, yPosition] = common::getCaretDimensions(false);
+                    height) {
+                    string selectionBlock, selectionContent;
+                    bool needFindBlockContext{true};
+                    uint32_t lastLineRemovalCount{};
+                    string lineContent;
+                    for (uint32_t index = selection.begin.line; index <= selection.end.line; ++index) {
+                        const auto currentLine = iconv::autoDecode(
+                            memoryManipulator->getLineContent(currentFileHandle, index)
+                        );
+                        if (currentLine[0] == '{' || currentLine[0] == '}') {
+                            needFindBlockContext = false;
                         }
-                        WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(
-                            path,
-                            selectionContent,
-                            selectionBlock,
-                            selection,
-                            height,
-                            xPosition,
-                            yPosition
-                        ));
+                        if (index == selection.end.line) {
+                            lastLineRemovalCount = currentLine.length() - selection.end.character;
+                        }
+                        if (index == selection.begin.line) {
+                            lineContent.append(currentLine);
+                        } else {
+                            lineContent.append("\n").append(currentLine);
+                        }
                     }
+                    selectionContent = lineContent.substr(
+                        selection.begin.character, lineContent.length() - lastLineRemovalCount
+                    );
+                    if (needFindBlockContext) {
+                        if (const auto blockContextOpt = getBlockContext(
+                            currentFileHandle, selection.begin.line, selection.end.line
+                        ); blockContextOpt.has_value()) {
+                            auto [blockPrefix, blockSuffix] = blockContextOpt.value();
+                            selectionBlock = blockPrefix.append(lineContent).append(blockSuffix);
+                        }
+                    }
+                    WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(
+                        path,
+                        selectionContent,
+                        selectionBlock,
+                        selection,
+                        height,
+                        xPosition,
+                        yPosition
+                    ));
                 }
             } else {
                 WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(path));
@@ -442,6 +429,7 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                 if (WindowManager::GetInstance()->checkNeedHideWhenLostFocus(windowProcData->wParam)) {
                     WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(false));
                 }
+                WebsocketManager::GetInstance()->send(EditorSelectionClientMessage({}));
                 break;
             }
             case WM_SETFOCUS: {
