@@ -28,5 +28,5 @@ namespace types::SiVersion {
     using Full = std::pair<Major, Minor>;
 
     template<class T>
-    using Map = ConstMap<Major, ConstMap<Minor, T, magic_enum::enum_count<Minor>()>, magic_enum::enum_count<Major>()>;
+    using Map = EnumMap<Major, EnumMap<Minor, T>>;
 }

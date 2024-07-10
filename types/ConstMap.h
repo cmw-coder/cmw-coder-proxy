@@ -15,4 +15,10 @@ namespace types {
             throw std::out_of_range("Not Found");
         }
     };
+
+    template<class T>
+    concept Enumerable = std::is_enum_v<T>;
+
+    template<Enumerable Key, class Value>
+    using EnumMap = ConstMap<Key, Value, magic_enum::enum_count<Key>()>;
 }

@@ -1,4 +1,5 @@
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <ranges>
 #include <regex>
@@ -245,7 +246,8 @@ namespace {
 }
 
 SymbolManager::SymbolManager() {
-    _threadUpdateTags();
+    _threadUpdateFunctionTagFile();
+    _threadUpdateStructureTagFile();
 }
 
 SymbolManager::~SymbolManager() {
@@ -253,51 +255,65 @@ SymbolManager::~SymbolManager() {
 }
 
 vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix, const bool full) const {
-    vector<SymbolInfo> result;
-    const auto tagsFilePath = MemoryManipulator::GetInstance()->getProjectDirectory() / _tagFile;
-    if (!exists(tagsFilePath)) {
-        return result;
-    }
-    tagFileInfo taginfo;
+    vector<SymbolInfo> result; {
+        const auto tagFilePath = MemoryManipulator::GetInstance()->getProjectDirectory()
+                                 / _tagFilenameMap.at(TagFileType::Structure).first;
+        if (!exists(tagFilePath)) {
+            return result;
+        }
 
-    shared_lock lock{_tagFileMutex};
-    const auto tagsFileHandle = tagsOpen(tagsFilePath.generic_string().c_str(), &taginfo);
-    if (tagsFileHandle == nullptr) {
-        logger::warn("Failed to open tags file");
-        return result;
-    }
-    for (const auto& symbol: collectSymbols(prefix).references) {
-        try {
-            tagEntry entry;
-            if (tagsFind(tagsFileHandle, &entry, symbol.c_str(), TAG_OBSERVECASE) == TagSuccess) {
-                if (const auto typeReferenceOpt = getTypeReference(getSymbolFields(entry.fields));
-                    typeReferenceOpt.has_value()) {
-                    if (const auto& [typeName, reference] = typeReferenceOpt.value();
-                        symbolMapping.contains(typeName) &&
-                        tagsFind(tagsFileHandle, &entry, reference.c_str(), TAG_OBSERVECASE) == TagSuccess
-                    ) {
-                        if (const auto endLineOpt = getEndLine(getSymbolFields(entry.fields));
-                            endLineOpt.has_value()) {
-                            result.emplace_back(
-                                iconv::toPath(entry.file),
-                                entry.name,
-                                symbolMapping.at(typeName),
-                                static_cast<uint32_t>(entry.address.lineNumber - 1),
-                                endLineOpt.value() - 1
-                            );
+        shared_lock lock{_structureTagFileMutex};
+        const shared_ptr<tagFile> tagFileHandle(tagsOpen(tagFilePath.generic_string().c_str(), nullptr), tagsClose);
+        if (tagFileHandle == nullptr) {
+            logger::warn(format("Failed to open '{}'", tagFilePath.generic_string()));
+            return result;
+        }
+
+        for (const auto& symbol: collectSymbols(prefix).references) {
+            try {
+                tagEntry entry;
+                if (tagsFind(tagFileHandle.get(), &entry, symbol.c_str(), TAG_OBSERVECASE) == TagSuccess) {
+                    if (const auto typeReferenceOpt = getTypeReference(getSymbolFields(entry.fields));
+                        typeReferenceOpt.has_value()) {
+                        if (const auto& [typeName, reference] = typeReferenceOpt.value();
+                            symbolMapping.contains(typeName) &&
+                            tagsFind(tagFileHandle.get(), &entry, reference.c_str(), TAG_OBSERVECASE) == TagSuccess
+                        ) {
+                            if (const auto endLineOpt = getEndLine(getSymbolFields(entry.fields));
+                                endLineOpt.has_value()) {
+                                result.emplace_back(
+                                    iconv::toPath(entry.file),
+                                    entry.name,
+                                    symbolMapping.at(typeName),
+                                    static_cast<uint32_t>(entry.address.lineNumber - 1),
+                                    endLineOpt.value() - 1
+                                );
+                            }
                         }
                     }
                 }
+            } catch (exception& e) {
+                logger::warn(format("Exception when getting info of symbol '{}': {}", symbol, e.what()));
             }
-        } catch (exception& e) {
-            logger::warn(format("Exception when getting info of symbol '{}': {}", symbol, e.what()));
         }
     }
     if (full) {
+        const auto tagFilePath = MemoryManipulator::GetInstance()->getProjectDirectory()
+                                 / _tagFilenameMap.at(TagFileType::Function).first;
+        if (!exists(tagFilePath)) {
+            return result;
+        }
+
+        shared_lock lock{_functionTagFileMutex};
+        const shared_ptr<tagFile> tagFileHandle(tagsOpen(tagFilePath.generic_string().c_str(), nullptr), tagsClose);
+        if (tagFileHandle == nullptr) {
+            logger::warn(format("Failed to open '{}'", tagFilePath.generic_string()));
+            return result;
+        }
         for (const auto& symbol: collectSymbols(prefix).unknown) {
             try {
                 tagEntry entry;
-                if (tagsFind(tagsFileHandle, &entry, symbol.c_str(), TAG_OBSERVECASE) == TagSuccess &&
+                if (tagsFind(tagFileHandle.get(), &entry, symbol.c_str(), TAG_OBSERVECASE) == TagSuccess &&
                     symbolMapping.contains(entry.kind)) {
                     if (const auto endLineOpt = getEndLine(getSymbolFields(entry.fields));
                         endLineOpt.has_value()) {
@@ -315,12 +331,12 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix, const bool fu
             }
         }
     }
-    tagsClose(tagsFileHandle);
     return result;
 }
 
 void SymbolManager::updateRootPath(const std::filesystem::path& currentFilePath) {
-    _needUpdateTags.store(true);
+    _tagFileNeedUpdateMap.at(TagFileType::Function) = true;
+    _tagFileNeedUpdateMap.at(TagFileType::Structure) = true;
     thread([this, originalPath = absolute(currentFilePath).lexically_normal()] {
         auto tempPath = originalPath;
         while (tempPath != tempPath.parent_path()) {
@@ -359,35 +375,55 @@ void SymbolManager::updateRootPath(const std::filesystem::path& currentFilePath)
     }).detach();
 }
 
-void SymbolManager::_threadUpdateTags() {
+void SymbolManager::_threadUpdateFunctionTagFile() {
     thread([this] {
         while (_isRunning) {
-            if (_needUpdateTags.load()) {
-                string arguments; {
-                    shared_lock lock{_rootPathMutex};
-                    if (_rootPath.empty() || !exists(_rootPath)) {
-                        _needUpdateTags.store(false);
-                        continue;
-                    }
-                    arguments = format(
-                        R"(-a --excmd=combine -f "{}" --fields=+e+n --kinds-c=-ehmv --languages=C,C++ -R {})",
-                        (MemoryManipulator::GetInstance()->getProjectDirectory() / _tempTagFile).generic_string(),
-                        _rootPath.generic_string()
-                    );
-                }
-                try {
-                    system::runCommand("ctags.exe", arguments);
-                    unique_lock lock{_tagFileMutex};
-                    rename(
-                        MemoryManipulator::GetInstance()->getProjectDirectory() / _tempTagFile,
-                        MemoryManipulator::GetInstance()->getProjectDirectory() / _tagFile
-                    );
-                } catch (exception& e) {
-                    logger::warn(format("Exception when updating tags: {}", e.what()));
-                }
-                _needUpdateTags.store(false);
-            }
+            _updateTagFile(TagFileType::Function);
             this_thread::sleep_for(1s);
         }
     }).detach();
+}
+
+void SymbolManager::_threadUpdateStructureTagFile() {
+    thread([this] {
+        while (_isRunning) {
+            _updateTagFile(TagFileType::Structure);
+            this_thread::sleep_for(1s);
+        }
+    }).detach();
+}
+
+void SymbolManager::_updateTagFile(const TagFileType tagFileType) {
+    if (_tagFileNeedUpdateMap[tagFileType]) {
+        const auto currentProjectDirectory = MemoryManipulator::GetInstance()->getProjectDirectory();
+        const auto tagFilePath = currentProjectDirectory / _tagFilenameMap.at(tagFileType).first;
+        const auto tempTagFilePath = currentProjectDirectory / _tagFilenameMap.at(tagFileType).second;
+        string arguments; {
+            shared_lock lock{_rootPathMutex};
+            if (_rootPath.empty() || !exists(_rootPath)) {
+                _tagFileNeedUpdateMap[tagFileType] = false;
+                return;
+            }
+            arguments = format(
+                R"(--excmd=combine -f "{}" --fields=+e+n --kinds-c={} --languages=C,C++ -R {})",
+                tempTagFilePath.generic_string(),
+                _tagKindsMap.at(tagFileType),
+                _rootPath.generic_string()
+            );
+        }
+        try {
+            if (exists(tempTagFilePath)) {
+                remove(tempTagFilePath);
+            }
+            system::runCommand("ctags.exe", arguments);
+            unique_lock lock{tagFileType == TagFileType::Function ? _functionTagFileMutex : _structureTagFileMutex};
+            rename(
+                tempTagFilePath,
+                tagFilePath
+            );
+        } catch (exception& e) {
+            logger::warn(format("Exception when updating tags: {}", e.what()));
+        }
+        _tagFileNeedUpdateMap[tagFileType] = false;
+    }
 }
