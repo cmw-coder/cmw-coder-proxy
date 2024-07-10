@@ -170,7 +170,7 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                                 return ReviewReference{
                                     symbol.path,
                                     symbol.name,
-                                    fs::readFile(symbol.path.generic_string(), symbol.startLine, symbol.endLine),
+                                    iconv::autoDecode(fs::readFile(symbol.path.generic_string(), symbol.startLine, symbol.endLine)),
                                     symbol.type,
                                     symbol.startLine,
                                     symbol.endLine,
