@@ -170,14 +170,29 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                                 return ReviewReference{
                                     symbol.path,
                                     symbol.name,
-                                    iconv::autoDecode(fs::readFile(symbol.path.generic_string(), symbol.startLine, symbol.endLine)),
+                                    {},
                                     symbol.type,
                                     symbol.startLine,
                                     symbol.endLine,
                                     0
                                 };
                             }
-                        );
+                        ); {
+                            vector<thread> retriveContentThreads;
+                            retriveContentThreads.reserve(reviewReferences.size());
+                            for (auto& reviewReference: reviewReferences) {
+                                retriveContentThreads.emplace_back([&reviewReference] {
+                                    reviewReference.content = iconv::autoDecode(fs::readFile(
+                                        reviewReference.path.generic_string(),
+                                        reviewReference.startLine,
+                                        reviewReference.endLine
+                                    ));
+                                });
+                            }
+                            for (auto& retriveContentThread: retriveContentThreads) {
+                                retriveContentThread.join();
+                            }
+                        }
                         logger::debug(format("reviewReferences count: {}", reviewReferences.size()));
                         WebsocketManager::GetInstance()->send(ReviewRequestClientMessage{reviewReferences});
                     }
