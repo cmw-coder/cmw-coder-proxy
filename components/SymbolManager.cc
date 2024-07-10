@@ -11,6 +11,7 @@
 
 #include <components/MemoryManipulator.h>
 #include <components/SymbolManager.h>
+#include <utils/fs.h>
 #include <utils/iconv.h>
 #include <utils/logger.h>
 #include <utils/system.h>
@@ -254,7 +255,36 @@ SymbolManager::~SymbolManager() {
     _isRunning.store(false);
 }
 
-vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix, const bool full) const {
+unordered_map<string, ReviewReference> SymbolManager::getReviewReferences(
+    const string& content, const uint32_t targetDepth
+) const {
+    uint32_t currentDepth = 0;
+    auto reviewReferences = _getReferences(content, currentDepth);
+
+    while (currentDepth < targetDepth) {
+        ++currentDepth;
+
+        mutex reviewReferencesMutex;
+        vector<thread> retriveReferenceThreads;
+        retriveReferenceThreads.reserve(reviewReferences.size());
+        for (auto& [key, value]: unordered_map{reviewReferences}) {
+            retriveReferenceThreads.emplace_back(
+                [tempContent = move(value.content), currentDepth, &reviewReferences, &reviewReferencesMutex, this] {
+                    auto tempReferences = _getReferences(tempContent, currentDepth);
+                    unique_lock lock{reviewReferencesMutex};
+                    reviewReferences.merge(tempReferences);
+                }
+            );
+        }
+        for (auto& retriveReferenceThread: retriveReferenceThreads) {
+            retriveReferenceThread.join();
+        }
+    }
+
+    return reviewReferences;
+}
+
+vector<SymbolInfo> SymbolManager::getSymbols(const string& content, const bool full) const {
     vector<SymbolInfo> result; {
         const auto tagFilePath = MemoryManipulator::GetInstance()->getProjectDirectory()
                                  / _tagFilenameMap.at(TagFileType::Structure).first;
@@ -269,7 +299,7 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix, const bool fu
             return result;
         }
 
-        for (const auto& symbol: collectSymbols(prefix).references) {
+        for (const auto& symbol: collectSymbols(content).references) {
             try {
                 tagEntry entry;
                 if (tagsFind(tagFileHandle.get(), &entry, symbol.c_str(), TAG_OBSERVECASE) == TagSuccess) {
@@ -310,7 +340,7 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix, const bool fu
             logger::warn(format("Failed to open '{}'", tagFilePath.generic_string()));
             return result;
         }
-        for (const auto& symbol: collectSymbols(prefix).unknown) {
+        for (const auto& symbol: collectSymbols(content).unknown) {
             try {
                 tagEntry entry;
                 if (tagsFind(tagFileHandle.get(), &entry, symbol.c_str(), TAG_OBSERVECASE) == TagSuccess &&
@@ -334,7 +364,7 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& prefix, const bool fu
     return result;
 }
 
-void SymbolManager::updateRootPath(const std::filesystem::path& currentFilePath) {
+void SymbolManager::updateRootPath(const filesystem::path& currentFilePath) {
     _tagFileNeedUpdateMap.at(TagFileType::Function) = true;
     _tagFileNeedUpdateMap.at(TagFileType::Structure) = true;
     thread([this, originalPath = absolute(currentFilePath).lexically_normal()] {
@@ -373,6 +403,43 @@ void SymbolManager::updateRootPath(const std::filesystem::path& currentFilePath)
             tempPath = tempPath.parent_path();
         }
     }).detach();
+}
+
+unordered_map<string, ReviewReference>
+SymbolManager::_getReferences(const string& content, const uint32_t depth) const {
+    const auto symbols = getSymbols(content, true);
+    mutex reviewReferencesMutex;
+    unordered_map<string, ReviewReference> reviewReferences;
+    vector<thread> retrieveContentThreads;
+    reviewReferences.reserve(symbols.size());
+    retrieveContentThreads.reserve(symbols.size());
+
+    for (const auto& [path, name, type, startLine, endLine]: symbols) {
+        retrieveContentThreads.emplace_back([&] {
+            auto reviewReference = ReviewReference{
+                path,
+                name,
+                iconv::autoDecode(fs::readFile(
+                    path.generic_string(),
+                    startLine,
+                    endLine
+                )),
+                type,
+                startLine,
+                endLine,
+                depth
+            };
+
+            unique_lock lock{reviewReferencesMutex};
+            reviewReferences.emplace(format("{}:{}", path.generic_string(), name), move(reviewReference));
+        });
+    }
+
+    for (auto& thread: retrieveContentThreads) {
+        thread.join();
+    }
+
+    return reviewReferences;
 }
 
 void SymbolManager::_threadUpdateFunctionTagFile() {

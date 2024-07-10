@@ -2,6 +2,7 @@
 
 #include <singleton_dclp.hpp>
 
+#include <models/ReviewReference.h>
 #include <models/SymbolInfo.h>
 #include <types/ConstMap.h>
 
@@ -17,7 +18,12 @@ namespace components {
 
         ~SymbolManager() override;
 
-        std::vector<models::SymbolInfo> getSymbols(const std::string& prefix, bool full = false) const;
+        std::unordered_map<std::string, models::ReviewReference> getReviewReferences(
+            const std::string& content,
+            uint32_t targetDepth = 0
+        ) const;
+
+        std::vector<models::SymbolInfo> getSymbols(const std::string& content, bool full = false) const;
 
         void updateRootPath(const std::filesystem::path& currentFilePath);
 
@@ -45,6 +51,8 @@ namespace components {
         mutable std::shared_mutex _rootPathMutex, _functionTagFileMutex, _structureTagFileMutex;
         std::atomic<bool> _isRunning{true}, _functionTagFileNeedUpdate{false}, _structureTagFileNeedUpdate{false};
         std::filesystem::path _rootPath;
+
+        std::unordered_map<std::string, models::ReviewReference> _getReferences(const std::string& content, uint32_t depth) const;
 
         void _threadUpdateFunctionTagFile();
 

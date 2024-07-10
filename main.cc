@@ -15,7 +15,6 @@
 #include <utils/system.h>
 
 #include <windows.h>
-#include <utils/fs.h>
 
 using namespace components;
 using namespace models;
@@ -161,39 +160,10 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 [](nlohmann::json&& data) {
                     if (const auto serverMessage = ReviewRequestServerMessage(move(data));
                         serverMessage.result == "success") {
-                        const auto symbols = SymbolManager::GetInstance()->getSymbols(serverMessage.content(), true);
-                        vector<ReviewReference> reviewReferences;
-                        reviewReferences.reserve(symbols.size());
-                        ranges::transform(
-                            symbols, back_inserter(reviewReferences),
-                            [](const SymbolInfo& symbol) {
-                                return ReviewReference{
-                                    symbol.path,
-                                    symbol.name,
-                                    {},
-                                    symbol.type,
-                                    symbol.startLine,
-                                    symbol.endLine,
-                                    0
-                                };
-                            }
-                        ); {
-                            vector<thread> retriveContentThreads;
-                            retriveContentThreads.reserve(reviewReferences.size());
-                            for (auto& reviewReference: reviewReferences) {
-                                retriveContentThreads.emplace_back([&reviewReference] {
-                                    reviewReference.content = iconv::autoDecode(fs::readFile(
-                                        reviewReference.path.generic_string(),
-                                        reviewReference.startLine,
-                                        reviewReference.endLine
-                                    ));
-                                });
-                            }
-                            for (auto& retriveContentThread: retriveContentThreads) {
-                                retriveContentThread.join();
-                            }
-                        }
-                        logger::debug(format("reviewReferences count: {}", reviewReferences.size()));
+                        const auto reviewReferences = SymbolManager::GetInstance()->getReviewReferences(
+                                                          serverMessage.content(), 1
+                                                      ) | views::values | ranges::to<vector<ReviewReference>>();
+                        logger::debug(format("reviewReferenceMap count: {}", reviewReferences.size()));
                         WebsocketManager::GetInstance()->send(ReviewRequestClientMessage{reviewReferences});
                     }
                 }
