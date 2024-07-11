@@ -244,7 +244,7 @@ void CompletionManager::interactionNormalInput(const any& data, bool&) {
                 if (completionOpt.has_value()) {
                     // In cache
                     WebsocketManager::GetInstance()->send(CompletionCacheClientMessage(false));
-                    logger::log("Normal input. Send CompletionCache due to cache hit");
+                    // logger::log("Normal input. Send CompletionCache due to cache hit");
                 } else {
                     // Out of cache
                     _completionCache.reset(); {
@@ -254,7 +254,7 @@ void CompletionManager::interactionNormalInput(const any& data, bool&) {
                             get<1>(_completionsOpt.value().current())
                         ));
                     }
-                    logger::log("Normal input. Send CompletionAccept due to cache complete");
+                    // logger::log("Normal input. Send CompletionAccept due to cache complete");
                 }
             } else {
                 // Cache miss

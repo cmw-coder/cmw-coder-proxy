@@ -9,6 +9,7 @@
 #include <components/SymbolManager.h>
 #include <components/WindowManager.h>
 #include <components/WebsocketManager.h>
+#include <models/WsMessage.h>
 #include <utils/iconv.h>
 #include <utils/logger.h>
 #include <utils/system.h>
@@ -155,6 +156,19 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 &CompletionManager::wsCompletionGenerate
             );
             WebsocketManager::GetInstance()->registerAction(
+                WsAction::ReviewRequest,
+                [](nlohmann::json&& data) {
+                    if (const auto serverMessage = ReviewRequestServerMessage(move(data));
+                        serverMessage.result == "success") {
+                        const auto reviewReferences = SymbolManager::GetInstance()->getReviewReferences(
+                                                          serverMessage.content(), 1
+                                                      ) | views::values | ranges::to<vector<ReviewReference>>();
+                        logger::debug(format("reviewReferenceMap count: {}", reviewReferences.size()));
+                        WebsocketManager::GetInstance()->send(ReviewRequestClientMessage{reviewReferences});
+                    }
+                }
+            );
+            WebsocketManager::GetInstance()->registerAction(
                 WsAction::SettingSync,
                 ConfigManager::GetInstance(),
                 &ConfigManager::wsSettingSync
@@ -168,6 +182,7 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 system::getMainThreadId(GetCurrentProcessId()),
                 system::getModuleFileName(reinterpret_cast<uint64_t>(GetModuleHandle(nullptr)))
             ));
+
             break;
         }
         case DLL_PROCESS_DETACH: {

@@ -25,3 +25,28 @@ string fs::readFile(const string& path) {
     erase(out, '\r');
     return out;
 }
+
+string fs::readFile(const string& path, const uint32_t startLine, const uint32_t endLine) {
+    if (path.empty() || startLine > endLine) {
+        return {};
+    }
+    auto stream = ifstream{path.data()};
+    stream.exceptions(ios_base::badbit);
+
+    string line, out;
+    uint32_t count{};
+
+    while (getline(stream, line)) {
+        ++count;
+        if (count <= startLine) {
+            continue;
+        }
+        if (count > endLine + 1) {
+            break;
+        }
+        out.append(line).append("\n");
+    }
+    // Remove \r using ranges::remove
+    erase(out, '\r');
+    return out;
+}

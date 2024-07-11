@@ -9,13 +9,14 @@ namespace models {
             Function,
             Macro,
             Reference,
-            Structure,
+            Struct,
             Unknown,
             Variable,
         };
 
         std::filesystem::path path;
-        std::string name, type;
+        std::string name;
+        Type type;
         uint32_t startLine, endLine;
     };
 }
