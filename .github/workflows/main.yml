@@ -37,10 +37,11 @@ jobs:
         with:
           submodules: 'recursive'
       - name: Setup MSVC 14.35
-        uses: TheMrMilchmann/setup-msvc-dev@v3
+        uses: seanmiddleditch/gha-setup-vsdevenv@v4
         with:
-          arch: x86
-          toolset: 14.35
+          arch: 'x86'
+          toolset_version: '14.35'
+          components: 'Microsoft.VisualStudio.Component.VC.14.35.17.5.x86.x64'
       #      - name: Install MSVC 14.35
       #        shell: cmd
       #        run: |
