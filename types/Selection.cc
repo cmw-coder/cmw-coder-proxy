@@ -14,6 +14,10 @@ Selection::Selection(const CaretPosition& begin, const CaretPosition& end): begi
     }
 }
 
+bool Selection::hasIntersection(const Selection& other) const {
+    return begin <= other.end && other.begin <= end;
+}
+
 bool Selection::isEmpty() const {
     return begin == end;
 }
@@ -22,16 +26,8 @@ bool Selection::isSingleLine() const {
     return begin.line == end.line && begin.character != end.character;
 }
 
-bool Selection::contains(const Selection& other) const {
-    return begin >= other.begin && other.end <= end;
-}
-
 bool Selection::isEqual(const Selection& other) const {
     return begin == other.begin && end == other.end;
-}
-
-bool Selection::isBefore(const Selection& other) const {
-    return end > other.begin;
 }
 
 void Selection::reset() {

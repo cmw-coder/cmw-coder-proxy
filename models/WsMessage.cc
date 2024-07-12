@@ -216,7 +216,7 @@ HandShakeClientMessage::HandShakeClientMessage(const filesystem::path& currentPr
         }
     ) {}
 
-ReviewRequestClientMessage::ReviewRequestClientMessage(const std::vector<ReviewReference>& reviewReferences)
+ReviewRequestClientMessage::ReviewRequestClientMessage(const vector<ReviewReference>& reviewReferences)
     : WsMessage(WsAction::ReviewRequest, nlohmann::json::array()) {
     for (const auto& [path, name, content, type, startLine, endLine, depth]: reviewReferences) {
         _data.push_back({
@@ -239,7 +239,18 @@ ReviewRequestServerMessage::ReviewRequestServerMessage(nlohmann::json&& data)
     : WsMessage(WsAction::ReviewRequest, move(data)),
       result(_data["result"].get<string>()) {
     if (result == "success") {
+        _path = _data["path"].get<string>();
         _content = _data["content"].get<string>();
+        _selection = {
+            {
+                {},
+                _data["selection"]["beginLine"].get<uint32_t>(),
+            },
+            {
+                {},
+                _data["selection"]["endLine"].get<uint32_t>(),
+            }
+        };
     } else if (_data.contains("message")) {
         _message = _data["message"].get<string>();
     }
@@ -251,6 +262,14 @@ string ReviewRequestServerMessage::content() const {
 
 string ReviewRequestServerMessage::message() const {
     return _message;
+}
+
+filesystem::path ReviewRequestServerMessage::path() const {
+    return _path;
+}
+
+Selection ReviewRequestServerMessage::selection() const {
+    return _selection;
 }
 
 SettingSyncServerMessage::SettingSyncServerMessage(nlohmann::json&& data)

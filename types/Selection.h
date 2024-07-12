@@ -11,15 +11,13 @@ namespace types {
 
         Selection(const CaretPosition& begin, const CaretPosition& end);
 
-        [[nodiscard]] bool contains(const Selection& other) const;
+        [[nodiscard]] bool hasIntersection(const Selection& other) const;
 
         [[nodiscard]] bool isEmpty() const;
 
         [[nodiscard]] bool isSingleLine() const;
 
         [[nodiscard]] bool isEqual(const Selection& other) const;
-
-        [[nodiscard]] bool isBefore(const Selection& other) const;
 
         void reset();
     };
