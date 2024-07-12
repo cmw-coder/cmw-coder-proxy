@@ -244,11 +244,11 @@ ReviewRequestServerMessage::ReviewRequestServerMessage(nlohmann::json&& data)
         _selection = {
             {
                 {},
-                _data["selection"]["beginLine"].get<uint32_t>(),
+                _data["beginLine"].get<uint32_t>(),
             },
             {
                 {},
-                _data["selection"]["endLine"].get<uint32_t>(),
+                _data["endLine"].get<uint32_t>(),
             }
         };
     } else if (_data.contains("message")) {
