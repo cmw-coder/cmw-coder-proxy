@@ -36,6 +36,19 @@ namespace {
         {"struct", SymbolInfo::Type::Struct},
     };
 
+    const auto excludePatterns =
+            " --exclude=clt"
+            " --exclude=lib/third"
+            " --exclude=PUBLIC/include/comware/sys/appmonitor.h"
+            " --exclude=PUBLIC/include/comware/sys/assert.h"
+            " --exclude=PUBLIC/include/comware/sys/basetype.h"
+            " --exclude=PUBLIC/include/comware/sys/error.h"
+            " --exclude=PUBLIC/include/comware/sys/magic.h"
+            " --exclude=PUBLIC/include/comware/sys/overlayoam.h"
+            " --exclude=PUBLIC/init"
+            " --exclude=PUBLIC/product"
+            " --exclude=tools"
+            " --exclude=ut";
     const auto symbolPattern = regex(R"~(\b[A-Z_a-z][0-9A-Z_a-z]+\b)~");
 
     const unordered_set<string> ignoredWords{
@@ -472,8 +485,9 @@ void SymbolManager::_updateTagFile(const TagFileType tagFileType) {
                 return;
             }
             arguments = format(
-                R"(--excmd=combine -f "{}" --fields=+e+n --kinds-c={} --languages=C,C++ -R {})",
+                R"(--excmd=combine -f "{}" {} --fields=+e+n --kinds-c={} --languages=C,C++ -R {})",
                 tempTagFilePath.generic_string(),
+                excludePatterns,
                 _tagKindsMap.at(tagFileType),
                 _rootPath.generic_string()
             );
