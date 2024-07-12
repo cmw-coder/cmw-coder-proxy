@@ -177,8 +177,14 @@ namespace models {
 
         [[nodiscard]] std::string message() const;
 
+        [[nodiscard]] std::filesystem::path path() const;
+
+        [[nodiscard]] types::Selection selection() const;
+
     private:
+        std::filesystem::path _path;
         std::string _content, _message;
+        types::Selection _selection{};
     };
 
     class SettingSyncServerMessage final : public WsMessage {
