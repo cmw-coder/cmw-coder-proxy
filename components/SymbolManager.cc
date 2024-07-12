@@ -36,19 +36,21 @@ namespace {
         {"struct", SymbolInfo::Type::Struct},
     };
 
-    const auto excludePatterns =
-            " --exclude=clt"
-            " --exclude=lib/third"
-            " --exclude=PUBLIC/include/comware/sys/appmonitor.h"
-            " --exclude=PUBLIC/include/comware/sys/assert.h"
-            " --exclude=PUBLIC/include/comware/sys/basetype.h"
-            " --exclude=PUBLIC/include/comware/sys/error.h"
-            " --exclude=PUBLIC/include/comware/sys/magic.h"
-            " --exclude=PUBLIC/include/comware/sys/overlayoam.h"
-            " --exclude=PUBLIC/init"
-            " --exclude=PUBLIC/product"
-            " --exclude=tools"
-            " --exclude=ut";
+    const array<string, 12> excludePatterns =
+    {
+        "clt",
+        "lib/third",
+        "PUBLIC/include/comware/sys/appmonitor.h",
+        "PUBLIC/include/comware/sys/assert.h",
+        "PUBLIC/include/comware/sys/basetype.h",
+        "PUBLIC/include/comware/sys/error.h",
+        "PUBLIC/include/comware/sys/magic.h",
+        "PUBLIC/include/comware/sys/overlayoam.h",
+        "PUBLIC/init",
+        "PUBLIC/product",
+        "tools",
+        "ut"
+    };
     const auto symbolPattern = regex(R"~(\b[A-Z_a-z][0-9A-Z_a-z]+\b)~");
 
     const unordered_set<string> ignoredWords{
@@ -428,6 +430,12 @@ SymbolManager::_getReferences(const string& content, const uint32_t depth) const
     retrieveContentThreads.reserve(symbols.size());
 
     for (const auto& [path, name, type, startLine, endLine]: symbols) {
+        if (ranges::any_of(excludePatterns, [&path](const auto& pattern) {
+            return path.generic_string().contains(pattern);
+        })) {
+            continue;
+        }
+
         retrieveContentThreads.emplace_back([&] {
             auto reviewReference = ReviewReference{
                 path,
@@ -485,9 +493,8 @@ void SymbolManager::_updateTagFile(const TagFileType tagFileType) {
                 return;
             }
             arguments = format(
-                R"(--excmd=combine -f "{}" {} --fields=+e+n --kinds-c={} --languages=C,C++ -R {})",
+                R"(--excmd=combine -f "{}" --fields=+e+n --kinds-c={} --languages=C,C++ -R {})",
                 tempTagFilePath.generic_string(),
-                excludePatterns,
                 _tagKindsMap.at(tagFileType),
                 _rootPath.generic_string()
             );
