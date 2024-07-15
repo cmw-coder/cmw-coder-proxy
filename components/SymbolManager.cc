@@ -247,7 +247,7 @@ namespace {
             back_inserter(symbolList)
         );
         for (const auto& symbol: symbolList) {
-            if (symbol.length() < 2 || ignoredWords.contains(symbol)) {
+            if (symbol.length() < 10 || ignoredWords.contains(symbol)) {
                 continue;
             }
             if (const auto lastTwoChars = symbol.substr(symbol.length() - 2);
