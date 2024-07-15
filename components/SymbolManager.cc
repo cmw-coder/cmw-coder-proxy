@@ -420,8 +420,10 @@ void SymbolManager::updateRootPath(const filesystem::path& currentFilePath) {
     }).detach();
 }
 
-unordered_map<string, ReviewReference>
-SymbolManager::_getReferences(const string& content, const uint32_t depth) const {
+unordered_map<string, ReviewReference> SymbolManager::_getReferences(
+    const string& content,
+    const uint32_t depth
+) const {
     const auto symbols = getSymbols(content, true);
     mutex reviewReferencesMutex;
     unordered_map<string, ReviewReference> reviewReferences;

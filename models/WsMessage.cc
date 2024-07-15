@@ -239,7 +239,7 @@ ReviewRequestServerMessage::ReviewRequestServerMessage(nlohmann::json&& data)
     : WsMessage(WsAction::ReviewRequest, move(data)),
       result(_data["result"].get<string>()) {
     if (result == "success") {
-        _path = _data["path"].get<string>();
+        _path = iconv::toPath(_data["path"].get<string>());
         _content = _data["content"].get<string>();
         _selection = {
             {

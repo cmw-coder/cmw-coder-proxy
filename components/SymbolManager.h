@@ -52,7 +52,10 @@ namespace components {
         std::atomic<bool> _isRunning{true}, _functionTagFileNeedUpdate{false}, _structureTagFileNeedUpdate{false};
         std::filesystem::path _rootPath;
 
-        std::unordered_map<std::string, models::ReviewReference> _getReferences(const std::string& content, uint32_t depth) const;
+        std::unordered_map<std::string, models::ReviewReference> _getReferences(
+            const std::string& content,
+            uint32_t depth
+        ) const;
 
         void _threadUpdateFunctionTagFile();
 
