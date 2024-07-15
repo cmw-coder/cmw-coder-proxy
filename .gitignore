@@ -1,2 +1,3 @@
-cmake-build*
 build
+cmake/*.zip
+cmake-build*

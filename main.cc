@@ -161,16 +161,17 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                     if (const auto serverMessage = ReviewRequestServerMessage(move(data));
                         serverMessage.result == "success") {
                         const auto reviewReferences =
-                                SymbolManager::GetInstance()->getReviewReferences(
-                                    serverMessage.content(), 0
-                                )
+                                SymbolManager::GetInstance()->getReviewReferences(serverMessage.content(), 0)
                                 | views::values
-                                | views::drop_while([&serverMessage](const ReviewReference& reviewReference) {
-                                    return iconv::autoDecode(
-                                               reviewReference.path.generic_string()
-                                           ) == serverMessage.path().generic_string() &&
-                                           reviewReference.startLine <= serverMessage.selection().end.line &&
-                                           serverMessage.selection().begin.line <= reviewReference.endLine;
+                                | views::filter([&serverMessage](const ReviewReference& reviewReference) {
+                                    try {
+                                        return reviewReference.path != serverMessage.path() ||
+                                               reviewReference.startLine > serverMessage.selection().end.line ||
+                                               serverMessage.selection().begin.line > reviewReference.endLine;
+                                    } catch (exception& e) {
+                                        logger::warn(format("Error checking '{}': {}", reviewReference.name, e.what()));
+                                    }
+                                    return true;
                                 })
                                 | ranges::to<vector<ReviewReference>>();
                         logger::debug(format("reviewReferenceMap count: {}", reviewReferences.size()));

@@ -227,7 +227,7 @@ namespace {
     }
 
     optional<pair<string, string>> getTypeReference(const unordered_map<string, string>& symbolFields) {
-        if (const auto key = "end";
+        if (const auto key = "typeref";
             symbolFields.contains(key)) {
             const auto value = symbolFields.at(key);
             if (const auto offset = value.find(':');
