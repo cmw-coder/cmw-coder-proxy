@@ -162,7 +162,7 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                         serverMessage.result == "success") {
                         const auto reviewReferences =
                                 SymbolManager::GetInstance()->getReviewReferences(
-                                    serverMessage.content(), 1
+                                    serverMessage.content(), 0
                                 )
                                 | views::values
                                 | views::drop_while([&serverMessage](const ReviewReference& reviewReference) {
