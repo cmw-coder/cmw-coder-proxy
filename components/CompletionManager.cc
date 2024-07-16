@@ -400,9 +400,9 @@ void CompletionManager::_updateNeedRetrieveCompletion(const bool need, const cha
 }
 
 void CompletionManager::_sendCompletionGenerate(
-    const uint64_t completionStartTime,
-    const uint64_t symbolStartTime,
-    const uint64_t completionEndTime
+    const int64_t completionStartTime,
+    const int64_t symbolStartTime,
+    const int64_t completionEndTime
 ) {
     try {
         shared_lock componentsLock(_componentsMutex);
@@ -428,9 +428,9 @@ void CompletionManager::_threadCheckAcceptedCompletions() {
         while (_isRunning) {
             vector<EditedCompletion> needReportCompletions{}; {
                 const shared_lock lock(_editedCompletionMapMutex);
-                for (const auto& acceptedCompletion: _editedCompletionMap | views::values) {
-                    if (acceptedCompletion.canReport()) {
-                        needReportCompletions.push_back(acceptedCompletion);
+                for (const auto& editedCompletion: _editedCompletionMap | views::values) {
+                    if (editedCompletion.canReport()) {
+                        needReportCompletions.push_back(editedCompletion);
                     }
                 }
             } {
@@ -462,8 +462,8 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     const auto caretPosition = memoryManipulator->getCaretPosition();
                     if (auto path = memoryManipulator->getCurrentFilePath();
                         currentFileHandle && !path.empty()) {
-                        const auto completionStartTime = chrono::high_resolution_clock::now();
-                        chrono::time_point<chrono::high_resolution_clock> retrieveSymbolStartTime;
+                        const auto completionStartTime = chrono::system_clock::now();
+                        chrono::time_point<chrono::system_clock> retrieveSymbolStartTime;
 
                         SymbolManager::GetInstance()->updateRootPath(path);
                         string prefix, prefixForSymbol, suffix; {
@@ -488,7 +488,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             );
                             suffix.append("\n").append(tempLine);
                         } {
-                            retrieveSymbolStartTime = chrono::high_resolution_clock::now();
+                            retrieveSymbolStartTime = chrono::system_clock::now();
                             unique_lock lock(_componentsMutex);
                             _components.caretPosition = caretPosition;
                             _components.path = move(path);
@@ -507,7 +507,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                                 retrieveSymbolStartTime.time_since_epoch()
                             ).count(),
                             chrono::duration_cast<chrono::milliseconds>(
-                                chrono::high_resolution_clock::now().time_since_epoch()
+                                chrono::system_clock::now().time_since_epoch()
                             ).count()
                         );
                     }

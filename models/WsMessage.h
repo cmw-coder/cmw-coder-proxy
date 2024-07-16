@@ -83,9 +83,9 @@ namespace models {
             const std::vector<std::filesystem::path>& recentFiles,
             const std::string& suffix,
             const std::vector<SymbolInfo>& symbols,
-            uint64_t completionStartTime,
-            uint64_t symbolStartTime,
-            uint64_t completionEndTime
+            int64_t completionStartTime,
+            int64_t symbolStartTime,
+            int64_t completionEndTime
         );
     };
 

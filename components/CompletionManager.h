@@ -68,9 +68,9 @@ namespace components {
         void _updateNeedRetrieveCompletion(bool need = true, char character = 0);
 
         void _sendCompletionGenerate(
-            uint64_t completionStartTime,
-            uint64_t symbolStartTime,
-            uint64_t completionEndTime
+            int64_t completionStartTime,
+            int64_t symbolStartTime,
+            int64_t completionEndTime
         );
 
         void _threadCheckAcceptedCompletions();

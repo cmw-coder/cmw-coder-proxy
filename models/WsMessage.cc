@@ -79,9 +79,9 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
     const vector<filesystem::path>& recentFiles,
     const string& suffix,
     const vector<SymbolInfo>& symbols,
-    uint64_t completionStartTime,
-    uint64_t symbolStartTime,
-    uint64_t completionEndTime
+    int64_t completionStartTime,
+    int64_t symbolStartTime,
+    int64_t completionEndTime
 ): WsMessage(
     WsAction::CompletionGenerate, {
         {
