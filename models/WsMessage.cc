@@ -78,7 +78,10 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
     const string& prefix,
     const vector<filesystem::path>& recentFiles,
     const string& suffix,
-    const vector<SymbolInfo>& symbols
+    const vector<SymbolInfo>& symbols,
+    uint64_t completionStartTime,
+    uint64_t symbolStartTime,
+    uint64_t completionEndTime
 ): WsMessage(
     WsAction::CompletionGenerate, {
         {
@@ -92,6 +95,13 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
         {"recentFiles", nlohmann::json::array()},
         {"suffix", suffix},
         {"symbols", nlohmann::json::array()},
+        {
+            "times", {
+                "start", completionStartTime,
+                "symbol", symbolStartTime,
+                "end", completionEndTime,
+            }
+        }
     }
 ) {
     for (const auto& recentFile: recentFiles) {

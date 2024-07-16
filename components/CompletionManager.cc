@@ -399,7 +399,11 @@ void CompletionManager::_updateNeedRetrieveCompletion(const bool need, const cha
     _needRetrieveCompletion.store(need && (!character || checkNeedRetrieveCompletion(character)));
 }
 
-void CompletionManager::_sendCompletionGenerate() {
+void CompletionManager::_sendCompletionGenerate(
+    const uint64_t completionStartTime,
+    const uint64_t symbolStartTime,
+    const uint64_t completionEndTime
+) {
     try {
         shared_lock componentsLock(_componentsMutex);
         _needDiscardWsAction.store(false);
@@ -409,7 +413,10 @@ void CompletionManager::_sendCompletionGenerate() {
             _components.prefix,
             _components.recentFiles,
             _components.suffix,
-            _components.symbols
+            _components.symbols,
+            completionStartTime,
+            symbolStartTime,
+            completionEndTime
         ));
     } catch (const runtime_error& e) {
         logger::warn(e.what());
@@ -455,6 +462,9 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     const auto caretPosition = memoryManipulator->getCaretPosition();
                     if (auto path = memoryManipulator->getCurrentFilePath();
                         currentFileHandle && !path.empty()) {
+                        const auto completionStartTime = chrono::high_resolution_clock::now();
+                        chrono::time_point<chrono::high_resolution_clock> retrieveSymbolStartTime;
+
                         SymbolManager::GetInstance()->updateRootPath(path);
                         string prefix, prefixForSymbol, suffix; {
                             const auto currentLine = memoryManipulator->getLineContent(
@@ -478,6 +488,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             );
                             suffix.append("\n").append(tempLine);
                         } {
+                            retrieveSymbolStartTime = chrono::high_resolution_clock::now();
                             unique_lock lock(_componentsMutex);
                             _components.caretPosition = caretPosition;
                             _components.path = move(path);
@@ -488,24 +499,17 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                         }
                         _isNewLine = false;
                         logger::info("Retrieve completion with full prefix");
-                        // TODO: Improve performance
-                        //     unique_lock lock(_componentsMutex);
-                        //     _components.caretPosition = caretPosition;
-                        //     _components.path = InteractionMonitor::GetInstance()->getFileName();
-                        //     if (const auto lastNewLineIndex = _components.prefix.find_last_of('\r');
-                        //         lastNewLineIndex != string::npos) {
-                        //         _components.prefix = _components.prefix.substr(0, lastNewLineIndex).append(prefix);
-                        //     } else {
-                        //         _components.prefix = prefix;
-                        //     }
-                        //     if (const auto firstNewLineIndex = suffix.find_first_of('\r');
-                        //         firstNewLineIndex != string::npos) {
-                        //         _components.suffix = _components.suffix.substr(firstNewLineIndex + 1).insert(0, suffix);
-                        //     } else {
-                        //         _components.suffix = suffix;
-                        //     }
-                        //     logger::info("Retrieve completion with current line prefix");
-                        _sendCompletionGenerate();
+                        _sendCompletionGenerate(
+                            chrono::duration_cast<chrono::milliseconds>(
+                                completionStartTime.time_since_epoch()
+                            ).count(),
+                            chrono::duration_cast<chrono::milliseconds>(
+                                retrieveSymbolStartTime.time_since_epoch()
+                            ).count(),
+                            chrono::duration_cast<chrono::milliseconds>(
+                                chrono::high_resolution_clock::now().time_since_epoch()
+                            ).count()
+                        );
                     }
                 } catch (const exception& e) {
                     logger::warn(format("Exception when retrieving completion: {}", e.what()));

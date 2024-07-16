@@ -82,7 +82,10 @@ namespace models {
             const std::string& prefix,
             const std::vector<std::filesystem::path>& recentFiles,
             const std::string& suffix,
-            const std::vector<SymbolInfo>& symbols
+            const std::vector<SymbolInfo>& symbols,
+            uint64_t completionStartTime,
+            uint64_t symbolStartTime,
+            uint64_t completionEndTime
         );
     };
 
