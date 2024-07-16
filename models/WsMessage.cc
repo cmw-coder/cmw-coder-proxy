@@ -97,9 +97,9 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
         {"symbols", nlohmann::json::array()},
         {
             "times", {
-                "start", completionStartTime,
-                "symbol", symbolStartTime,
-                "end", completionEndTime,
+                {"start", completionStartTime},
+                {"symbol", symbolStartTime},
+                {"end", completionEndTime},
             }
         }
     }
