@@ -32,7 +32,7 @@ namespace components {
             {
                 {
                     {TagFileType::Function, "df"},
-                    {TagFileType::Structure, "gstu"}
+                    {TagFileType::Structure, "gstuv"}
                 }
             }
         };
