@@ -33,10 +33,10 @@ namespace components {
         void wsSettingSync(nlohmann::json&& data);
 
     private:
-        mutable std::shared_mutex _currentProjectMutex, _currentSvnMutex, _shortcutMutex;
+        mutable std::shared_mutex _currentFilePathMutex, _currentProjectPathMutex, _shortcutMutex;
         helpers::KeyHelper::KeyCombination _shortcutCommit, _shortcutManualCompletion;
         std::atomic<bool> _isRunning{true};
-        std::filesystem::path _currentProjectPath, _currentSvnPath;
+        std::filesystem::path _currentFilePath, _currentProjectPath;
         std::string _siVersionString;
         types::SiVersion::Full _siVersion;
 

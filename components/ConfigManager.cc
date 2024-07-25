@@ -75,12 +75,12 @@ void ConfigManager::_threadRetrieveProjectDirectory() {
             // TODO: Check if need InteractionMonitor::GetInstance()->getInteractionLock();
             const auto currentProject = MemoryManipulator::GetInstance()->getProjectDirectory();
             bool isSameProject; {
-                shared_lock lock(_currentProjectMutex);
+                shared_lock lock(_currentProjectPathMutex);
                 isSameProject = currentProject == _currentProjectPath;
             }
             if (!isSameProject) {
                 WebsocketManager::GetInstance()->send(EditorSwitchProjectClientMessage(currentProject));
-                unique_lock lock(_currentProjectMutex);
+                unique_lock lock(_currentProjectPathMutex);
                 _currentProjectPath = currentProject;
             }
             this_thread::sleep_for(1s);
@@ -91,32 +91,16 @@ void ConfigManager::_threadRetrieveProjectDirectory() {
 void ConfigManager::_threadRetrieveSvnDirectory() {
     thread([this] {
         while (_isRunning) {
-            if (auto tempFolder = MemoryManipulator::GetInstance()->getCurrentFilePath().lexically_normal().parent_path();
-                !tempFolder.empty()) {
-                // bool isMismatch; {
-                //     shared_lock lock(_currentSvnMutex);
-                //     if (_currentSvn.empty()) {
-                //         isMismatch = true;
-                //     } else {
-                //         isMismatch = mismatch(_currentSvn.begin(), _currentSvn.end(), tempFolder.begin())
-                //                      .first != _currentSvn.end();
-                //     }
-                // }
-                if (/*isMismatch && */ tempFolder.is_absolute()) {
-                    while (!tempFolder.empty()) {
-                        if (exists(tempFolder / ".svn")) {
-                            WebsocketManager::GetInstance()->send(EditorSwitchSvnClientMessage(tempFolder));
-                            // logger::debug(format("Switched to SVN directory: {}", tempFolder.string()));
-                            unique_lock lock(_currentSvnMutex);
-                            _currentSvnPath = tempFolder;
-                            break;
-                        }
-                        const auto parentPath = tempFolder.parent_path();
-                        if (parentPath == tempFolder) {
-                            break;
-                        }
-                        tempFolder = parentPath;
-                    }
+            if (auto tempFile = MemoryManipulator::GetInstance()->getCurrentFilePath().lexically_normal();
+                !tempFile.empty()) {
+                bool isChanged; {
+                    shared_lock lock(_currentFilePathMutex);
+                    isChanged = tempFile != _currentFilePath;
+                }
+                if (isChanged && tempFile.is_absolute()) {
+                    WebsocketManager::GetInstance()->send(EditorSwitchFileMessage(tempFile));
+                    unique_lock lock(_currentFilePathMutex);
+                    _currentFilePath = tempFile;
                 }
             }
             this_thread::sleep_for(200ms);

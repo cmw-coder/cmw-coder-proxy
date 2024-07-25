@@ -176,6 +176,9 @@ EditorPasteClientMessage::EditorPasteClientMessage(const uint32_t count)
         }
     ) {}
 
+EditorSwitchFileMessage::EditorSwitchFileMessage(const filesystem::path& path)
+    : WsMessage(WsAction::EditorSwitchFile, iconv::autoDecode(path.generic_string())) {}
+
 EditorSwitchProjectClientMessage::EditorSwitchProjectClientMessage(const filesystem::path& path)
     : WsMessage(WsAction::EditorSwitchProject, iconv::autoDecode(path.generic_string())) {}
 
@@ -213,9 +216,6 @@ EditorSelectionClientMessage::EditorSelectionClientMessage(
         }
     }
 ) {}
-
-EditorSwitchSvnClientMessage::EditorSwitchSvnClientMessage(const filesystem::path& path)
-    : WsMessage(WsAction::EditorSwitchSvn, iconv::autoDecode(path.generic_string())) {}
 
 HandShakeClientMessage::HandShakeClientMessage(const filesystem::path& currentProject, string&& version)
     : WsMessage(

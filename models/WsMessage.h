@@ -137,6 +137,11 @@ namespace models {
         explicit EditorPasteClientMessage(uint32_t count);
     };
 
+    class EditorSwitchFileMessage final : public WsMessage {
+    public:
+        explicit EditorSwitchFileMessage(const std::filesystem::path& path);
+    };
+
     class EditorSwitchProjectClientMessage final : public WsMessage {
     public:
         explicit EditorSwitchProjectClientMessage(const std::filesystem::path& path);
@@ -153,11 +158,6 @@ namespace models {
             int64_t x = {},
             int64_t y = {}
         );
-    };
-
-    class EditorSwitchSvnClientMessage final : public WsMessage {
-    public:
-        explicit EditorSwitchSvnClientMessage(const std::filesystem::path& path);
     };
 
     class HandShakeClientMessage final : public WsMessage {
