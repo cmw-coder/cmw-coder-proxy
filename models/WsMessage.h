@@ -181,6 +181,8 @@ namespace models {
 
         [[nodiscard]] std::string content() const;
 
+        [[nodiscard]] std::string id() const;
+
         [[nodiscard]] std::string message() const;
 
         [[nodiscard]] std::filesystem::path path() const;
@@ -189,7 +191,7 @@ namespace models {
 
     private:
         std::filesystem::path _path;
-        std::string _content, _message;
+        std::string _content, _id, _message;
         types::Selection _selection{};
     };
 

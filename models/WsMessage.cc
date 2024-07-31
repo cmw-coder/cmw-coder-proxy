@@ -259,6 +259,7 @@ ReviewRequestServerMessage::ReviewRequestServerMessage(nlohmann::json&& data)
     if (result == "success") {
         _path = iconv::toPath(_data["path"].get<string>());
         _content = _data["content"].get<string>();
+        _id = _data["id"].get<string>();
         _selection = {
             {
                 {},
@@ -276,6 +277,10 @@ ReviewRequestServerMessage::ReviewRequestServerMessage(nlohmann::json&& data)
 
 string ReviewRequestServerMessage::content() const {
     return _content;
+}
+
+std::string ReviewRequestServerMessage::id() const {
+    return _id;
 }
 
 string ReviewRequestServerMessage::message() const {

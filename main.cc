@@ -175,7 +175,10 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                                 })
                                 | ranges::to<vector<ReviewReference>>();
                         logger::debug(format("reviewReferenceMap count: {}", reviewReferences.size()));
-                        WebsocketManager::GetInstance()->send(ReviewRequestClientMessage{reviewReferences});
+                        WebsocketManager::GetInstance()->send(ReviewRequestClientMessage{
+                            serverMessage.id(),
+                            reviewReferences
+                        });
                     }
                 }
             );
