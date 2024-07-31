@@ -13,6 +13,7 @@
 namespace models {
     class WsMessage {
     public:
+        const std::string id;
         const types::WsAction action;
 
         [[nodiscard]] std::string parse() const;

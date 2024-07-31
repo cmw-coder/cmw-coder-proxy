@@ -4,4 +4,5 @@
 
 namespace utils::common {
     types::CaretDimension getCaretDimensions(bool waitTillAvailable = true);
+    std::string uuid();
 }

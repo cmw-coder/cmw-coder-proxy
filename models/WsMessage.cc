@@ -1,5 +1,6 @@
 #include <magic_enum.hpp>
 #include <models/WsMessage.h>
+#include <utils/common.h>
 #include <utils/iconv.h>
 
 #include <windows.h>
@@ -11,13 +12,16 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
-WsMessage::WsMessage(const WsAction action): action(action) {}
+WsMessage::WsMessage(const WsAction action): id(common::uuid()), action(action) {}
 
 WsMessage::WsMessage(const WsAction action, nlohmann::json&& data)
-    : action(action), _data(move(data)) {}
+    : id(common::uuid()), action(action), _data(move(data)) {}
 
 string WsMessage::parse() const {
-    nlohmann::json jsonMessage = {{"action", enum_name(action)}};
+    nlohmann::json jsonMessage = {
+        {"id", id},
+        {"action", enum_name(action)},
+    };
 
     if (!_data.empty()) {
         jsonMessage["data"] = _data;

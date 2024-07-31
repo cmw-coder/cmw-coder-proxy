@@ -30,7 +30,7 @@ namespace {
 
     const unordered_map<string, SymbolInfo::Type> symbolMapping =
     {
-        // {"d", SymbolInfo::Type::Macro},
+        {"d", SymbolInfo::Type::Macro},
         {"enum", SymbolInfo::Type::Enum},
         {"f", SymbolInfo::Type::Function},
         {"struct", SymbolInfo::Type::Struct},
