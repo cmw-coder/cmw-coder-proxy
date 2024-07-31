@@ -226,10 +226,18 @@ HandShakeClientMessage::HandShakeClientMessage(const filesystem::path& currentPr
         }
     ) {}
 
-ReviewRequestClientMessage::ReviewRequestClientMessage(const vector<ReviewReference>& reviewReferences)
-    : WsMessage(WsAction::ReviewRequest, nlohmann::json::array()) {
+ReviewRequestClientMessage::ReviewRequestClientMessage(
+    const string& id,
+    const vector<ReviewReference>& reviewReferences
+)
+    : WsMessage(
+        WsAction::ReviewRequest, {
+            {"id", id},
+            {"references", nlohmann::json::array()}
+        }
+    ) {
     for (const auto& [path, name, content, type, startLine, endLine, depth]: reviewReferences) {
-        _data.push_back({
+        _data["references"].push_back({
             {"name", name},
             {"type", enum_name(type)},
             {"content", content},

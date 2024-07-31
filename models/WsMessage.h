@@ -167,7 +167,10 @@ namespace models {
 
     class ReviewRequestClientMessage final : public WsMessage {
     public:
-        explicit ReviewRequestClientMessage(const std::vector<ReviewReference>& reviewReferences);
+        explicit ReviewRequestClientMessage(
+            const std::string& id,
+            const std::vector<ReviewReference>& reviewReferences
+        );
     };
 
     class ReviewRequestServerMessage final : public WsMessage {
