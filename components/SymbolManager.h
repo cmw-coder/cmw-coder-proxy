@@ -37,7 +37,7 @@ namespace components {
             {
                 {
                     {TagFileType::Function, "df"},
-                    {TagFileType::Structure, "gstuv"}
+                    {TagFileType::Structure, "egstuv"}
                 }
             }
         };

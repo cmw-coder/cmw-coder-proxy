@@ -11,6 +11,7 @@
 
 #include <components/MemoryManipulator.h>
 #include <components/SymbolManager.h>
+#include <types/TagEntry.h>
 #include <utils/fs.h>
 #include <utils/iconv.h>
 #include <utils/logger.h>
@@ -28,49 +29,7 @@ namespace {
         unordered_set<string> references, unknown;
     };
 
-    class TagEntry {
-    public:
-        bool fileScope;
-        string name, file, kind;
 
-        struct {
-            string pattern;
-            unsigned long lineNumber;
-        } address;
-
-        unordered_map<string, string> fields;
-
-        explicit TagEntry(const tagEntry& entry)
-            : fileScope(entry.fileScope),
-              name(entry.name),
-              file(entry.file),
-              kind(entry.kind),
-              address({entry.address.pattern, entry.address.lineNumber}) {
-            for (auto index = 0; index < entry.fields.count; ++index) {
-                fields.insert_or_assign((entry.fields.list + index)->key, (entry.fields.list + index)->value);
-            }
-        }
-
-        [[nodiscard]] optional<uint32_t> getEndLine() const {
-            if (const auto key = "end";
-                fields.contains(key)) {
-                return stoul(fields.at(key));
-            }
-            return nullopt;
-        }
-
-        [[nodiscard]] optional<pair<string, string>> getReferenceTarget() const {
-            if (const auto key = "typeref";
-                fields.contains(key)) {
-                const auto value = fields.at(key);
-                if (const auto offset = value.find(':');
-                    offset != string::npos) {
-                    return make_pair(value.substr(0, offset), value.substr(offset + 1));
-                }
-            }
-            return nullopt;
-        }
-    };
 
     const unordered_map<string, SymbolInfo::Type> symbolMapping =
     {
