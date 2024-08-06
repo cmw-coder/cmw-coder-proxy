@@ -26,10 +26,8 @@ using namespace utils;
 
 namespace {
     struct SymbolCollection {
-        unordered_set<string> references, unknown;
+        unordered_set<string> globalVariables, references, unknown;
     };
-
-
 
     const unordered_map<string, SymbolInfo::Type> symbolMapping =
     {
@@ -37,6 +35,7 @@ namespace {
         {"enum", SymbolInfo::Type::Enum},
         {"f", SymbolInfo::Type::Function},
         {"struct", SymbolInfo::Type::Struct},
+        {"v", SymbolInfo::Type::Variable},
     };
 
     const array<string, 12> excludePatterns =
@@ -222,10 +221,13 @@ namespace {
             back_inserter(symbolList)
         );
         for (const auto& symbol: symbolList) {
-            if (symbol.length() < 10 || ignoredWords.contains(symbol)) {
+            if (symbol.length() < 8 || ignoredWords.contains(symbol)) {
                 continue;
             }
-            if (const auto lastTwoChars = symbol.substr(symbol.length() - 2);
+
+            if (symbol.substr(0, 2) == "g_") {
+                result.globalVariables.emplace(symbol);
+            } else if (const auto lastTwoChars = symbol.substr(symbol.length() - 2);
                 lastTwoChars == "_E" || lastTwoChars == "_S") {
                 result.references.emplace(symbol);
             } else {
@@ -267,6 +269,51 @@ namespace {
             }
         }
         return result;
+    }
+
+    void collectCommonSymbols(
+        const shared_ptr<tagFile>& tagFileHandle,
+        const unordered_set<string>& symbolNames,
+        const filesystem::path& referencePath,
+        vector<SymbolInfo>& result
+    ) {
+        for (const auto& symbolString: symbolNames) {
+            try {
+                if (const auto symbolEntryOpt = findMostCommonPathSymbol(
+                    tagFileHandle,
+                    symbolString,
+                    referencePath
+                ); symbolEntryOpt.has_value()) {
+                    if (const auto& symbolEntry = symbolEntryOpt.value();
+                        symbolMapping.contains(symbolEntry.kind)) {
+                        if (const auto endLineOpt = symbolEntry.getEndLine();
+                            endLineOpt.has_value()) {
+                            result.emplace_back(
+                                iconv::toPath(symbolEntry.file),
+                                symbolEntry.name,
+                                symbolMapping.at(symbolEntry.kind),
+                                static_cast<uint32_t>(symbolEntry.address.lineNumber - 1),
+                                endLineOpt.value() - 1
+                            );
+                        } else {
+                            logger::warn(format(
+                                "No endLine for '{}'", symbolEntry.name
+                            ));
+                        }
+                    } else {
+                        logger::warn(format(
+                            "Unknown typeAlias '{}' for TypeRef '{}'", symbolEntry.kind, symbolString
+                        ));
+                    }
+                } else {
+                    logger::warn(format(
+                        "No entry for '{}'", symbolString
+                    ));
+                }
+            } catch (exception& e) {
+                logger::warn(format("Exception when getting info of symbol '{}': {}", symbolString, e.what()));
+            }
+        }
     }
 }
 
@@ -329,6 +376,8 @@ vector<SymbolInfo> SymbolManager::getSymbols(
             logger::warn(format("Failed to open '{}'", tagFilePath.generic_string()));
             return result;
         }
+
+        collectCommonSymbols(tagFileHandle, collectSymbols(content).globalVariables, referencePath, result);
 
         for (const auto& typeReferenceString: collectSymbols(content).references) {
             try {
@@ -398,43 +447,8 @@ vector<SymbolInfo> SymbolManager::getSymbols(
             logger::warn(format("Failed to open '{}'", tagFilePath.generic_string()));
             return result;
         }
-        for (const auto& unknownString: collectSymbols(content).unknown) {
-            try {
-                if (const auto unknownEntryOpt = findMostCommonPathSymbol(
-                    tagFileHandle,
-                    unknownString,
-                    referencePath
-                ); unknownEntryOpt.has_value()) {
-                    if (const auto& unknownEntry = unknownEntryOpt.value();
-                        symbolMapping.contains(unknownEntry.kind)) {
-                        if (const auto endLineOpt = unknownEntry.getEndLine();
-                            endLineOpt.has_value()) {
-                            result.emplace_back(
-                                iconv::toPath(unknownEntry.file),
-                                unknownEntry.name,
-                                symbolMapping.at(unknownEntry.kind),
-                                static_cast<uint32_t>(unknownEntry.address.lineNumber - 1),
-                                endLineOpt.value() - 1
-                            );
-                        } else {
-                            logger::warn(format(
-                                "No endLine for '{}'", unknownEntry.name
-                            ));
-                        }
-                    } else {
-                        logger::warn(format(
-                            "Unknown typeAlias '{}' for TypeRef '{}'", unknownEntry.kind, unknownString
-                        ));
-                    }
-                } else {
-                    logger::warn(format(
-                        "No entry for '{}'", unknownString
-                    ));
-                }
-            } catch (exception& e) {
-                logger::warn(format("Exception when getting info of symbol '{}': {}", unknownString, e.what()));
-            }
-        }
+
+        collectCommonSymbols(tagFileHandle, collectSymbols(content).unknown, referencePath, result);
     }
     return result;
 }
