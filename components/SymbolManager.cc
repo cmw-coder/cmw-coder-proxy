@@ -597,7 +597,7 @@ void SymbolManager::_updateTagFile(const TagFileType tagFileType) {
                 return;
             }
             arguments = format(
-                R"(--excmd=combine -f "{}" --fields=+e+n --kinds-c={} --languages=C -R {})",
+                R"(--excmd=combine -f "{}" --fields=+e+n --kinds-c={} --languages=C,C++ -R {})",
                 tempTagFilePath.generic_string(),
                 _tagKindsMap.at(tagFileType),
                 _rootPath.generic_string()
