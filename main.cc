@@ -161,7 +161,9 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                     if (const auto serverMessage = ReviewRequestServerMessage(move(data));
                         serverMessage.result == "success") {
                         const auto reviewReferences =
-                                SymbolManager::GetInstance()->getReviewReferences(serverMessage.content(), 0)
+                                SymbolManager::GetInstance()->getReviewReferences(
+                                    serverMessage.content(), serverMessage.path(), 0
+                                )
                                 | views::values
                                 | views::filter([&serverMessage](const ReviewReference& reviewReference) {
                                     try {

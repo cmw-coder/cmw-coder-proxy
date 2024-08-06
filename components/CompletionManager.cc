@@ -491,10 +491,10 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             retrieveSymbolStartTime = chrono::system_clock::now();
                             unique_lock lock(_componentsMutex);
                             _components.caretPosition = caretPosition;
-                            _components.path = move(path);
                             _components.prefix = move(prefix);
                             _components.recentFiles = ModificationManager::GetInstance()->getRecentFiles();
-                            _components.symbols = SymbolManager::GetInstance()->getSymbols(prefixForSymbol);
+                            _components.symbols = SymbolManager::GetInstance()->getSymbols(prefixForSymbol, path);
+                            _components.path = move(path);
                             _components.suffix = move(suffix);
                         }
                         _isNewLine = false;

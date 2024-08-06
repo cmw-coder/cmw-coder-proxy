@@ -28,6 +28,50 @@ namespace {
         unordered_set<string> references, unknown;
     };
 
+    class TagEntry {
+    public:
+        bool fileScope;
+        string name, file, kind;
+
+        struct {
+            string pattern;
+            unsigned long lineNumber;
+        } address;
+
+        unordered_map<string, string> fields;
+
+        explicit TagEntry(const tagEntry& entry)
+            : fileScope(entry.fileScope),
+              name(entry.name),
+              file(entry.file),
+              kind(entry.kind),
+              address({entry.address.pattern, entry.address.lineNumber}) {
+            for (auto index = 0; index < entry.fields.count; ++index) {
+                fields.insert_or_assign((entry.fields.list + index)->key, (entry.fields.list + index)->value);
+            }
+        }
+
+        [[nodiscard]] optional<uint32_t> getEndLine() const {
+            if (const auto key = "end";
+                fields.contains(key)) {
+                return stoul(fields.at(key));
+            }
+            return nullopt;
+        }
+
+        [[nodiscard]] optional<pair<string, string>> getReferenceTarget() const {
+            if (const auto key = "typeref";
+                fields.contains(key)) {
+                const auto value = fields.at(key);
+                if (const auto offset = value.find(':');
+                    offset != string::npos) {
+                    return make_pair(value.substr(0, offset), value.substr(offset + 1));
+                }
+            }
+            return nullopt;
+        }
+    };
+
     const unordered_map<string, SymbolInfo::Type> symbolMapping =
     {
         {"d", SymbolInfo::Type::Macro},
@@ -210,34 +254,6 @@ namespace {
         "X86PLAT/src",
     };
 
-    optional<uint32_t> getEndLine(const unordered_map<string, string>& symbolFields) {
-        if (const auto key = "end";
-            symbolFields.contains(key)) {
-            return stoul(symbolFields.at(key));
-        }
-        return nullopt;
-    }
-
-    unordered_map<string, string> getSymbolFields(const decltype(tagEntry::fields)& fields) {
-        unordered_map<string, string> symbolFields;
-        for (auto index = 0; index < fields.count; ++index) {
-            symbolFields.insert_or_assign((fields.list + index)->key, (fields.list + index)->value);
-        }
-        return symbolFields;
-    }
-
-    optional<pair<string, string>> getTypeReference(const unordered_map<string, string>& symbolFields) {
-        if (const auto key = "typeref";
-            symbolFields.contains(key)) {
-            const auto value = symbolFields.at(key);
-            if (const auto offset = value.find(':');
-                offset != string::npos) {
-                return make_pair(value.substr(0, offset), value.substr(offset + 1));
-            }
-        }
-        return nullopt;
-    }
-
     SymbolCollection collectSymbols(const string& prefixLines) {
         SymbolCollection result;
         vector<string> symbolList;
@@ -259,6 +275,40 @@ namespace {
         }
         return result;
     }
+
+    optional<TagEntry> findMostCommonPathSymbol(
+        const shared_ptr<tagFile>& tagFileHandle,
+        const string& symbol,
+        const filesystem::path& referencePath
+    ) {
+        uint32_t mostCommonPathLength{};
+        tagEntry entry{};
+        optional<TagEntry> result;
+        if (tagsFind(tagFileHandle.get(), &entry, symbol.c_str(), TAG_OBSERVECASE) == TagSuccess) {
+            const auto referencePathString = referencePath.generic_string();
+            if (const auto pathDistance = distance(
+                referencePathString.cbegin(), ranges::mismatch(
+                    referencePathString,
+                    filesystem::path(entry.file).generic_string()
+                ).in1
+            ); pathDistance > mostCommonPathLength) {
+                mostCommonPathLength = pathDistance;
+                result.emplace(entry);
+            }
+            while (tagsFindNext(tagFileHandle.get(), &entry) == TagSuccess) {
+                if (const auto pathDistance = distance(
+                    referencePathString.cbegin(), ranges::mismatch(
+                        referencePathString,
+                        filesystem::path(entry.file).generic_string()
+                    ).in1
+                ); pathDistance > mostCommonPathLength) {
+                    mostCommonPathLength = pathDistance;
+                    result.emplace(entry);
+                }
+            }
+        }
+        return result;
+    }
 }
 
 SymbolManager::SymbolManager() {
@@ -271,10 +321,12 @@ SymbolManager::~SymbolManager() {
 }
 
 unordered_map<string, ReviewReference> SymbolManager::getReviewReferences(
-    const string& content, const uint32_t targetDepth
+    const string& content,
+    const filesystem::path& referencePath,
+    const uint32_t targetDepth
 ) const {
     uint32_t currentDepth = 0;
-    auto reviewReferences = _getReferences(content, currentDepth);
+    auto reviewReferences = _getReferences(content, referencePath, currentDepth);
 
     while (currentDepth < targetDepth) {
         ++currentDepth;
@@ -284,10 +336,11 @@ unordered_map<string, ReviewReference> SymbolManager::getReviewReferences(
         retriveReferenceThreads.reserve(reviewReferences.size());
         for (auto& [key, value]: unordered_map{reviewReferences}) {
             retriveReferenceThreads.emplace_back(
-                [tempContent = move(value.content), currentDepth, &reviewReferences, &reviewReferencesMutex, this] {
-                    auto tempReferences = _getReferences(tempContent, currentDepth);
+                [tempContent = move(value.content), tempPath = move(value.path),
+                    currentDepth, &reviewReferences, &reviewReferencesMutex, this] {
+                    auto tempReferences = _getReferences(tempContent, tempPath, currentDepth);
                     unique_lock lock{reviewReferencesMutex};
-                    reviewReferences.merge(tempReferences);
+                    reviewReferences.merge(move(tempReferences));
                 }
             );
         }
@@ -299,7 +352,11 @@ unordered_map<string, ReviewReference> SymbolManager::getReviewReferences(
     return reviewReferences;
 }
 
-vector<SymbolInfo> SymbolManager::getSymbols(const string& content, const bool full) const {
+vector<SymbolInfo> SymbolManager::getSymbols(
+    const string& content,
+    const filesystem::path& referencePath,
+    const bool full
+) const {
     vector<SymbolInfo> result; {
         const auto tagFilePath = MemoryManipulator::GetInstance()->getProjectDirectory()
                                  / _tagFilenameMap.at(TagFileType::Structure).first;
@@ -314,31 +371,58 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& content, const bool f
             return result;
         }
 
-        for (const auto& symbol: collectSymbols(content).references) {
+        for (const auto& typeReferenceString: collectSymbols(content).references) {
             try {
-                tagEntry entry;
-                if (tagsFind(tagFileHandle.get(), &entry, symbol.c_str(), TAG_OBSERVECASE) == TagSuccess) {
-                    if (const auto typeReferenceOpt = getTypeReference(getSymbolFields(entry.fields));
-                        typeReferenceOpt.has_value()) {
-                        if (const auto& [typeName, reference] = typeReferenceOpt.value();
-                            symbolMapping.contains(typeName) &&
-                            tagsFind(tagFileHandle.get(), &entry, reference.c_str(), TAG_OBSERVECASE) == TagSuccess
-                        ) {
-                            if (const auto endLineOpt = getEndLine(getSymbolFields(entry.fields));
-                                endLineOpt.has_value()) {
-                                result.emplace_back(
-                                    iconv::toPath(entry.file),
-                                    entry.name,
-                                    symbolMapping.at(typeName),
-                                    static_cast<uint32_t>(entry.address.lineNumber - 1),
-                                    endLineOpt.value() - 1
-                                );
+                if (const auto referenceEntryOpt = findMostCommonPathSymbol(
+                    tagFileHandle,
+                    typeReferenceString,
+                    referencePath
+                ); referenceEntryOpt.has_value()) {
+                    if (const auto referenceTargetOpt = referenceEntryOpt.value().getReferenceTarget();
+                        referenceTargetOpt.has_value()) {
+                        if (const auto& [targetType, targetString] = referenceTargetOpt.value();
+                            symbolMapping.contains(targetType)) {
+                            if (const auto targetEntryOpt = findMostCommonPathSymbol(
+                                tagFileHandle,
+                                targetString,
+                                referencePath
+                            ); targetEntryOpt.has_value()) {
+                                if (const auto endLineOpt = targetEntryOpt.value().getEndLine();
+                                    endLineOpt.has_value()) {
+                                    result.emplace_back(
+                                        iconv::toPath(targetEntryOpt.value().file),
+                                        targetEntryOpt.value().name,
+                                        symbolMapping.at(targetType),
+                                        static_cast<uint32_t>(targetEntryOpt.value().address.lineNumber - 1),
+                                        endLineOpt.value() - 1
+                                    );
+                                } else {
+                                    logger::warn(format(
+                                        "No endLine for '{}'", targetString
+                                    ));
+                                }
+                            } else {
+                                logger::warn(format(
+                                    "No entry for '{}' in TypeRef '{}'", targetString, typeReferenceString
+                                ));
                             }
+                        } else {
+                            logger::warn(format(
+                                "Unknown targetType '{}' for TypeRef '{}'", targetType, typeReferenceString
+                            ));
                         }
+                    } else {
+                        logger::warn(format(
+                            "No reference target found for '{}'", typeReferenceString
+                        ));
                     }
+                } else {
+                    logger::warn(format(
+                        "No entry for '{}'", typeReferenceString
+                    ));
                 }
             } catch (exception& e) {
-                logger::warn(format("Exception when getting info of symbol '{}': {}", symbol, e.what()));
+                logger::warn(format("Exception when getting info of symbol '{}': {}", typeReferenceString, e.what()));
             }
         }
     }
@@ -355,24 +439,41 @@ vector<SymbolInfo> SymbolManager::getSymbols(const string& content, const bool f
             logger::warn(format("Failed to open '{}'", tagFilePath.generic_string()));
             return result;
         }
-        for (const auto& symbol: collectSymbols(content).unknown) {
+        for (const auto& unknownString: collectSymbols(content).unknown) {
             try {
-                tagEntry entry;
-                if (tagsFind(tagFileHandle.get(), &entry, symbol.c_str(), TAG_OBSERVECASE) == TagSuccess &&
-                    symbolMapping.contains(entry.kind)) {
-                    if (const auto endLineOpt = getEndLine(getSymbolFields(entry.fields));
-                        endLineOpt.has_value()) {
-                        result.emplace_back(
-                            iconv::toPath(entry.file),
-                            entry.name,
-                            symbolMapping.at(entry.kind),
-                            static_cast<uint32_t>(entry.address.lineNumber - 1),
-                            endLineOpt.value() - 1
-                        );
+                if (const auto unknownEntryOpt = findMostCommonPathSymbol(
+                    tagFileHandle,
+                    unknownString,
+                    referencePath
+                ); unknownEntryOpt.has_value()) {
+                    if (const auto& unknownEntry = unknownEntryOpt.value();
+                        symbolMapping.contains(unknownEntry.kind)) {
+                        if (const auto endLineOpt = unknownEntry.getEndLine();
+                            endLineOpt.has_value()) {
+                            result.emplace_back(
+                                iconv::toPath(unknownEntry.file),
+                                unknownEntry.name,
+                                symbolMapping.at(unknownEntry.kind),
+                                static_cast<uint32_t>(unknownEntry.address.lineNumber - 1),
+                                endLineOpt.value() - 1
+                            );
+                        } else {
+                            logger::warn(format(
+                                "No endLine for '{}'", unknownEntry.name
+                            ));
+                        }
+                    } else {
+                        logger::warn(format(
+                            "Unknown typeAlias '{}' for TypeRef '{}'", unknownEntry.kind, unknownString
+                        ));
                     }
+                } else {
+                    logger::warn(format(
+                        "No entry for '{}'", unknownString
+                    ));
                 }
             } catch (exception& e) {
-                logger::warn(format("Exception when getting info of symbol '{}': {}", symbol, e.what()));
+                logger::warn(format("Exception when getting info of symbol '{}': {}", unknownString, e.what()));
             }
         }
     }
@@ -422,9 +523,10 @@ void SymbolManager::updateRootPath(const filesystem::path& currentFilePath) {
 
 unordered_map<string, ReviewReference> SymbolManager::_getReferences(
     const string& content,
+    const filesystem::path& referencePath,
     const uint32_t depth
 ) const {
-    const auto symbols = getSymbols(content, true);
+    const auto symbols = getSymbols(content, referencePath, true);
     mutex reviewReferencesMutex;
     unordered_map<string, ReviewReference> reviewReferences;
     vector<thread> retrieveContentThreads;

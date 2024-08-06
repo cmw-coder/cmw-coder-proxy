@@ -20,10 +20,15 @@ namespace components {
 
         std::unordered_map<std::string, models::ReviewReference> getReviewReferences(
             const std::string& content,
+            const std::filesystem::path& referencePath,
             uint32_t targetDepth = 0
         ) const;
 
-        std::vector<models::SymbolInfo> getSymbols(const std::string& content, bool full = false) const;
+        std::vector<models::SymbolInfo> getSymbols(
+            const std::string& content,
+            const std::filesystem::path& referencePath,
+            bool full = false
+        ) const;
 
         void updateRootPath(const std::filesystem::path& currentFilePath);
 
@@ -54,6 +59,7 @@ namespace components {
 
         std::unordered_map<std::string, models::ReviewReference> _getReferences(
             const std::string& content,
+            const std::filesystem::path& referencePath,
             uint32_t depth
         ) const;
 
