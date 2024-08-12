@@ -26,6 +26,10 @@ using namespace utils;
 namespace {
     const auto mainThreadId = system::getMainThreadId(GetCurrentProcessId());
 
+    constexpr bool checkKeyIsUp(const unsigned short keyState) noexcept {
+        return (keyState & KF_UP) == KF_UP;
+    }
+
     optional<tuple<string, string>> getBlockContext(
         const uint32_t fileHandle,
         const uint32_t beginLine,
@@ -291,11 +295,12 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
     _interactionLockShared();
 
     const auto keyFlags = HIWORD(lParam);
-    const auto isKeyUp = (keyFlags & KF_UP) == KF_UP;
+    const auto isKeyUp = checkKeyIsUp(keyFlags);
     bool needBlockMessage{false};
 
     switch (wParam) {
         case VK_RETURN: {
+            logger::debug(format("Left Control isUp: {}", checkKeyIsUp(GetKeyState(VK_LCONTROL))));
             if (isKeyUp) {
                 needBlockMessage = true;
             } else if (WindowManager::GetInstance()->hasPopListWindow()) {
