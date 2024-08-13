@@ -8,13 +8,13 @@
 #include <components/MemoryManipulator.h>
 #include <components/WebsocketManager.h>
 #include <components/WindowManager.h>
+#include <utils/common.h>
+#include <utils/iconv.h>
 #include <utils/logger.h>
 #include <utils/system.h>
 #include <utils/window.h>
 
 #include <windows.h>
-#include <utils/common.h>
-#include <utils/iconv.h>
 
 using namespace components;
 using namespace magic_enum;
@@ -25,10 +25,6 @@ using namespace utils;
 
 namespace {
     const auto mainThreadId = system::getMainThreadId(GetCurrentProcessId());
-
-    constexpr bool checkKeyIsUp(const unsigned short keyState) noexcept {
-        return (keyState & KF_UP) == KF_UP;
-    }
 
     optional<tuple<string, string>> getBlockContext(
         const uint32_t fileHandle,
@@ -194,10 +190,10 @@ void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
                         ignore = _handleInteraction(Interaction::DeleteInput);
                         break;
                     }
-                    case Key::Enter: {
-                        ignore = _handleInteraction(Interaction::EnterInput);
-                        break;
-                    }
+                    // case Key::Enter: {
+                    //     ignore = _handleInteraction(Interaction::EnterInput);
+                    //     break;
+                    // }
                     case Key::Home:
                     case Key::End:
                     case Key::PageDown:
@@ -295,16 +291,18 @@ bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigne
     _interactionLockShared();
 
     const auto keyFlags = HIWORD(lParam);
-    const auto isKeyUp = checkKeyIsUp(keyFlags);
+    const auto isKeyUp = common::checkKeyIsUp(keyFlags);
     bool needBlockMessage{false};
 
     switch (wParam) {
         case VK_RETURN: {
-            logger::debug(format("Left Control isUp: {}", checkKeyIsUp(GetKeyState(VK_LCONTROL))));
+            logger::debug(format("Control isUp: {}", common::checkKeyIsUp(GetKeyState(VK_CONTROL))));
             if (isKeyUp) {
                 needBlockMessage = true;
             } else if (WindowManager::GetInstance()->hasPopListWindow()) {
                 ignore = _handleInteraction(Interaction::CompletionCancel, true);
+            } else {
+                ignore = _handleInteraction(Interaction::EnterInput);
             }
             _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
             break;

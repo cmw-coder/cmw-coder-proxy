@@ -1,6 +1,7 @@
 #include <magic_enum.hpp>
 
 #include <types/common.h>
+#include <utils/common.h>
 #include <utils/window.h>
 
 #include <Windows.h>
@@ -40,6 +41,20 @@ tuple<int64_t, int64_t> window::getClientPosition(const int64_t hwnd) {
     ClientToScreen(reinterpret_cast<HWND>(hwnd), &ptClient);
 
     return {ptClient.x, ptClient.y};
+}
+
+ModifierSet window::getModifierKeys() {
+    ModifierSet result;
+    if (!common::checkKeyIsUp(VK_MENU)) {
+        result.insert(Modifier::Alt);
+    }
+    if (!common::checkKeyIsUp(VK_CONTROL)) {
+        result.insert(Modifier::Ctrl);
+    }
+    if (!common::checkKeyIsUp(VK_SHIFT)) {
+        result.insert(Modifier::Shift);
+    }
+    return result;
 }
 
 tuple<int64_t, int64_t> window::getWindowPosition(const int64_t hwnd) {

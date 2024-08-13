@@ -1,7 +1,7 @@
 #include <components/ConfigManager.h>
 #include <components/MemoryManipulator.h>
 #include <components/WindowManager.h>
-#include <types/Key.h>
+#include <types/keys.h>
 #include <utils/logger.h>
 #include <utils/window.h>
 #include <utils/system.h>

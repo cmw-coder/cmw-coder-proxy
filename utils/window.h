@@ -3,6 +3,7 @@
 #include <string>
 
 #include <types/common.h>
+#include <types/keys.h>
 
 namespace utils::window {
     uint32_t getMainWindowHandle(uint32_t processId);
@@ -10,6 +11,8 @@ namespace utils::window {
     std::string getWindowClassName(int64_t hwnd);
 
     std::tuple<int64_t, int64_t> getClientPosition(int64_t hwnd);
+
+    types::ModifierSet getModifierKeys();
 
     std::tuple<int64_t, int64_t> getWindowPosition(int64_t hwnd);
 

@@ -9,7 +9,7 @@
 #include <vector>
 
 #include <types/CaretPosition.h>
-#include <types/Key.h>
+#include <types/keys.h>
 #include <types/Selection.h>
 
 

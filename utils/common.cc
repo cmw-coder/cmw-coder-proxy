@@ -9,6 +9,10 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
+bool common::checkKeyIsUp(const unsigned short keyState) noexcept {
+    return (keyState & KF_UP) == KF_UP;
+}
+
 CaretDimension common::getCaretDimensions(const bool waitTillAvailable) {
     const auto [clientX, clientY] = WindowManager::GetInstance()->getClientPosition();
 

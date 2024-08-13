@@ -1,5 +1,7 @@
 #pragma once
 
+#include <unordered_set>
+
 namespace types {
     enum class Key {
         BackSpace,
@@ -55,4 +57,6 @@ namespace types {
         Ctrl,
         Alt,
     };
+
+    using ModifierSet = std::unordered_set<Modifier>;
 }
