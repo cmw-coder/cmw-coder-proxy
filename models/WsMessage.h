@@ -2,11 +2,11 @@
 
 #include <nlohmann/json.hpp>
 
-#include <helpers/KeyHelper.h>
 #include <models/ReviewReference.h>
 #include <models/SymbolInfo.h>
 #include <types/CaretPosition.h>
 #include <types/Completions.h>
+#include <types/keys.h>
 #include <types/Selection.h>
 #include <types/WsAction.h>
 
@@ -204,7 +204,7 @@ namespace models {
 
         [[nodiscard]] std::string message() const;
 
-        [[nodiscard]] std::optional<helpers::KeyHelper::KeyCombination> shortcutManualCompletion() const;
+        [[nodiscard]] std::optional<types::KeyCombination> shortcutManualCompletion() const;
 
     private:
         std::string _message;

@@ -5,7 +5,6 @@
 
 #include <windows.h>
 
-using namespace helpers;
 using namespace magic_enum;
 using namespace models;
 using namespace std;
@@ -313,7 +312,7 @@ string SettingSyncServerMessage::message() const {
     return _message;
 }
 
-optional<KeyHelper::KeyCombination> SettingSyncServerMessage::shortcutManualCompletion() const {
+optional<KeyCombination> SettingSyncServerMessage::shortcutManualCompletion() const {
     if (_shortcuts.has_value()) {
         if (const auto shortcutConfig = _shortcuts.value()["manualCompletion"];
             shortcutConfig.contains("key") && shortcutConfig.contains("modifiers")) {
