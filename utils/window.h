@@ -21,4 +21,6 @@ namespace utils::window {
     bool postKeycode(int64_t hwnd, types::Keycode keycode);
 
     bool sendKeycode(int64_t hwnd, types::Keycode keycode);
+
+    bool sendKeyInput(uint16_t keycode, const types::ModifierSet& modifiers = {});
 }
