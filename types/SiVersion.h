@@ -21,7 +21,6 @@ template<>
 struct magic_enum::customize::enum_range<types::SiVersion::Minor> {
     static constexpr int min = 0;
     static constexpr int max = 255;
-    // (max - min) must be less than UINT16_MAX.
 };
 
 namespace types::SiVersion {
