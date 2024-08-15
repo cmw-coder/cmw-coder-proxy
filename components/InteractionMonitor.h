@@ -7,7 +7,6 @@
 
 #include <singleton_dclp.hpp>
 
-#include <helpers/KeyHelper.h>
 #include <types/common.h>
 #include <types/CaretPosition.h>
 #include <types/Interaction.h>
@@ -34,11 +33,10 @@ namespace components {
         }
 
     private:
-        const helpers::KeyHelper _keyHelper;
         mutable std::shared_mutex _interactionMutex;
         std::atomic<bool> _isRunning{true}, _isMouseLeftDown{false}, _needReleaseInteractionLock{false};
         std::atomic<types::CaretPosition> _currentCaretPosition, _downCursorPosition;
-        std::atomic<std::optional<types::Key>> _navigateWithKey;
+        std::atomic<uint32_t> _navigateWithKey{0};
         std::atomic<std::optional<types::Mouse>> _navigateWithMouse;
         std::atomic<types::Time> _releaseInteractionLockTime;
         std::shared_ptr<void> _cbtHookHandle, _keyHookHandle, _mouseHookHandle, _processHandle, _windowHookHandle;

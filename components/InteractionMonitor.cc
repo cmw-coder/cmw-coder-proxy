@@ -91,8 +91,7 @@ namespace {
 }
 
 InteractionMonitor::InteractionMonitor()
-    : _keyHelper(ConfigManager::GetInstance()->version().first),
-      _cbtHookHandle(
+    : _cbtHookHandle(
           SetWindowsHookEx(
               WH_CBT,
               _cbtProcedureHook,
@@ -235,14 +234,14 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
         return false;
     }
 
-    if (configManager->checkCommit(enum_cast<Key>(virtualKeyCode).value_or(Key::Unknown), modifiers)) {
+    if (configManager->checkCommit(virtualKeyCode, modifiers)) {
         WebsocketManager::GetInstance()->send(EditorCommitClientMessage(
             MemoryManipulator::GetInstance()->getCurrentFilePath()
         ));
         _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
         return true;
     }
-    if (configManager->checkManualCompletion(enum_cast<Key>(virtualKeyCode).value_or(Key::Unknown), modifiers)) {
+    if (configManager->checkManualCompletion(virtualKeyCode, modifiers)) {
         ignore = _handleInteraction(Interaction::EnterInput);
         _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
         return true;
@@ -305,7 +304,10 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
         case VK_LEFT:
         case VK_UP:
         case VK_RIGHT:
-        case VK_DOWN:
+        case VK_DOWN: {
+            _navigateWithKey.store(virtualKeyCode);
+            break;
+        }
         default: {
             break;
         }
@@ -403,7 +405,6 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
         window::getWindowClassName(editorWindowHandle) == "si_Sw") {
         switch (windowProcData->message) {
             case WM_KILLFOCUS: {
-                // logger::debug("WM_KILLFOCUS");
                 if (WindowManager::GetInstance()->checkNeedHideWhenLostFocus(windowProcData->wParam)) {
                     WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(false));
                 }
@@ -412,7 +413,6 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                 break;
             }
             case WM_SETFOCUS: {
-                // logger::debug("WM_SETFOCUS");
                 if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(editorWindowHandle)) {
                     WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(true));
                 }
@@ -429,10 +429,9 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
 void InteractionMonitor::_threadMonitorCaretPosition() {
     thread([this] {
         while (_isRunning.load()) {
-            if (const auto navigationBufferOpt = _navigateWithKey.load();
-                navigationBufferOpt.has_value()) {
-                ignore = _handleInteraction(Interaction::NavigateWithKey, navigationBufferOpt.value());
-                _navigateWithKey.store(nullopt);
+            if (const auto navigationBuffer = _navigateWithKey.load()) {
+                ignore = _handleInteraction(Interaction::NavigateWithKey, navigationBuffer);
+                _navigateWithKey.store(0);
                 continue;
             }
 
@@ -444,8 +443,10 @@ void InteractionMonitor::_threadMonitorCaretPosition() {
                 _currentCaretPosition.store(newCursorPosition);
                 if (const auto navigateWithMouseOpt = _navigateWithMouse.load();
                     navigateWithMouseOpt.has_value()) {
-                    _handleInteraction(Interaction::NavigateWithMouse,
-                                       make_tuple(newCursorPosition, oldCursorPosition));
+                    _handleInteraction(
+                        Interaction::NavigateWithMouse,
+                        make_tuple(newCursorPosition, oldCursorPosition)
+                    );
                     _navigateWithMouse.store(nullopt);
                 }
             }

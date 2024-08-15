@@ -9,8 +9,9 @@
 #include <utils/logger.h>
 #include <utils/system.h>
 
+#include <windows.h>
+
 using namespace components;
-using namespace helpers;
 using namespace magic_enum;
 using namespace models;
 using namespace std;
@@ -18,8 +19,8 @@ using namespace types;
 using namespace utils;
 
 ConfigManager::ConfigManager()
-    : _shortcutCommit({Key::K, {Modifier::Alt, Modifier::Ctrl}}),
-      _shortcutManualCompletion({Key::Enter, {Modifier::Alt}}) {
+    : _shortcutCommit({'K', {Modifier::Alt, Modifier::Ctrl}}),
+      _shortcutManualCompletion({VK_RETURN, {Modifier::Alt}}) {
     if (const auto [major, minor, build, _] = system::getVersion(); major == 3 && minor == 5) {
         _siVersion = make_pair(
             SiVersion::Major::V35,
@@ -43,11 +44,11 @@ ConfigManager::~ConfigManager() {
     _isRunning = false;
 }
 
-bool ConfigManager::checkCommit(const Key key, const KeyHelper::ModifierSet& modifiers) const {
+bool ConfigManager::checkCommit(const uint32_t key, const ModifierSet& modifiers) const {
     return key == _shortcutCommit.first && modifiers == _shortcutCommit.second;
 }
 
-bool ConfigManager::checkManualCompletion(const Key key, const KeyHelper::ModifierSet& modifiers) const {
+bool ConfigManager::checkManualCompletion(const uint32_t key, const ModifierSet& modifiers) const {
     return key == _shortcutManualCompletion.first && modifiers == _shortcutManualCompletion.second;
 }
 
