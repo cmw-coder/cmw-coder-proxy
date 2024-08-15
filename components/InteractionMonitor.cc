@@ -74,6 +74,20 @@ namespace {
         }
         return make_tuple(blockPrefix, blockSuffix);
     }
+
+    char getNormalInputKey(const uint32_t virtualKeyCode, const ModifierSet& modifiers) {
+        const auto scanCode = MapVirtualKey(virtualKeyCode, MAPVK_VK_TO_VSC);
+        vector<BYTE> currentKeyboardState;
+        currentKeyboardState.resize(256);
+        if (modifiers.contains(Modifier::Shift)) {
+            currentKeyboardState[VK_SHIFT] = 0x80;
+        }
+        WORD buffer;
+        if (ToAscii(virtualKeyCode, scanCode, currentKeyboardState.data(), &buffer, 0)) {
+            return LOBYTE(buffer);
+        }
+        return 0;
+    }
 }
 
 InteractionMonitor::InteractionMonitor()
@@ -163,92 +177,6 @@ long InteractionMonitor::_windowProcedureHook(const int nCode, const unsigned in
     return CallNextHookEx(nullptr, nCode, wParam, lParam);
 }
 
-void InteractionMonitor::_handleKeycode(const Keycode keycode) noexcept {
-    if (_keyHelper.isPrintable(keycode)) {
-        ignore = _handleInteraction(Interaction::NormalInput, _keyHelper.toPrintable(keycode));
-        return;
-    }
-
-    if (const auto keyCombinationOpt = _keyHelper.fromKeycode(keycode);
-        keyCombinationOpt.has_value()) {
-        const auto configManager = ConfigManager::GetInstance();
-        const auto [key, modifiers] = keyCombinationOpt.value();
-        if (configManager->checkCommit(key, modifiers)) {
-            WebsocketManager::GetInstance()->send(EditorCommitClientMessage(
-                MemoryManipulator::GetInstance()->getCurrentFilePath()
-            ));
-            return;
-        }
-        if (configManager->checkManualCompletion(key, modifiers)) {
-            ignore = _handleInteraction(Interaction::EnterInput);
-            return;
-        }
-        try {
-            if (modifiers.empty()) {
-                switch (key) {
-                    case Key::BackSpace: {
-                        ignore = _handleInteraction(Interaction::DeleteInput);
-                        break;
-                    }
-                    // case Key::Enter: {
-                    //     ignore = _handleInteraction(Interaction::EnterInput);
-                    //     break;
-                    // }
-                    case Key::Home:
-                    case Key::End:
-                    case Key::PageDown:
-                    case Key::PageUp:
-                    case Key::Left:
-                    case Key::Up:
-                    case Key::Right:
-                    case Key::Down: {
-                        _navigateWithKey.store(key);
-                        // ignore = _handleInteraction(Interaction::SelectionClear);
-                        break;
-                    }
-                    default: {
-                        // TODO: Support Key::Delete
-                        break;
-                    }
-                }
-            } else {
-                if (modifiers.size() == 1) {
-                    if (modifiers.contains(Modifier::Ctrl)) {
-                        switch (key) {
-                            case Key::S: {
-                                ignore = _handleInteraction(Interaction::Save);
-                                break;
-                            }
-                            case Key::V: {
-                                ignore = _handleInteraction(Interaction::Paste);
-                                break;
-                            }
-                            case Key::Z: {
-                                ignore = _handleInteraction(Interaction::Undo);
-                                break;
-                            }
-                            default: {
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (exception& e) {
-            string modifierString;
-            for (const auto& modifier: modifiers) {
-                modifierString += format("{} + ", enum_name(modifier));
-            }
-            logger::warn(format(
-                "Exception when processing key combination '{}{}': {}",
-                modifierString,
-                enum_name(key),
-                e.what()
-            ));
-        }
-    }
-}
-
 bool InteractionMonitor::_handleInteraction(const Interaction interaction, const any& data) const noexcept {
     bool needBlockMessage{false};
     try {
@@ -279,59 +207,111 @@ void InteractionMonitor::_interactionLockShared() {
         _interactionMutex.lock_shared();
         _needReleaseInteractionLock = true;
         _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
-        // logger::debug("[_processKeyMessage] Successfuly got interaction shared lock");
     }
 }
 
-bool InteractionMonitor::_processKeyMessage(const unsigned wParam, const unsigned lParam) {
+bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const uint32_t lParam) {
     if (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
         return false;
     }
 
     _interactionLockShared();
 
-    const auto keyFlags = HIWORD(lParam);
-    const auto isKeyUp = common::checkKeyIsUp(keyFlags);
-    bool needBlockMessage{false};
+    if (common::checkHighestBit(HIWORD(lParam))) {
+        return true;
+    }
 
-    switch (wParam) {
-        case VK_RETURN: {
-            logger::debug(format("Control isUp: {}", common::checkKeyIsUp(GetKeyState(VK_CONTROL))));
-            if (isKeyUp) {
-                needBlockMessage = true;
-            } else if (WindowManager::GetInstance()->hasPopListWindow()) {
-                ignore = _handleInteraction(Interaction::CompletionCancel, true);
-            } else {
-                ignore = _handleInteraction(Interaction::EnterInput);
+    bool needBlockMessage{false};
+    const auto configManager = ConfigManager::GetInstance();
+    const auto modifiers = window::getModifierKeys(virtualKeyCode);
+    if ((modifiers.empty() || (modifiers.size() == 1 && modifiers.contains(Modifier::Shift))) &&
+        ((0x30 <= virtualKeyCode && virtualKeyCode <= 0x39) ||
+         (0x41 <= virtualKeyCode && virtualKeyCode <= 0x5A) ||
+         (0x60 <= virtualKeyCode && virtualKeyCode <= 0x6F) ||
+         (0xBA <= virtualKeyCode && virtualKeyCode <= 0xC0) ||
+         (0xDB <= virtualKeyCode && virtualKeyCode <= 0xF5))) {
+        ignore = _handleInteraction(Interaction::NormalInput, getNormalInputKey(virtualKeyCode, modifiers));
+        _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
+        return false;
+    }
+
+    if (configManager->checkCommit(enum_cast<Key>(virtualKeyCode).value_or(Key::Unknown), modifiers)) {
+        WebsocketManager::GetInstance()->send(EditorCommitClientMessage(
+            MemoryManipulator::GetInstance()->getCurrentFilePath()
+        ));
+        _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
+        return true;
+    }
+    if (configManager->checkManualCompletion(enum_cast<Key>(virtualKeyCode).value_or(Key::Unknown), modifiers)) {
+        ignore = _handleInteraction(Interaction::EnterInput);
+        _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
+        return true;
+    }
+
+    if (modifiers.size() == 1 && modifiers.contains(Modifier::Ctrl)) {
+        switch (virtualKeyCode) {
+            case 'S': {
+                ignore = _handleInteraction(Interaction::Save);
+                break;
             }
-            _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
-            break;
+            case 'V': {
+                ignore = _handleInteraction(Interaction::Paste);
+                break;
+            }
+            case 'Z': {
+                ignore = _handleInteraction(Interaction::Undo);
+                break;
+            }
+            default: {
+                break;
+            }
         }
-        case VK_ESCAPE: {
-            if (isKeyUp) {
-                needBlockMessage = true;
-            } else if (!WindowManager::GetInstance()->hasPopListWindow()) {
-                ignore = _handleInteraction(Interaction::CompletionCancel, false);
-            }
-            _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
+        _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
+        return false;
+    }
+
+    switch (virtualKeyCode) {
+        case VK_BACK: {
+            ignore = _handleInteraction(Interaction::DeleteInput);
             break;
         }
         case VK_TAB: {
-            if (isKeyUp) {
-                needBlockMessage = true;
-            } else if (WindowManager::GetInstance()->hasPopListWindow()) {
+            if (WindowManager::GetInstance()->hasPopListWindow()) {
                 ignore = _handleInteraction(Interaction::CompletionCancel, true);
             } else {
                 needBlockMessage = _handleInteraction(Interaction::CompletionAccept);
             }
-            _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
             break;
         }
+        case VK_RETURN: {
+            logger::debug(format("Control isUp: {}", common::checkHighestBit(GetKeyState(VK_CONTROL))));
+            if (WindowManager::GetInstance()->hasPopListWindow()) {
+                ignore = _handleInteraction(Interaction::CompletionCancel, true);
+            } else {
+                ignore = _handleInteraction(Interaction::EnterInput);
+            }
+            break;
+        }
+        case VK_ESCAPE: {
+            if (!WindowManager::GetInstance()->hasPopListWindow()) {
+                ignore = _handleInteraction(Interaction::CompletionCancel, false);
+            }
+            break;
+        }
+        case VK_PRIOR:
+        case VK_NEXT:
+        case VK_END:
+        case VK_HOME:
+        case VK_LEFT:
+        case VK_UP:
+        case VK_RIGHT:
+        case VK_DOWN:
         default: {
             break;
         }
     }
 
+    _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
     return needBlockMessage;
 }
 
@@ -422,17 +402,13 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
     if (const auto editorWindowHandle = reinterpret_cast<int64_t>(windowProcData->hwnd);
         window::getWindowClassName(editorWindowHandle) == "si_Sw") {
         switch (windowProcData->message) {
-            case UM_KEYCODE: {
-                _handleKeycode(windowProcData->wParam);
-                _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
-                break;
-            }
             case WM_KILLFOCUS: {
                 // logger::debug("WM_KILLFOCUS");
                 if (WindowManager::GetInstance()->checkNeedHideWhenLostFocus(windowProcData->wParam)) {
                     WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(false));
                 }
                 WebsocketManager::GetInstance()->send(EditorSelectionClientMessage({}));
+                _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
                 break;
             }
             case WM_SETFOCUS: {
@@ -440,6 +416,7 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                 if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(editorWindowHandle)) {
                     WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(true));
                 }
+                _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
                 break;
             }
             default: {
@@ -485,7 +462,6 @@ void InteractionMonitor::_threadReleaseInteractionLock() {
                     chrono::high_resolution_clock::now() - releaseInteractionLockTime > 200ms) {
                     _needReleaseInteractionLock.store(false);
                     _interactionMutex.unlock_shared();
-                    // logger::debug("[_processKeyMessage] Interaction mutex shared unlocked");
                 }
             }
             this_thread::sleep_for(5ms);

@@ -52,13 +52,11 @@ namespace components {
 
         static long __stdcall _windowProcedureHook(int nCode, unsigned int wParam, long lParam);
 
-        void _handleKeycode(types::Keycode keycode) noexcept;
-
         bool _handleInteraction(types::Interaction interaction, const std::any& data = {}) const noexcept;
 
         void _interactionLockShared();
 
-        bool _processKeyMessage(unsigned wParam, unsigned lParam);
+        bool _processKeyMessage(uint32_t virtualKeyCode, uint32_t lParam);
 
         void _processMouseMessage(unsigned wParam);
 
