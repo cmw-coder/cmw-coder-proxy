@@ -5,6 +5,8 @@
 
 #include <Windows.h>
 
+#include "common.h"
+
 using namespace std;
 using namespace types;
 using namespace utils;
@@ -42,6 +44,20 @@ tuple<int64_t, int64_t> window::getClientPosition(const int64_t hwnd) {
     return {ptClient.x, ptClient.y};
 }
 
+ModifierSet window::getModifierKeys(const uint8_t currentKeycode) {
+    ModifierSet result;
+    if (currentKeycode != VK_MENU && common::checkHighestBit(GetKeyState(VK_MENU))) {
+        result.insert(Modifier::Alt);
+    }
+    if (currentKeycode != VK_CONTROL && common::checkHighestBit(GetKeyState(VK_CONTROL))) {
+        result.insert(Modifier::Ctrl);
+    }
+    if (currentKeycode != VK_SHIFT && common::checkHighestBit(GetKeyState(VK_SHIFT))) {
+        result.insert(Modifier::Shift);
+    }
+    return result;
+}
+
 tuple<int64_t, int64_t> window::getWindowPosition(const int64_t hwnd) {
     RECT rect;
     GetWindowRect(reinterpret_cast<HWND>(hwnd), &rect);
@@ -66,4 +82,32 @@ bool window::sendKeycode(const int64_t hwnd, const Keycode keycode) {
         return false;
     }
     return SendMessage(reinterpret_cast<HWND>(hwnd), UM_KEYCODE, keycode, 0) != 0;
+}
+
+bool window::sendKeyInput(const uint16_t keycode, const ModifierSet& modifiers) {
+    vector<INPUT> inputs;
+    if (modifiers.contains(Modifier::Alt)) {
+        inputs.push_back({.type = INPUT_KEYBOARD, .ki = {.wVk = VK_MENU}});
+    }
+    if (modifiers.contains(Modifier::Ctrl)) {
+        inputs.push_back({.type = INPUT_KEYBOARD, .ki = {.wVk = VK_CONTROL}});
+    }
+    if (modifiers.contains(Modifier::Shift)) {
+        inputs.push_back({.type = INPUT_KEYBOARD, .ki = {.wVk = VK_SHIFT}});
+    }
+    inputs.push_back({.type = INPUT_KEYBOARD, .ki = {.wVk = keycode}});
+    if (modifiers.contains(Modifier::Shift)) {
+        inputs.push_back({.type = INPUT_KEYBOARD, .ki = {.wVk = VK_SHIFT, .dwFlags = KEYEVENTF_KEYUP}});
+    }
+    if (modifiers.contains(Modifier::Ctrl)) {
+        inputs.push_back({.type = INPUT_KEYBOARD, .ki = {.wVk = VK_CONTROL, .dwFlags = KEYEVENTF_KEYUP}});
+    }
+    if (modifiers.contains(Modifier::Alt)) {
+        inputs.push_back({.type = INPUT_KEYBOARD, .ki = {.wVk = VK_MENU, .dwFlags = KEYEVENTF_KEYUP}});
+    }
+
+    if (SendInput(inputs.size(), inputs.data(), sizeof(INPUT)) != inputs.size()) {
+        return false;
+    }
+    return true;
 }

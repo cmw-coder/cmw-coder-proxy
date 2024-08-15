@@ -1,7 +1,7 @@
 #include <components/ConfigManager.h>
 #include <components/MemoryManipulator.h>
 #include <components/WindowManager.h>
-#include <types/Key.h>
+#include <types/keys.h>
 #include <utils/logger.h>
 #include <utils/window.h>
 #include <utils/system.h>
@@ -19,7 +19,7 @@ namespace {
     atomic<uint32_t> mainWindowHandle;
 }
 
-WindowManager::WindowManager() : _keyHelper(ConfigManager::GetInstance()->version().first) {
+WindowManager::WindowManager() {
     _threadInitMenuHandle();
 
     logger::info("WindowManager is initialized");
@@ -88,53 +88,42 @@ bool WindowManager::hasPopListWindow() const {
 }
 
 void WindowManager::interactionPaste(const any&) {
-    _cancelRetrieveInfo();
+    if (_currentWindowHandle.load().has_value()) {
+        _cancelRetrieveInfo();
+    }
+}
+
+void WindowManager::sendEscape() const {
+    if (hasPopListWindow()) {
+        window::sendKeyInput(VK_ESCAPE);
+    }
 }
 
 void WindowManager::sendF13() const {
-    if (const auto currentWindowHandleOpt = _currentWindowHandle.load();
-        currentWindowHandleOpt.has_value()) {
-        window::sendKeycode(
-            currentWindowHandleOpt.value(),
-            _keyHelper.toKeycode(Key::F13)
-        );
+    if (_currentWindowHandle.load().has_value()) {
+        window::sendKeyInput(VK_F13);
     }
 }
 
 void WindowManager::sendLeftThenRight() const {
-    if (const auto currentWindowHandleOpt = _currentWindowHandle.load();
-        currentWindowHandleOpt.has_value()) {
-        window::sendKeycode(
-            currentWindowHandleOpt.value(),
-            _keyHelper.toKeycode(Key::Left)
-        );
-        window::sendKeycode(
-            currentWindowHandleOpt.value(),
-            _keyHelper.toKeycode(Key::Right)
-        );
+    if (_currentWindowHandle.load().has_value()) {
+        window::sendKeyInput(VK_LEFT);
+        window::sendKeyInput(VK_RIGHT);
     }
 }
 
 bool WindowManager::sendSave() {
     _cancelRetrieveInfo();
-    if (const auto currentWindowHandleOpt = _currentWindowHandle.load();
-        currentWindowHandleOpt.has_value()) {
-        return window::postKeycode(
-            currentWindowHandleOpt.value(),
-            _keyHelper.toKeycode(Key::S, Modifier::Ctrl)
-        );
+    if (_currentWindowHandle.load().has_value()) {
+        window::sendKeyInput('S', {Modifier::Ctrl});
     }
     return false;
 }
 
 bool WindowManager::sendUndo() {
     _cancelRetrieveInfo();
-    if (const auto currentWindowHandleOpt = _currentWindowHandle.load();
-        currentWindowHandleOpt.has_value()) {
-        return window::postKeycode(
-            currentWindowHandleOpt.value(),
-            _keyHelper.toKeycode(Key::Z, Modifier::Ctrl)
-        );
+    if (_currentWindowHandle.load().has_value()) {
+        window::sendKeyInput('Z', {Modifier::Ctrl});
     }
     return false;
 }

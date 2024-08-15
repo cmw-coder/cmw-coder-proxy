@@ -19,8 +19,9 @@
 #include <utils/logger.h>
 #include <utils/system.h>
 
+#include <windows.h>
+
 using namespace components;
-using namespace helpers;
 using namespace magic_enum;
 using namespace models;
 using namespace std;
@@ -185,13 +186,13 @@ void CompletionManager::interactionEnterInput(const any&, bool&) {
 
 void CompletionManager::interactionNavigateWithKey(const any& data, bool&) {
     try {
-        switch (any_cast<Key>(data)) {
-            case Key::PageDown:
-            case Key::PageUp:
-            case Key::Left:
-            case Key::Up:
-            case Key::Right:
-            case Key::Down: {
+        switch (any_cast<uint32_t>(data)) {
+            case VK_PRIOR:
+            case VK_NEXT:
+            case VK_LEFT:
+            case VK_UP:
+            case VK_RIGHT:
+            case VK_DOWN: {
                 _isNewLine = true;
             }
             default: {

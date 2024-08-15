@@ -9,6 +9,10 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
+bool common::checkHighestBit(const uint16_t value) noexcept {
+    return value & 0b1000'0000'0000'0000;
+}
+
 CaretDimension common::getCaretDimensions(const bool waitTillAvailable) {
     const auto [clientX, clientY] = WindowManager::GetInstance()->getClientPosition();
 

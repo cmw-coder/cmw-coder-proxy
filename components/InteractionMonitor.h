@@ -7,7 +7,6 @@
 
 #include <singleton_dclp.hpp>
 
-#include <helpers/KeyHelper.h>
 #include <types/common.h>
 #include <types/CaretPosition.h>
 #include <types/Interaction.h>
@@ -34,11 +33,10 @@ namespace components {
         }
 
     private:
-        const helpers::KeyHelper _keyHelper;
         mutable std::shared_mutex _interactionMutex;
         std::atomic<bool> _isRunning{true}, _isMouseLeftDown{false}, _needReleaseInteractionLock{false};
         std::atomic<types::CaretPosition> _currentCaretPosition, _downCursorPosition;
-        std::atomic<std::optional<types::Key>> _navigateWithKey;
+        std::atomic<uint32_t> _navigateWithKey{0};
         std::atomic<std::optional<types::Mouse>> _navigateWithMouse;
         std::atomic<types::Time> _releaseInteractionLockTime;
         std::shared_ptr<void> _cbtHookHandle, _keyHookHandle, _mouseHookHandle, _processHandle, _windowHookHandle;
@@ -52,13 +50,11 @@ namespace components {
 
         static long __stdcall _windowProcedureHook(int nCode, unsigned int wParam, long lParam);
 
-        void _handleKeycode(types::Keycode keycode) noexcept;
-
         bool _handleInteraction(types::Interaction interaction, const std::any& data = {}) const noexcept;
 
         void _interactionLockShared();
 
-        bool _processKeyMessage(unsigned wParam, unsigned lParam);
+        bool _processKeyMessage(uint32_t virtualKeyCode, uint32_t lParam);
 
         void _processMouseMessage(unsigned wParam);
 
