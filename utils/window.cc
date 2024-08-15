@@ -1,10 +1,11 @@
 #include <magic_enum.hpp>
 
 #include <types/common.h>
-#include <utils/common.h>
 #include <utils/window.h>
 
 #include <Windows.h>
+
+#include "common.h"
 
 using namespace std;
 using namespace types;
@@ -43,15 +44,15 @@ tuple<int64_t, int64_t> window::getClientPosition(const int64_t hwnd) {
     return {ptClient.x, ptClient.y};
 }
 
-ModifierSet window::getModifierKeys() {
+ModifierSet window::getModifierKeys(const uint8_t currentKeycode) {
     ModifierSet result;
-    if (!common::checkKeyIsUp(VK_MENU)) {
+    if (currentKeycode != VK_MENU && common::checkHighestBit(GetKeyState(VK_MENU))) {
         result.insert(Modifier::Alt);
     }
-    if (!common::checkKeyIsUp(VK_CONTROL)) {
+    if (currentKeycode != VK_CONTROL && common::checkHighestBit(GetKeyState(VK_CONTROL))) {
         result.insert(Modifier::Ctrl);
     }
-    if (!common::checkKeyIsUp(VK_SHIFT)) {
+    if (currentKeycode != VK_SHIFT && common::checkHighestBit(GetKeyState(VK_SHIFT))) {
         result.insert(Modifier::Shift);
     }
     return result;

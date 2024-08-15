@@ -3,7 +3,7 @@
 #include <types/CaretDimension.h>
 
 namespace utils::common {
-    bool checkKeyIsUp(unsigned short keyState) noexcept;
+    bool checkHighestBit(uint16_t value) noexcept;
 
     types::CaretDimension getCaretDimensions(bool waitTillAvailable = true);
 

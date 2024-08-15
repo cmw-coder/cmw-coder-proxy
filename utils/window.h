@@ -12,7 +12,7 @@ namespace utils::window {
 
     std::tuple<int64_t, int64_t> getClientPosition(int64_t hwnd);
 
-    types::ModifierSet getModifierKeys();
+    types::ModifierSet getModifierKeys(uint8_t currentKeycode);
 
     std::tuple<int64_t, int64_t> getWindowPosition(int64_t hwnd);
 
