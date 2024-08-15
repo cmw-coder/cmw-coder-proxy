@@ -88,19 +88,25 @@ bool WindowManager::hasPopListWindow() const {
 }
 
 void WindowManager::interactionPaste(const any&) {
-    _cancelRetrieveInfo();
+    if (_currentWindowHandle.load().has_value()) {
+        _cancelRetrieveInfo();
+    }
+}
+
+void WindowManager::sendEscape() const {
+    if (hasPopListWindow()) {
+        window::sendKeyInput(VK_ESCAPE);
+    }
 }
 
 void WindowManager::sendF13() const {
-    if (const auto currentWindowHandleOpt = _currentWindowHandle.load();
-        currentWindowHandleOpt.has_value()) {
+    if (_currentWindowHandle.load().has_value()) {
         window::sendKeyInput(VK_F13);
     }
 }
 
 void WindowManager::sendLeftThenRight() const {
-    if (const auto currentWindowHandleOpt = _currentWindowHandle.load();
-        currentWindowHandleOpt.has_value()) {
+    if (_currentWindowHandle.load().has_value()) {
         window::sendKeyInput(VK_LEFT);
         window::sendKeyInput(VK_RIGHT);
     }
@@ -108,8 +114,7 @@ void WindowManager::sendLeftThenRight() const {
 
 bool WindowManager::sendSave() {
     _cancelRetrieveInfo();
-    if (const auto currentWindowHandleOpt = _currentWindowHandle.load();
-        currentWindowHandleOpt.has_value()) {
+    if (_currentWindowHandle.load().has_value()) {
         window::sendKeyInput('S', {Modifier::Ctrl});
     }
     return false;
@@ -117,8 +122,7 @@ bool WindowManager::sendSave() {
 
 bool WindowManager::sendUndo() {
     _cancelRetrieveInfo();
-    if (const auto currentWindowHandleOpt = _currentWindowHandle.load();
-        currentWindowHandleOpt.has_value()) {
+    if (_currentWindowHandle.load().has_value()) {
         window::sendKeyInput('Z', {Modifier::Ctrl});
     }
     return false;

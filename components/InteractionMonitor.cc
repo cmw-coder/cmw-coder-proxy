@@ -276,14 +276,12 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
         }
         case VK_TAB: {
             if (WindowManager::GetInstance()->hasPopListWindow()) {
-                ignore = _handleInteraction(Interaction::CompletionCancel, true);
-            } else {
-                needBlockMessage = _handleInteraction(Interaction::CompletionAccept);
+                WindowManager::GetInstance()->sendEscape();
             }
+            needBlockMessage = _handleInteraction(Interaction::CompletionAccept);
             break;
         }
         case VK_RETURN: {
-            logger::debug(format("Control isUp: {}", common::checkHighestBit(GetKeyState(VK_CONTROL))));
             if (WindowManager::GetInstance()->hasPopListWindow()) {
                 ignore = _handleInteraction(Interaction::CompletionCancel, true);
             } else {
