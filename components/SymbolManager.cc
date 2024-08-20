@@ -433,6 +433,25 @@ vector<SymbolInfo> SymbolManager::getSymbols(
                 logger::warn(format("Exception when getting info of symbol '{}': {}", typeReferenceString, e.what()));
             }
         }
+
+        for (const auto& unknownString: collectSymbols(content).unknown) {
+            try {
+                if (const auto unknownEntryOpt = findMostCommonPathSymbol(
+                    tagFileHandle,
+                    unknownString,
+                    referencePath
+                ); unknownEntryOpt.has_value()) {
+                    if (const auto enumTargetOpt = unknownEntryOpt.value().getEnumTarget();
+                        enumTargetOpt.has_value()) {
+                        logger::debug(format(
+                            "EnumTarget of enumeration '{}': '{}'", unknownString, enumTargetOpt.value()
+                        ));
+                    }
+                }
+            } catch (exception& e) {
+                logger::warn(format("Exception when getting info of symbol '{}': {}", unknownString, e.what()));
+            }
+        }
     }
     if (full) {
         const auto tagFilePath = MemoryManipulator::GetInstance()->getProjectDirectory()

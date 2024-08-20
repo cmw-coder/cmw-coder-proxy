@@ -27,6 +27,8 @@ namespace types {
 
         [[nodiscard]] std::optional<uint32_t> getEndLine() const;
 
+        [[nodiscard]] std::optional<std::string> getEnumTarget() const;
+
         [[nodiscard]] std::optional<std::pair<std::string, std::string>> getReferenceTarget() const;
     };
 }

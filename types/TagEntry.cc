@@ -27,6 +27,14 @@ optional<uint32_t> TagEntry::getEndLine() const {
     return nullopt;
 }
 
+optional<string> TagEntry::getEnumTarget() const {
+    if (const auto key = "enum";
+        fields.contains(key)) {
+        return fields.at(key);
+    }
+    return nullopt;
+}
+
 optional<pair<string, string>> TagEntry::getReferenceTarget() const {
     if (const auto key = "typeref";
         fields.contains(key)) {
