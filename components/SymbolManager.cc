@@ -443,9 +443,30 @@ vector<SymbolInfo> SymbolManager::getSymbols(
                 ); unknownEntryOpt.has_value()) {
                     if (const auto enumTargetOpt = unknownEntryOpt.value().getEnumTarget();
                         enumTargetOpt.has_value()) {
-                        logger::debug(format(
-                            "EnumTarget of enumeration '{}': '{}'", unknownString, enumTargetOpt.value()
-                        ));
+                        if (const auto enumEntryOpt = findMostCommonPathSymbol(
+                            tagFileHandle,
+                            enumTargetOpt.value(),
+                            referencePath
+                        ); enumEntryOpt.has_value()) {
+                            if (const auto endLineOpt = enumEntryOpt.value().getEndLine();
+                                endLineOpt.has_value()) {
+                                result.emplace_back(
+                                    iconv::toPath(enumEntryOpt.value().file),
+                                    enumEntryOpt.value().name,
+                                    SymbolInfo::Type::Enum,
+                                    static_cast<uint32_t>(enumEntryOpt.value().address.lineNumber - 1),
+                                    endLineOpt.value() - 1
+                                );
+                            } else {
+                                logger::warn(format(
+                                    "No endLine for '{}'", enumTargetOpt.value()
+                                ));
+                            }
+                        } else {
+                            logger::warn(format(
+                                "No entry for '{}' of Enumeration '{}'", enumTargetOpt.value(), unknownEntryOpt.value()
+                            ));
+                        }
                     }
                 }
             } catch (exception& e) {
