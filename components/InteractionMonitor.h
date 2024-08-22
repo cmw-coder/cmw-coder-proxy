@@ -52,6 +52,8 @@ namespace components {
 
         bool _handleInteraction(types::Interaction interaction, const std::any& data = {}) const noexcept;
 
+        void _handleMouseButtonUp();
+
         void _interactionLockShared();
 
         bool _processKeyMessage(uint32_t virtualKeyCode, uint32_t lParam);
