@@ -458,13 +458,11 @@ vector<SymbolInfo> SymbolManager::getSymbols(
                                     endLineOpt.value() - 1
                                 );
                             } else {
-                                logger::warn(format(
-                                    "No endLine for '{}'", enumTargetOpt.value()
-                                ));
+                                logger::warn(format("No endLine for '{}'", enumTargetOpt.value()));
                             }
                         } else {
                             logger::warn(format(
-                                "No entry for '{}' of Enumeration '{}'", enumTargetOpt.value(), unknownEntryOpt.value()
+                                "No entry for '{}' of Enumeration '{}'", enumTargetOpt.value(), unknownString
                             ));
                         }
                     }
