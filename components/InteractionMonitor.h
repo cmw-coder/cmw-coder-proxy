@@ -34,9 +34,9 @@ namespace components {
 
     private:
         mutable std::shared_mutex _interactionMutex;
-        std::atomic<bool> _isRunning{true}, _isMouseLeftDown{false}, _needReleaseInteractionLock{false};
+        std::atomic<bool> _isRunning{true}, _isSelecting{false}, _needReleaseInteractionLock{false};
         std::atomic<types::CaretPosition> _currentCaretPosition, _downCursorPosition;
-        std::atomic<uint32_t> _navigateWithKey{0};
+        std::atomic<uint32_t> _navigateKeycode{0};
         std::atomic<std::optional<types::Mouse>> _navigateWithMouse;
         std::atomic<types::Time> _releaseInteractionLockTime;
         std::shared_ptr<void> _cbtHookHandle, _keyHookHandle, _mouseHookHandle, _processHandle, _windowHookHandle;

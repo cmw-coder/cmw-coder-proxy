@@ -93,20 +93,20 @@ void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockM
             }
         }
 
-        uint32_t insertedlineCount{0}, lastLineLength{0};
+        uint32_t insertedLineCount{0}, lastLineLength{0};
         for (const auto lineRange: content.substr(cacheIndex) | views::split("\n"sv)) {
             auto lineContent = string{lineRange.begin(), lineRange.end()};
-            if (insertedlineCount == 0) {
+            if (insertedLineCount == 0) {
                 lastLineLength = currentPosition.character + 1 + lineContent.size();
                 memoryManipulator->setSelectionContent(lineContent);
             } else {
                 lastLineLength = lineContent.size();
-                memoryManipulator->setLineContent(currentPosition.line + insertedlineCount, lineContent, true);
+                memoryManipulator->setLineContent(currentPosition.line + insertedLineCount, lineContent, true);
             }
-            ++insertedlineCount;
+            ++insertedLineCount;
         }
         WindowManager::GetInstance()->sendLeftThenRight();
-        memoryManipulator->setCaretPosition({lastLineLength, currentPosition.line + insertedlineCount - 1}); {
+        memoryManipulator->setCaretPosition({lastLineLength, currentPosition.line + insertedLineCount - 1}); {
             shared_lock lock(_completionsMutex);
             WebsocketManager::GetInstance()->send(CompletionAcceptClientMessage(
                 _completionsOpt.value().actionId,

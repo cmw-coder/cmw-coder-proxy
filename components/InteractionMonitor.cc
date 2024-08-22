@@ -75,6 +75,61 @@ namespace {
         return make_tuple(blockPrefix, blockSuffix);
     }
 
+    void getSelectionContext(const Selection& selection) {
+        const auto memoryManipulator = MemoryManipulator::GetInstance();
+        const auto path = memoryManipulator->getCurrentFilePath();
+        const auto currentFileHandle = memoryManipulator->getHandle(
+            MemoryAddress::HandleType::File
+        );
+        if (currentFileHandle && selection.end.line - selection.begin.line > 2) {
+            if (const auto [height, xPosition, yPosition] = common::getCaretDimensions(false);
+                height) {
+                string selectionBlock, selectionContent;
+                bool needFindBlockContext{true};
+                uint32_t lastLineRemovalCount{};
+                string lineContent;
+                for (uint32_t index = selection.begin.line; index <= selection.end.line; ++index) {
+                    const auto currentLine = iconv::autoDecode(
+                        memoryManipulator->getLineContent(currentFileHandle, index)
+                    );
+                    if (currentLine[0] == '{' || currentLine[0] == '}') {
+                        needFindBlockContext = false;
+                    }
+                    if (index == selection.end.line) {
+                        lastLineRemovalCount = currentLine.length() - selection.end.character;
+                    }
+                    if (index == selection.begin.line) {
+                        lineContent.append(currentLine);
+                    } else {
+                        lineContent.append("\n").append(currentLine);
+                    }
+                }
+                selectionContent = lineContent.substr(
+                    selection.begin.character, lineContent.length() - lastLineRemovalCount
+                );
+                if (needFindBlockContext) {
+                    if (const auto blockContextOpt = getBlockContext(
+                        currentFileHandle, selection.begin.line, selection.end.line
+                    ); blockContextOpt.has_value()) {
+                        auto [blockPrefix, blockSuffix] = blockContextOpt.value();
+                        selectionBlock = blockPrefix.append(lineContent).append(blockSuffix);
+                    }
+                }
+                WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(
+                    path,
+                    selectionContent,
+                    selectionBlock,
+                    selection,
+                    height,
+                    xPosition,
+                    yPosition
+                ));
+            }
+        } else {
+            WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(path));
+        }
+    }
+
     char getNormalInputKey(const uint32_t virtualKeyCode, const ModifierSet& modifiers) {
         const auto scanCode = MapVirtualKey(virtualKeyCode, MAPVK_VK_TO_VSC);
         vector<BYTE> currentKeyboardState;
@@ -271,6 +326,9 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
 
     switch (virtualKeyCode) {
         case VK_BACK: {
+            WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(
+                MemoryManipulator::GetInstance()->getCurrentFilePath()
+            ));
             ignore = _handleInteraction(Interaction::DeleteInput);
             break;
         }
@@ -282,8 +340,11 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
             break;
         }
         case VK_RETURN: {
+            WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(
+                MemoryManipulator::GetInstance()->getCurrentFilePath()
+            ));
             if (WindowManager::GetInstance()->hasPopListWindow()) {
-                ignore = _handleInteraction(Interaction::CompletionCancel, true);
+                ignore = _handleInteraction(Interaction::CompletionCancel, false);
             } else {
                 ignore = _handleInteraction(Interaction::EnterInput);
             }
@@ -303,7 +364,17 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
         case VK_UP:
         case VK_RIGHT:
         case VK_DOWN: {
-            _navigateWithKey.store(virtualKeyCode);
+            WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(
+                MemoryManipulator::GetInstance()->getCurrentFilePath()
+            ));
+            _navigateKeycode.store(virtualKeyCode);
+            break;
+        }
+        case VK_DELETE: {
+            WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(
+                MemoryManipulator::GetInstance()->getCurrentFilePath()
+            ));
+            ignore = _handleInteraction(Interaction::CompletionCancel, true);
             break;
         }
         default: {
@@ -324,15 +395,14 @@ void InteractionMonitor::_processMouseMessage(const unsigned wParam) {
         case WM_LBUTTONDOWN: {
             _interactionLockShared();
 
-            if (!_isMouseLeftDown.load()) {
-                _isMouseLeftDown.store(true);
-            }
             _navigateWithMouse.store(Mouse::Left);
+
             _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
             break;
         }
         case WM_LBUTTONUP: {
             _interactionLockShared();
+
             const auto memoryManipulator = MemoryManipulator::GetInstance();
             const auto path = memoryManipulator->getCurrentFilePath();
             const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
@@ -340,54 +410,11 @@ void InteractionMonitor::_processMouseMessage(const unsigned wParam) {
                 currentFileHandle &&
                 selectionOpt.has_value() &&
                 selectionOpt.value().end.line - selectionOpt.value().begin.line > 2) {
-                const auto selection = selectionOpt.value();
-                if (const auto [height, xPosition, yPosition] = common::getCaretDimensions(false);
-                    height) {
-                    string selectionBlock, selectionContent;
-                    bool needFindBlockContext{true};
-                    uint32_t lastLineRemovalCount{};
-                    string lineContent;
-                    for (uint32_t index = selection.begin.line; index <= selection.end.line; ++index) {
-                        const auto currentLine = iconv::autoDecode(
-                            memoryManipulator->getLineContent(currentFileHandle, index)
-                        );
-                        if (currentLine[0] == '{' || currentLine[0] == '}') {
-                            needFindBlockContext = false;
-                        }
-                        if (index == selection.end.line) {
-                            lastLineRemovalCount = currentLine.length() - selection.end.character;
-                        }
-                        if (index == selection.begin.line) {
-                            lineContent.append(currentLine);
-                        } else {
-                            lineContent.append("\n").append(currentLine);
-                        }
-                    }
-                    selectionContent = lineContent.substr(
-                        selection.begin.character, lineContent.length() - lastLineRemovalCount
-                    );
-                    if (needFindBlockContext) {
-                        if (const auto blockContextOpt = getBlockContext(
-                            currentFileHandle, selection.begin.line, selection.end.line
-                        ); blockContextOpt.has_value()) {
-                            auto [blockPrefix, blockSuffix] = blockContextOpt.value();
-                            selectionBlock = blockPrefix.append(lineContent).append(blockSuffix);
-                        }
-                    }
-                    WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(
-                        path,
-                        selectionContent,
-                        selectionBlock,
-                        selection,
-                        height,
-                        xPosition,
-                        yPosition
-                    ));
-                }
+                getSelectionContext(selectionOpt.value());
             } else {
                 WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(path));
             }
-            _isMouseLeftDown.store(false);
+
             _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
             break;
         }
@@ -427,9 +454,9 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
 void InteractionMonitor::_threadMonitorCaretPosition() {
     thread([this] {
         while (_isRunning.load()) {
-            if (const auto navigationBuffer = _navigateWithKey.load()) {
+            if (const auto navigationBuffer = _navigateKeycode.load()) {
                 ignore = _handleInteraction(Interaction::NavigateWithKey, navigationBuffer);
-                _navigateWithKey.store(0);
+                _navigateKeycode.store(0);
                 continue;
             }
 
