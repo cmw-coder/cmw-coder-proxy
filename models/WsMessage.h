@@ -135,7 +135,11 @@ namespace models {
 
     class EditorPasteClientMessage final : public WsMessage {
     public:
-        explicit EditorPasteClientMessage(uint32_t count);
+        explicit EditorPasteClientMessage(
+            const std::string& content,
+            const types::CaretPosition& caretPosition,
+            const std::vector<std::filesystem::path>& recentFiles
+        );
     };
 
     class EditorSwitchFileMessage final : public WsMessage {

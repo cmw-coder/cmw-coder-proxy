@@ -285,8 +285,11 @@ void CompletionManager::interactionPaste(const any&, bool&) {
 
     if (const auto clipboardTextOpt = system::getClipboardText();
         clipboardTextOpt.has_value()) {
+        const auto memoryManipulator = MemoryManipulator::GetInstance();
         WebsocketManager::GetInstance()->send(EditorPasteClientMessage(
-            ranges::count(clipboardTextOpt.value(), '\n') + 1
+            clipboardTextOpt.value(),
+            memoryManipulator->getCaretPosition(),
+            ModificationManager::GetInstance()->getRecentFiles()
         ));
     }
 
@@ -457,7 +460,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     // TODO: Improve performance
                     logger::debug("[_threadDebounceRetrieveCompletion] Try to get interaction unique lock");
                     const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
-                    logger::debug("[_threadDebounceRetrieveCompletion] Successfuly got interaction unique lock");
+                    logger::debug("[_threadDebounceRetrieveCompletion] Successfully got interaction unique lock");
                     const auto memoryManipulator = MemoryManipulator::GetInstance();
                     const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
                     const auto caretPosition = memoryManipulator->getCaretPosition();

@@ -124,10 +124,10 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(
 CompletionGenerateServerMessage::CompletionGenerateServerMessage(nlohmann::json&& data)
     : WsMessage(WsAction::CompletionGenerate, move(data)), result(_data["result"].get<string>()) {
     if (result == "success") {
-        if (const auto completionTypeopt = enum_cast<CompletionType>(
+        if (const auto completionTypeOpt = enum_cast<CompletionType>(
             _data["completions"]["type"].get<string>()
-        ); completionTypeopt.has_value()) {
-            _type = completionTypeopt.value();
+        ); completionTypeOpt.has_value()) {
+            _type = completionTypeOpt.value();
         }
         _completionsOpt.emplace(
             _data["actionId"].get<string>(),
@@ -172,12 +172,26 @@ EditorCommitClientMessage::EditorCommitClientMessage(const filesystem::path& pat
 EditorFocusStateClientMessage::EditorFocusStateClientMessage(const bool isFocused)
     : WsMessage(WsAction::EditorFocusState, isFocused) {}
 
-EditorPasteClientMessage::EditorPasteClientMessage(const uint32_t count)
-    : WsMessage(
-        WsAction::EditorPaste, {
-            {"count", count},
-        }
-    ) {}
+EditorPasteClientMessage::EditorPasteClientMessage(
+    const string& content,
+    const CaretPosition& caretPosition,
+    const vector<filesystem::path>& recentFiles
+): WsMessage(
+    WsAction::EditorPaste, {
+        {"content", content},
+        {
+            "position", {
+                {"character", caretPosition.character},
+                {"line", caretPosition.line},
+            }
+        },
+        {"recentFiles", nlohmann::json::array()},
+    }
+) {
+    for (const auto& recentFile: recentFiles) {
+        _data["recentFiles"].push_back(iconv::autoDecode(recentFile.generic_string()));
+    }
+}
 
 EditorSwitchFileMessage::EditorSwitchFileMessage(const filesystem::path& path)
     : WsMessage(WsAction::EditorSwitchFile, iconv::autoDecode(path.generic_string())) {}
@@ -282,7 +296,7 @@ string ReviewRequestServerMessage::content() const {
     return _content;
 }
 
-std::string ReviewRequestServerMessage::id() const {
+string ReviewRequestServerMessage::id() const {
     return _id;
 }
 
