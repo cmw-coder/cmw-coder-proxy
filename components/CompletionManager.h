@@ -29,7 +29,7 @@ namespace components {
 
         void interactionCompletionAccept(const std::any&, bool& needBlockMessage);
 
-        void interactionCompletionCancel(const std::any& data, bool&);
+        void interactionCompletionCancel(const std::any& data, bool&needBlockMessage);
 
         void interactionDeleteInput(const std::any&, bool&);
 
@@ -59,7 +59,7 @@ namespace components {
         std::unordered_map<std::string, types::EditedCompletion> _editedCompletionMap;
         types::CompletionCache _completionCache;
 
-        void _cancelCompletion();
+        bool _cancelCompletion();
 
         bool _hasValidCache() const;
 

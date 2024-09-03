@@ -117,8 +117,8 @@ void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockM
     }
 }
 
-void CompletionManager::interactionCompletionCancel(const any& data, bool&) {
-    _cancelCompletion();
+void CompletionManager::interactionCompletionCancel(const any& data, bool&needBlockMessage) {
+    const auto hasCompletion = _cancelCompletion();
     logger::log("Cancel completion, Send CompletionCancel");
     try {
         if (any_cast<bool>(data)) {
@@ -128,6 +128,7 @@ void CompletionManager::interactionCompletionCancel(const any& data, bool&) {
     } catch (const bad_any_cast& e) {
         logger::warn(format("Invalid interactionCompletionCancel data: {}", e.what()));
     }
+    needBlockMessage = hasCompletion;
 }
 
 void CompletionManager::interactionDeleteInput(const any&, bool&) {
@@ -364,7 +365,7 @@ void CompletionManager::wsCompletionGenerate(nlohmann::json&& data) {
     WindowManager::GetInstance()->unsetMenuText();
 }
 
-void CompletionManager::_cancelCompletion() {
+bool CompletionManager::_cancelCompletion() {
     optional<Completions> completionsOpt; {
         shared_lock lock(_completionsMutex);
         if (_completionsOpt.has_value()) {
@@ -383,6 +384,7 @@ void CompletionManager::_cancelCompletion() {
             _editedCompletionMap.at(completionsOpt.value().actionId).react(false);
         }
     }
+    return completionsOpt.has_value();
 }
 
 bool CompletionManager::_hasValidCache() const {

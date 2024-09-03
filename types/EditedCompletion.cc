@@ -57,7 +57,7 @@ CompletionEditClientMessage EditedCompletion::parse() const {
     string currentContent;
     uint32_t count{};
 
-    if (const auto fileHandleOpt = WindowManager::GetInstance()->getAssosiatedFileHandle(_windowHandle);
+    if (const auto fileHandleOpt = WindowManager::GetInstance()->getAssociatedFileHandle(_windowHandle);
         fileHandleOpt.has_value() && !_references.empty()) {
         WindowManager::GetInstance()->sendF13();
         for (uint32_t line = _references.front() < 10 ? 0 : _references.front() - 10;

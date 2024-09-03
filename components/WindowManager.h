@@ -19,7 +19,7 @@ namespace components {
 
         void closeWindowHandle(uint32_t windowHandle);
 
-        std::optional<uint32_t> getAssosiatedFileHandle(uint32_t windowHandle) const;
+        std::optional<uint32_t> getAssociatedFileHandle(uint32_t windowHandle) const;
 
         std::tuple<int64_t, int64_t> getClientPosition() const;
 
@@ -38,6 +38,8 @@ namespace components {
         bool sendSave();
 
         bool sendUndo();
+
+        bool sendFocus() const;
 
         void setMenuText(const std::string& text) const;
 

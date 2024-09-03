@@ -62,7 +62,7 @@ void WindowManager::closeWindowHandle(const uint32_t windowHandle) {
     }
 }
 
-optional<uint32_t> WindowManager::getAssosiatedFileHandle(const uint32_t windowHandle) const {
+optional<uint32_t> WindowManager::getAssociatedFileHandle(const uint32_t windowHandle) const {
     try {
         shared_lock lock(_fileHandleMapMutex);
         return _fileHandleMap.at(windowHandle);
@@ -124,6 +124,13 @@ bool WindowManager::sendUndo() {
     _cancelRetrieveInfo();
     if (_currentWindowHandle.load().has_value()) {
         window::sendKeyInput('Z', {Modifier::Ctrl});
+    }
+    return false;
+}
+
+bool WindowManager::sendFocus() const {
+    if (_currentWindowHandle.load().has_value()) {
+        return SetFocus(reinterpret_cast<HWND>(_currentWindowHandle.load().value()));
     }
     return false;
 }
