@@ -338,10 +338,10 @@ unordered_map<string, ReviewReference> SymbolManager::getReviewReferences(
         ++currentDepth;
 
         mutex reviewReferencesMutex;
-        vector<thread> retriveReferenceThreads;
-        retriveReferenceThreads.reserve(reviewReferences.size());
+        vector<thread> retrieveReferenceThreads;
+        retrieveReferenceThreads.reserve(reviewReferences.size());
         for (auto& [key, value]: unordered_map{reviewReferences}) {
-            retriveReferenceThreads.emplace_back(
+            retrieveReferenceThreads.emplace_back(
                 [tempContent = move(value.content), tempPath = move(value.path),
                     currentDepth, &reviewReferences, &reviewReferencesMutex, this] {
                     auto tempReferences = _getReferences(tempContent, tempPath, currentDepth);
@@ -350,8 +350,8 @@ unordered_map<string, ReviewReference> SymbolManager::getReviewReferences(
                 }
             );
         }
-        for (auto& retriveReferenceThread: retriveReferenceThreads) {
-            retriveReferenceThread.join();
+        for (auto& retrieveReferenceThread: retrieveReferenceThreads) {
+            retrieveReferenceThread.join();
         }
     }
 
