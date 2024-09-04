@@ -117,7 +117,7 @@ void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockM
     }
 }
 
-void CompletionManager::interactionCompletionCancel(const any& data, bool&needBlockMessage) {
+void CompletionManager::interactionCompletionCancel(const any& data, bool& needBlockMessage) {
     const auto hasCompletion = _cancelCompletion();
     logger::log("Cancel completion, Send CompletionCancel");
     try {
@@ -366,6 +366,7 @@ void CompletionManager::wsCompletionGenerate(nlohmann::json&& data) {
 }
 
 bool CompletionManager::_cancelCompletion() {
+    bool hasCompletion;
     optional<Completions> completionsOpt; {
         shared_lock lock(_completionsMutex);
         if (_completionsOpt.has_value()) {
@@ -373,7 +374,8 @@ bool CompletionManager::_cancelCompletion() {
         }
     } {
         unique_lock lock(_completionCacheMutex);
-        _completionCache.reset();
+        const auto [oldContent, _] = _completionCache.reset();
+        hasCompletion = !oldContent.empty();
     }
     if (completionsOpt.has_value()) {
         WebsocketManager::GetInstance()->send(
@@ -384,7 +386,7 @@ bool CompletionManager::_cancelCompletion() {
             _editedCompletionMap.at(completionsOpt.value().actionId).react(false);
         }
     }
-    return completionsOpt.has_value();
+    return hasCompletion;
 }
 
 bool CompletionManager::_hasValidCache() const {

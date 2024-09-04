@@ -357,11 +357,9 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
             break;
         }
         case VK_ESCAPE: {
-            if (WindowManager::GetInstance()->hasPopListWindow()) {
-                needBlockMessage = _handleInteraction(Interaction::CompletionCancel, false);
+            needBlockMessage = _handleInteraction(Interaction::CompletionCancel, false);
+            if (needBlockMessage) {
                 ignore = WindowManager::GetInstance()->sendFocus();
-            } else {
-                ignore = _handleInteraction(Interaction::CompletionCancel, false);
             }
             break;
         }
