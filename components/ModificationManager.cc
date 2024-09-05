@@ -24,7 +24,7 @@ vector<filesystem::path> ModificationManager::getRecentFiles(const uint32_t limi
     priority_queue<FileTime, vector<FileTime>, decltype([](const auto& a, const auto& b) {
         return a.second > b.second;
     })> pq; {
-        shared_lock lock(_modifingFilesMutex);
+        shared_lock lock(_modifyingFilesMutex);
         for (const auto& file: _recentFiles) {
             pq.emplace(file);
             if (pq.size() > limit) {
@@ -50,7 +50,7 @@ void ModificationManager::_monitorCurrentFile() {
             }
             if (const auto extension = currentPath.extension();
                 extension == ".c" || extension == ".h") {
-                unique_lock lock(_modifingFilesMutex);
+                unique_lock lock(_modifyingFilesMutex);
                 _recentFiles.emplace(currentPath, chrono::high_resolution_clock::now());
             }
             this_thread::sleep_for(100ms);

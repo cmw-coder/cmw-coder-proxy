@@ -1,11 +1,10 @@
 #include <magic_enum.hpp>
 
 #include <types/common.h>
+#include <utils/common.h>
 #include <utils/window.h>
 
 #include <Windows.h>
-
-#include "common.h"
 
 using namespace std;
 using namespace types;

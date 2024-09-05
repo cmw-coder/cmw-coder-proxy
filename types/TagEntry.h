@@ -1,7 +1,3 @@
-//
-// Created by particleg on 24-8-6.
-//
-
 #pragma once
 
 #include <optional>

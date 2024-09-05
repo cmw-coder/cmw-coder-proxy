@@ -3,8 +3,8 @@
 #include <components/WindowManager.h>
 #include <types/keys.h>
 #include <utils/logger.h>
-#include <utils/window.h>
 #include <utils/system.h>
+#include <utils/window.h>
 
 #include <windows.h>
 

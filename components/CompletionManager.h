@@ -29,7 +29,7 @@ namespace components {
 
         void interactionCompletionAccept(const std::any&, bool& needBlockMessage);
 
-        void interactionCompletionCancel(const std::any& data, bool&needBlockMessage);
+        void interactionCompletionCancel(const std::any& data, bool& needBlockMessage);
 
         void interactionDeleteInput(const std::any&, bool&);
 

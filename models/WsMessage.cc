@@ -1,4 +1,5 @@
 #include <magic_enum.hpp>
+
 #include <models/WsMessage.h>
 #include <utils/common.h>
 #include <utils/iconv.h>

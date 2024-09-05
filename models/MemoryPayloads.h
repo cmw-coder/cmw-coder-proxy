@@ -80,6 +80,7 @@ namespace models {
     class SymbolName final : public PayloadBase<SymbolNameData> {
     public:
         [[nodiscard]] uint32_t depth() const;
+
         [[nodiscard]] std::string name() const;
     };
 
