@@ -302,6 +302,7 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
     }
 
     if (configManager->checkCommit(virtualKeyCode, modifiers)) {
+        // TODO: Switch lock context
         WebsocketManager::GetInstance()->send(EditorCommitClientMessage(
             MemoryManipulator::GetInstance()->getCurrentFilePath()
         ));
@@ -342,9 +343,6 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
             break;
         }
         case VK_TAB: {
-            if (WindowManager::GetInstance()->hasPopListWindow()) {
-                WindowManager::GetInstance()->sendEscape();
-            }
             needBlockMessage = _handleInteraction(Interaction::CompletionAccept);
             break;
         }

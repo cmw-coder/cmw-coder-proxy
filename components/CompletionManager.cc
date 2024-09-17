@@ -105,14 +105,17 @@ void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockM
             }
             ++insertedLineCount;
         }
-        WindowManager::GetInstance()->sendLeftThenRight();
-        memoryManipulator->setCaretPosition({lastLineLength, currentPosition.line + insertedLineCount - 1}); {
-            shared_lock lock(_completionsMutex);
-            WebsocketManager::GetInstance()->send(CompletionAcceptClientMessage(
-                _completionsOpt.value().actionId,
-                get<1>(_completionsOpt.value().current())
-            ));
+        memoryManipulator->setCaretPosition({lastLineLength, currentPosition.line + insertedLineCount - 1});
+        if (ConfigManager::GetInstance()->version().first == SiVersion::Major::V35) {
+            WindowManager::GetInstance()->sendLeftThenRight();
+        } else {
+            WindowManager::GetInstance()->sendEnd();
         }
+        shared_lock lock(_completionsMutex);
+        WebsocketManager::GetInstance()->send(CompletionAcceptClientMessage(
+            _completionsOpt.value().actionId,
+            get<1>(_completionsOpt.value().current())
+        ));
         needBlockMessage = true;
     }
 }

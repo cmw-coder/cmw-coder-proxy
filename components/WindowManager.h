@@ -29,6 +29,8 @@ namespace components {
 
         void interactionPaste(const std::any& = {});
 
+        void sendEnd() const;
+
         void sendEscape() const;
 
         void sendF13() const;
@@ -36,8 +38,6 @@ namespace components {
         void sendLeftThenRight() const;
 
         bool sendSave();
-
-        bool sendUndo();
 
         bool sendFocus() const;
 

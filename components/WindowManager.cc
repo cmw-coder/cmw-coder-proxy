@@ -30,8 +30,9 @@ WindowManager::~WindowManager() {
 }
 
 bool WindowManager::checkNeedHideWhenLostFocus(const uint32_t windowHandle) {
-    if (const auto windowClass = window::getWindowClassName(windowHandle);
-        windowClass == "si_Poplist") {
+    const auto windowClass = window::getWindowClassName(windowHandle);
+    logger::debug(format("Target window class: {}", windowClass));
+    if (windowClass == "si_Poplist") {
         _popListWindowHandle.store(windowHandle);
     } else if (_currentWindowHandle.load().has_value()) {
         _currentWindowHandle.store(nullopt);
@@ -93,6 +94,12 @@ void WindowManager::interactionPaste(const any&) {
     }
 }
 
+void WindowManager::sendEnd() const {
+    if (_currentWindowHandle.load().has_value()) {
+        window::sendKeyInput(VK_END);
+    }
+}
+
 void WindowManager::sendEscape() const {
     if (hasPopListWindow()) {
         window::sendKeyInput(VK_ESCAPE);
@@ -116,14 +123,6 @@ bool WindowManager::sendSave() {
     _cancelRetrieveInfo();
     if (_currentWindowHandle.load().has_value()) {
         window::sendKeyInput('S', {Modifier::Ctrl});
-    }
-    return false;
-}
-
-bool WindowManager::sendUndo() {
-    _cancelRetrieveInfo();
-    if (_currentWindowHandle.load().has_value()) {
-        window::sendKeyInput('Z', {Modifier::Ctrl});
     }
     return false;
 }
