@@ -48,10 +48,10 @@ bool WindowManager::checkNeedShowWhenGainFocus(const uint32_t windowHandle) {
     if (_popListWindowHandle > 0) {
         _popListWindowHandle.store(-1);
     } else {
-        unique_lock _currentWindowHandleLock(_codeWindowHandleMutex);
-        if (_codeWindowHandle < 0) {
-            _codeWindowHandle = windowHandle;
+        if (!hasCodeWindow()) {
             _addEditorWindowHandle(windowHandle);
+            unique_lock _currentWindowHandleLock(_codeWindowHandleMutex);
+            _codeWindowHandle = windowHandle;
             return true;
         }
     }
@@ -88,10 +88,6 @@ tuple<int64_t, int64_t> WindowManager::getClientPosition() const {
 
 tuple<int64_t, shared_lock<shared_mutex>> WindowManager::sharedAccessCodeWindowHandle() const {
     return {_codeWindowHandle, shared_lock(_codeWindowHandleMutex)};
-}
-
-tuple<int64_t, unique_lock<shared_mutex>> WindowManager::uniqueAccessCodeWindowHandle() const {
-    return {_codeWindowHandle, unique_lock(_codeWindowHandleMutex)};
 }
 
 bool WindowManager::hasCodeWindow() const {
