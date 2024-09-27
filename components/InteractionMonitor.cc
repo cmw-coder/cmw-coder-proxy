@@ -270,9 +270,7 @@ void InteractionMonitor::_interactionLockShared() {
 }
 
 bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const uint32_t lParam) {
-    if (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
-        return false;
-    }
+    const auto currentFilePath  = MemoryManipulator::GetInstance()->getCurrentFilePath();
 
     _interactionLockShared();
 
@@ -282,9 +280,7 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
 
     if (_isSelecting.load()) {
         _isSelecting.store(false);
-        WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(
-            MemoryManipulator::GetInstance()->getCurrentFilePath()
-        ));
+        WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(currentFilePath));
     }
 
     bool needBlockMessage{false};
@@ -303,9 +299,7 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
 
     if (configManager->checkCommit(virtualKeyCode, modifiers)) {
         // TODO: Switch lock context
-        WebsocketManager::GetInstance()->send(EditorCommitClientMessage(
-            MemoryManipulator::GetInstance()->getCurrentFilePath()
-        ));
+        WebsocketManager::GetInstance()->send(EditorCommitClientMessage(currentFilePath));
         _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
         return true;
     }
@@ -386,10 +380,6 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
 }
 
 void InteractionMonitor::_processMouseMessage(const unsigned wParam) {
-    if (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
-        return;
-    }
-
     switch (wParam) {
         case WM_LBUTTONDOWN: {
             _interactionLockShared();

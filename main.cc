@@ -122,29 +122,29 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                         auto content = serverMessage.content().value();
                         if (content = iconv::autoEncode(content);
                             !content.empty()) {
-                            while (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
+                            while (!WindowManager::GetInstance()->hasCodeWindow()) {
                                 this_thread::sleep_for(5ms);
                             }
 
                             const auto memoryManipulator = MemoryManipulator::GetInstance();
                             const auto currentPosition = memoryManipulator->getCaretPosition();
 
-                            uint32_t insertedlineCount{0}, lastLineLength{0};
+                            uint32_t insertedLineCount{0}, lastLineLength{0};
                             for (const auto lineRange: content | views::split("\n"sv)) {
                                 auto lineContent = string{lineRange.begin(), lineRange.end()};
-                                if (insertedlineCount == 0) {
+                                if (insertedLineCount == 0) {
                                     lastLineLength = currentPosition.character + 1 + lineContent.size();
                                     memoryManipulator->setSelectionContent(lineContent);
                                 } else {
                                     lastLineLength = lineContent.size();
-                                    memoryManipulator->setLineContent(currentPosition.line + insertedlineCount,
+                                    memoryManipulator->setLineContent(currentPosition.line + insertedLineCount,
                                                                       lineContent, true);
                                 }
-                                ++insertedlineCount;
+                                ++insertedLineCount;
                             }
                             WindowManager::GetInstance()->sendLeftThenRight();
                             memoryManipulator->setCaretPosition({
-                                lastLineLength, currentPosition.line + insertedlineCount - 1
+                                lastLineLength, currentPosition.line + insertedLineCount - 1
                             });
                         }
                     }

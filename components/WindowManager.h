@@ -23,11 +23,11 @@ namespace components {
 
         std::tuple<int64_t, int64_t> getClientPosition() const;
 
-        std::optional<uint32_t> getCurrentWindowHandle() const;
+        std::tuple<int64_t, std::shared_lock<std::shared_mutex>> sharedAccessCodeWindowHandle() const;
+
+        bool hasCodeWindow() const;
 
         bool hasPopListWindow() const;
-
-        void interactionPaste(const std::any& = {});
 
         void sendEnd() const;
 
@@ -37,7 +37,7 @@ namespace components {
 
         void sendLeftThenRight() const;
 
-        bool sendSave();
+        bool sendSave() const;
 
         bool sendFocus() const;
 
@@ -46,18 +46,16 @@ namespace components {
         void unsetMenuText() const;
 
     private:
-        mutable std::shared_mutex _fileHandleMapMutex;
+        mutable std::shared_mutex _codeWindowHandleMutex, _fileHandleMapMutex;
 
         const std::string _menuBaseText = "Comware Coder Proxy: ";
-        std::atomic<bool> _isRunning{true}, _needRetrieveInfo{false};
+        int64_t _codeWindowHandle{};
+        std::atomic<bool> _isRunning{true};
         std::atomic<int64_t> _menuHandle{-1}, _menuItemIndex{-1}, _popListWindowHandle{-1};
-        std::atomic<std::optional<uint32_t>> _currentWindowHandle{};
         std::atomic<types::Time> _debounceRetrieveInfoTime;
         std::unordered_map<uint32_t, uint32_t> _fileHandleMap;
 
         void _addEditorWindowHandle(uint32_t windowHandle);
-
-        void _cancelRetrieveInfo();
 
         void _threadInitMenuHandle();
     };

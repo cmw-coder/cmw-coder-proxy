@@ -339,18 +339,21 @@ void CompletionManager::wsCompletionGenerate(nlohmann::json&& data) {
             unique_lock lock(_completionCacheMutex);
             _completionCache.reset(iconv::autoEncode(candidate));
         }
-        if (const auto currentWindowHandleOpt = WindowManager::GetInstance()->getCurrentWindowHandle();
-            currentWindowHandleOpt.has_value()) {
-            unique_lock lock(_editedCompletionMapMutex);
-            _editedCompletionMap.emplace(
-                actionId,
-                EditedCompletion{
+
+        {
+            const auto [codeWindowHandle, _] = WindowManager::GetInstance()->sharedAccessCodeWindowHandle();
+            if (codeWindowHandle > 0) {
+                unique_lock lock(_editedCompletionMapMutex);
+                _editedCompletionMap.emplace(
                     actionId,
-                    currentWindowHandleOpt.value(),
-                    MemoryManipulator::GetInstance()->getCaretPosition().line,
-                    candidate
-                }
-            );
+                    EditedCompletion{
+                        actionId,
+                        static_cast<unsigned int>(codeWindowHandle),
+                        MemoryManipulator::GetInstance()->getCaretPosition().line,
+                        candidate
+                    }
+                );
+            }
         }
 
         const auto [height, xPosition,yPosition] = common::getCaretDimensions();

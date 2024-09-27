@@ -209,9 +209,6 @@ filesystem::path MemoryManipulator::getCurrentFilePath() const {
 
 uint32_t MemoryManipulator::getHandle(const MemoryAddress::HandleType handleType) const {
     uint32_t address{}, handle{};
-    if (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
-        return handle;
-    }
     switch (handleType) {
         case MemoryAddress::HandleType::File: {
             address = memory::offset(_memoryAddress.file.handle);
@@ -222,7 +219,9 @@ uint32_t MemoryManipulator::getHandle(const MemoryAddress::HandleType handleType
             break;
         }
     }
-    memory::read(address, handle);
+    if (WindowManager::GetInstance()->hasCodeWindow()) {
+        memory::read(address, handle);
+    }
     return handle;
 }
 
@@ -370,7 +369,7 @@ void MemoryManipulator::setLineContent(const uint32_t line, const string& conten
 }
 
 void MemoryManipulator::setSelectionContent(const string& content) const {
-    if (WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
+    if (WindowManager::GetInstance()->hasCodeWindow()) {
         uint32_t param1;
         memory::read(memory::offset(_memoryAddress.window.funcSetBufSelText.param1Base), param1);
         AddressToFunction<void(uint32_t, const char*)>(

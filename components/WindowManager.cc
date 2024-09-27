@@ -34,9 +34,12 @@ bool WindowManager::checkNeedHideWhenLostFocus(const uint32_t windowHandle) {
     logger::debug(format("Target window class: {}", windowClass));
     if (windowClass == "si_Poplist") {
         _popListWindowHandle.store(windowHandle);
-    } else if (_currentWindowHandle.load().has_value()) {
-        _currentWindowHandle.store(nullopt);
-        return true;
+    } else {
+        unique_lock _currentWindowHandleLock(_codeWindowHandleMutex);
+        if (_codeWindowHandle >= 0) {
+            _codeWindowHandle = -1;
+            return true;
+        }
     }
     return false;
 }
@@ -44,10 +47,13 @@ bool WindowManager::checkNeedHideWhenLostFocus(const uint32_t windowHandle) {
 bool WindowManager::checkNeedShowWhenGainFocus(const uint32_t windowHandle) {
     if (_popListWindowHandle > 0) {
         _popListWindowHandle.store(-1);
-    } else if (!_currentWindowHandle.load().has_value()) {
-        _currentWindowHandle.store(windowHandle);
-        _addEditorWindowHandle(windowHandle);
-        return true;
+    } else {
+        unique_lock _currentWindowHandleLock(_codeWindowHandleMutex);
+        if (_codeWindowHandle < 0) {
+            _codeWindowHandle = windowHandle;
+            _addEditorWindowHandle(windowHandle);
+            return true;
+        }
     }
     return false;
 }
@@ -73,29 +79,33 @@ optional<uint32_t> WindowManager::getAssociatedFileHandle(const uint32_t windowH
 }
 
 tuple<int64_t, int64_t> WindowManager::getClientPosition() const {
-    if (const auto currentWindowHandleOpt = _currentWindowHandle.load();
-        currentWindowHandleOpt.has_value()) {
-        return window::getClientPosition(currentWindowHandleOpt.value());
+    shared_lock _currentWindowHandleLock(_codeWindowHandleMutex);
+    if (_codeWindowHandle > 0) {
+        return window::getClientPosition(_codeWindowHandle);
     }
     return {};
 }
 
-optional<uint32_t> WindowManager::getCurrentWindowHandle() const {
-    return _currentWindowHandle;
+tuple<int64_t, shared_lock<shared_mutex>> WindowManager::sharedAccessCodeWindowHandle() const {
+    return {_codeWindowHandle, shared_lock(_codeWindowHandleMutex)};
+}
+
+tuple<int64_t, unique_lock<shared_mutex>> WindowManager::uniqueAccessCodeWindowHandle() const {
+    return {_codeWindowHandle, unique_lock(_codeWindowHandleMutex)};
+}
+
+bool WindowManager::hasCodeWindow() const {
+    shared_lock lock(_codeWindowHandleMutex);
+    return _codeWindowHandle > 0;
 }
 
 bool WindowManager::hasPopListWindow() const {
     return _popListWindowHandle.load() > 0;
 }
 
-void WindowManager::interactionPaste(const any&) {
-    if (_currentWindowHandle.load().has_value()) {
-        _cancelRetrieveInfo();
-    }
-}
-
 void WindowManager::sendEnd() const {
-    if (_currentWindowHandle.load().has_value()) {
+    shared_lock _currentWindowHandleLock(_codeWindowHandleMutex);
+    if (_codeWindowHandle > 0) {
         window::sendKeyInput(VK_END);
     }
 }
@@ -107,29 +117,32 @@ void WindowManager::sendEscape() const {
 }
 
 void WindowManager::sendF13() const {
-    if (_currentWindowHandle.load().has_value()) {
+    shared_lock _currentWindowHandleLock(_codeWindowHandleMutex);
+    if (_codeWindowHandle > 0) {
         window::sendKeyInput(VK_F13);
     }
 }
 
 void WindowManager::sendLeftThenRight() const {
-    if (_currentWindowHandle.load().has_value()) {
+    shared_lock _currentWindowHandleLock(_codeWindowHandleMutex);
+    if (_codeWindowHandle > 0) {
         window::sendKeyInput(VK_LEFT);
         window::sendKeyInput(VK_RIGHT);
     }
 }
 
-bool WindowManager::sendSave() {
-    _cancelRetrieveInfo();
-    if (_currentWindowHandle.load().has_value()) {
+bool WindowManager::sendSave() const {
+    shared_lock _currentWindowHandleLock(_codeWindowHandleMutex);
+    if (_codeWindowHandle > 0) {
         window::sendKeyInput('S', {Modifier::Ctrl});
     }
     return false;
 }
 
 bool WindowManager::sendFocus() const {
-    if (_currentWindowHandle.load().has_value()) {
-        return SetFocus(reinterpret_cast<HWND>(_currentWindowHandle.load().value()));
+    shared_lock _currentWindowHandleLock(_codeWindowHandleMutex);
+    if (_codeWindowHandle > 0) {
+        return SetFocus(reinterpret_cast<HWND>(_codeWindowHandle));
     }
     return false;
 }
@@ -158,10 +171,6 @@ void WindowManager::_addEditorWindowHandle(const uint32_t windowHandle) {
         windowHandle,
         MemoryManipulator::GetInstance()->getHandle(MemoryAddress::HandleType::File)
     );
-}
-
-void WindowManager::_cancelRetrieveInfo() {
-    _needRetrieveInfo.store(false);
 }
 
 void WindowManager::_threadInitMenuHandle() {
