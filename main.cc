@@ -134,18 +134,18 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                                 auto lineContent = string{lineRange.begin(), lineRange.end()};
                                 if (insertedLineCount == 0) {
                                     lastLineLength = currentPosition.character + 1 + lineContent.size();
-                                    memoryManipulator->setSelectionContent(lineContent);
+                                    // memoryManipulator->setSelectionContent(lineContent);
                                 } else {
                                     lastLineLength = lineContent.size();
-                                    memoryManipulator->setLineContent(currentPosition.line + insertedLineCount,
-                                                                      lineContent, true);
+                                    // memoryManipulator->setLineContent(currentPosition.line + insertedLineCount,
+                                    //                                   lineContent, true);
                                 }
                                 ++insertedLineCount;
                             }
                             WindowManager::GetInstance()->sendLeftThenRight();
-                            memoryManipulator->setCaretPosition({
-                                lastLineLength, currentPosition.line + insertedLineCount - 1
-                            });
+                            // memoryManipulator->setCaretPosition({
+                            //     lastLineLength, currentPosition.line + insertedLineCount - 1
+                            // });
                         }
                     }
                 }

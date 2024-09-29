@@ -46,7 +46,8 @@ void ModificationManager::_monitorCurrentFile() {
         while (_isRunning) {
             filesystem::path currentPath; {
                 const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
-                currentPath = MemoryManipulator::GetInstance()->getCurrentFilePath();
+                // currentPath = MemoryManipulator::GetInstance()->getCurrentFilePath();
+                currentPath = filesystem::path("test");
             }
             if (const auto extension = currentPath.extension();
                 extension == ".c" || extension == ".h") {

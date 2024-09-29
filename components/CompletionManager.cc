@@ -35,7 +35,8 @@ namespace {
         const auto memoryManipulator = MemoryManipulator::GetInstance();
         const auto currentCaretPosition = memoryManipulator->getCaretPosition();
         const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
-        const auto currentLineContent = memoryManipulator->getLineContent(currentFileHandle, currentCaretPosition.line);
+        // const auto currentLineContent = memoryManipulator->getLineContent(currentFileHandle, currentCaretPosition.line);
+        const auto currentLineContent = "test"s;
         if (currentLineContent.empty() || currentCaretPosition.character < currentLineContent.size()) {
             return false;
         }
@@ -98,14 +99,14 @@ void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockM
             auto lineContent = string{lineRange.begin(), lineRange.end()};
             if (insertedLineCount == 0) {
                 lastLineLength = currentPosition.character + 1 + lineContent.size();
-                memoryManipulator->setSelectionContent(lineContent);
+                // memoryManipulator->setSelectionContent(lineContent);
             } else {
                 lastLineLength = lineContent.size();
-                memoryManipulator->setLineContent(currentPosition.line + insertedLineCount, lineContent, true);
+                // memoryManipulator->setLineContent(currentPosition.line + insertedLineCount, lineContent, true);
             }
             ++insertedLineCount;
         }
-        memoryManipulator->setCaretPosition({lastLineLength, currentPosition.line + insertedLineCount - 1});
+        // memoryManipulator->setCaretPosition({lastLineLength, currentPosition.line + insertedLineCount - 1});
         if (ConfigManager::GetInstance()->version().first == SiVersion::Major::V35) {
             WindowManager::GetInstance()->sendLeftThenRight();
         } else {
@@ -474,32 +475,37 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     const auto memoryManipulator = MemoryManipulator::GetInstance();
                     const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
                     const auto caretPosition = memoryManipulator->getCaretPosition();
-                    if (auto path = memoryManipulator->getCurrentFilePath();
+                    if (/*auto path = memoryManipulator->getCurrentFilePath();*/
+                        auto path = filesystem::path("D:/CmwCode/V7R1_SPRINGB75/TB202408220874_dt46/SI");
                         currentFileHandle && !path.empty()) {
                         const auto completionStartTime = chrono::system_clock::now();
                         chrono::time_point<chrono::system_clock> retrieveSymbolStartTime;
 
                         SymbolManager::GetInstance()->updateRootPath(path);
                         string prefix, prefixForSymbol, suffix; {
-                            const auto currentLine = memoryManipulator->getLineContent(
-                                currentFileHandle, caretPosition.line
-                            );
-                            prefix = iconv::autoDecode(currentLine.substr(0, caretPosition.character));
-                            suffix = iconv::autoDecode(currentLine.substr(caretPosition.character));
+                            // const auto currentLine = memoryManipulator->getLineContent(
+                            //     currentFileHandle, caretPosition.line
+                            // );
+                            // prefix = iconv::autoDecode(currentLine.substr(0, caretPosition.character));
+                            // suffix = iconv::autoDecode(currentLine.substr(caretPosition.character));
+                            prefix = "test";
+                            suffix = "test";
                         }
                         for (uint32_t index = 1; index <= min(caretPosition.line, 100u); ++index) {
-                            const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
-                                currentFileHandle, caretPosition.line - index
-                            )).append("\n");
+                            // const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
+                            //     currentFileHandle, caretPosition.line - index
+                            // )).append("\n");
+                            const auto tempLine = "test"s.append("\n");
                             prefix.insert(0, tempLine);
                             if (regex_search(tempLine, regex(R"~(^\/\/.*|^\/\*\*.*)~"))) {
                                 prefixForSymbol = prefix;
                             }
                         }
                         for (uint32_t index = 1; index <= 50u; ++index) {
-                            const auto tempLine = iconv::autoDecode(
-                                memoryManipulator->getLineContent(currentFileHandle, caretPosition.line + index)
-                            );
+                            // const auto tempLine = iconv::autoDecode(
+                            //     memoryManipulator->getLineContent(currentFileHandle, caretPosition.line + index)
+                            // );
+                            const auto tempLine = "test"s;
                             suffix.append("\n").append(tempLine);
                         } {
                             retrieveSymbolStartTime = chrono::system_clock::now();

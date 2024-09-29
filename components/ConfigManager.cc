@@ -92,7 +92,8 @@ void ConfigManager::_threadRetrieveProjectDirectory() {
 void ConfigManager::_threadRetrieveSvnDirectory() {
     thread([this] {
         while (_isRunning) {
-            if (auto tempFile = MemoryManipulator::GetInstance()->getCurrentFilePath().lexically_normal();
+            if (/*auto tempFile = MemoryManipulator::GetInstance()->getCurrentFilePath().lexically_normal();*/
+                auto tempFile = filesystem::path("D:/CmwCode/V7R1_SPRINGB75/TB202408220874_dt46/SI");
                 !tempFile.empty()) {
                 bool isChanged; {
                     shared_lock lock(_currentFilePathMutex);

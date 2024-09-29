@@ -63,14 +63,16 @@ CompletionEditClientMessage EditedCompletion::parse() const {
         for (uint32_t line = _references.front() < 10 ? 0 : _references.front() - 10;
              line <= _references.back() + 10; ++line) {
             currentContent
-                    .append(iconv::autoDecode(memoryManipulator->getLineContent(fileHandleOpt.value(), line)))
+                    // .append(iconv::autoDecode(memoryManipulator->getLineContent(fileHandleOpt.value(), line)))
+                    .append("test")
                     .append("\n");
         }
         if (_isAccept) {
             auto reference = _references.begin();
             for (const auto originalRange: _completion | views::split("\n"sv)) {
                 if (iconv::autoDecode(
-                    memoryManipulator->getLineContent(fileHandleOpt.value(), *reference)
+                    // memoryManipulator->getLineContent(fileHandleOpt.value(), *reference)
+                    "test"
                 ).contains(string{originalRange.begin(), originalRange.end()})) {
                     ++count;
                 }

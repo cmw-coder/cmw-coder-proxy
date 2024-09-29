@@ -16,7 +16,8 @@ bool common::checkHighestBit(const uint16_t value) noexcept {
 CaretDimension common::getCaretDimensions(const bool waitTillAvailable) {
     const auto [clientX, clientY] = WindowManager::GetInstance()->getClientPosition();
 
-    auto [height, xPosition, yPosition] = MemoryManipulator::GetInstance()->getCaretDimension();
+    // auto [height, xPosition, yPosition] = MemoryManipulator::GetInstance()->getCaretDimension();
+    auto height = 20, xPosition = 100, yPosition = 100;
     while (waitTillAvailable && !height) {
         std::this_thread::sleep_for(5ms);
         const auto [

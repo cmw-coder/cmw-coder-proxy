@@ -35,9 +35,10 @@ namespace {
         string blockPrefix, blockSuffix;
         bool isInBlock{false};
         for (uint32_t index = 1; index <= min(beginLine, 200u); ++index) {
-            auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
-                fileHandle, beginLine - index
-            ));
+            // auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
+            //     fileHandle, beginLine - index
+            // ));
+            auto tempLine = "test"s;
             if (tempLine[0] == '}' || regex_search(tempLine, regex(R"~(^\/\*\*)~"))) {
                 break;
             }
@@ -53,9 +54,10 @@ namespace {
 
         isInBlock = false;
         for (uint32_t index = 1; index <= 200u; ++index) {
-            const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
-                fileHandle, endLine + index
-            ));
+            // const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
+            //     fileHandle, endLine + index
+            // ));
+            auto tempLine = "test"s;
             if (regex_search(tempLine, regex(R"~(\*\*\/$)~"))) {
                 break;
             }
@@ -203,7 +205,8 @@ bool InteractionMonitor::_handleInteraction(const Interaction interaction, const
 
 void InteractionMonitor::_handleMouseButtonUp() {
     const auto memoryManipulator = MemoryManipulator::GetInstance();
-    const auto path = memoryManipulator->getCurrentFilePath();
+    // const auto path = memoryManipulator->getCurrentFilePath();
+    const auto path = filesystem::path("test");
     const auto currentFileHandle = memoryManipulator->getHandle(
         MemoryAddress::HandleType::File
     );
@@ -218,9 +221,10 @@ void InteractionMonitor::_handleMouseButtonUp() {
             uint32_t lastLineRemovalCount{};
             string lineContent;
             for (uint32_t index = selection.begin.line; index <= selection.end.line; ++index) {
-                const auto currentLine = iconv::autoDecode(
-                    memoryManipulator->getLineContent(currentFileHandle, index)
-                );
+                // const auto currentLine = iconv::autoDecode(
+                //     memoryManipulator->getLineContent(currentFileHandle, index)
+                // );
+                auto currentLine = "test"s;
                 if (currentLine[0] == '{' || currentLine[0] == '}') {
                     needFindBlockContext = false;
                 }
@@ -270,7 +274,8 @@ void InteractionMonitor::_interactionLockShared() {
 }
 
 bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const uint32_t lParam) {
-    const auto currentFilePath  = MemoryManipulator::GetInstance()->getCurrentFilePath();
+    // const auto currentFilePath  = MemoryManipulator::GetInstance()->getCurrentFilePath();
+    const auto currentFilePath  = filesystem::path("test");
 
     _interactionLockShared();
 
