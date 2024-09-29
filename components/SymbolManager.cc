@@ -492,8 +492,8 @@ vector<SymbolInfo> SymbolManager::getSymbols(
 }
 
 void SymbolManager::updateRootPath(const filesystem::path& currentFilePath) {
-    _tagFileNeedUpdateMap.at(TagFileType::Function) = true;
-    _tagFileNeedUpdateMap.at(TagFileType::Structure) = true;
+    _tagFileUpdateCounterMap.at(TagFileType::Function) -= 1;
+    _tagFileUpdateCounterMap.at(TagFileType::Structure) -= 1;
     thread([this, originalPath = absolute(currentFilePath).lexically_normal()] {
         auto tempPath = originalPath;
         while (tempPath != tempPath.parent_path()) {
@@ -597,14 +597,14 @@ void SymbolManager::_threadUpdateStructureTagFile() {
 }
 
 void SymbolManager::_updateTagFile(const TagFileType tagFileType) {
-    if (_tagFileNeedUpdateMap[tagFileType]) {
+    if (_tagFileUpdateCounterMap[tagFileType] < 0) {
         const auto currentProjectDirectory = MemoryManipulator::GetInstance()->getProjectDirectory();
         const auto tagFilePath = currentProjectDirectory / _tagFilenameMap.at(tagFileType).first;
         const auto tempTagFilePath = currentProjectDirectory / _tagFilenameMap.at(tagFileType).second;
         string arguments; {
             shared_lock lock{_rootPathMutex};
             if (_rootPath.empty() || !exists(_rootPath)) {
-                _tagFileNeedUpdateMap[tagFileType] = false;
+                _tagFileUpdateCounterMap[tagFileType] = 20;
                 return;
             }
             arguments = format(
@@ -627,6 +627,6 @@ void SymbolManager::_updateTagFile(const TagFileType tagFileType) {
         } catch (exception& e) {
             logger::warn(format("Exception when updating tags: {}", e.what()));
         }
-        _tagFileNeedUpdateMap[tagFileType] = false;
+        _tagFileUpdateCounterMap[tagFileType] = 20;
     }
 }

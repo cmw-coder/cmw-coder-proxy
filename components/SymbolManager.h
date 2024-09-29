@@ -49,9 +49,9 @@ namespace components {
                 }
             }
         };
-        std::unordered_map<TagFileType, bool> _tagFileNeedUpdateMap = {
-            {TagFileType::Function, false},
-            {TagFileType::Function, false}
+        std::unordered_map<TagFileType, int64_t> _tagFileUpdateCounterMap = {
+            {TagFileType::Function, 20},
+            {TagFileType::Structure, 20}
         };
         mutable std::shared_mutex _rootPathMutex, _functionTagFileMutex, _structureTagFileMutex;
         std::atomic<bool> _isRunning{true}, _functionTagFileNeedUpdate{false}, _structureTagFileNeedUpdate{false};
