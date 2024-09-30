@@ -1,6 +1,7 @@
 #include <components/InteractionMonitor.h>
 #include <components/MemoryManipulator.h>
 #include <components/ModificationManager.h>
+#include <components/SymbolManager.h>
 #include <utils/logger.h>
 
 using namespace components;
@@ -50,6 +51,7 @@ void ModificationManager::_monitorCurrentFile() {
             }
             if (const auto extension = currentPath.extension();
                 extension == ".c" || extension == ".h") {
+                SymbolManager::GetInstance()->updateRootPath(currentPath);
                 unique_lock lock(_modifyingFilesMutex);
                 _recentFiles.emplace(currentPath, chrono::high_resolution_clock::now());
             }
