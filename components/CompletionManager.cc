@@ -476,7 +476,6 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                         const auto completionStartTime = chrono::system_clock::now();
                         chrono::time_point<chrono::system_clock> retrieveSymbolStartTime;
 
-                        SymbolManager::GetInstance()->updateRootPath(path);
                         string prefix, prefixForSymbol, suffix; {
                             const auto currentLine = memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line
