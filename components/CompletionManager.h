@@ -50,16 +50,20 @@ namespace components {
         void wsCompletionGenerate(nlohmann::json&& data);
 
     private:
-        mutable std::shared_mutex _editedCompletionMapMutex, _completionsMutex, _completionCacheMutex, _componentsMutex;
+        mutable std::shared_mutex _completionsMutex, _completionCacheMutex, _componentsMutex,
+                _editedCompletionMapMutex, _modifyingFilesMutex;
         Components _components;
         std::atomic<bool> _isNewLine{true}, _isRunning{true},
                 _needDiscardWsAction{false}, _needRetrieveCompletion{false};
         std::atomic<types::Time> _debounceRetrieveCompletionTime;
         std::optional<types::Completions> _completionsOpt;
+        std::unordered_map<std::filesystem::path, std::chrono::high_resolution_clock::time_point> _recentFiles;
         std::unordered_map<std::string, types::EditedCompletion> _editedCompletionMap;
         types::CompletionCache _completionCache;
 
         bool _cancelCompletion();
+
+        std::vector<std::filesystem::path> _getRecentFiles(uint32_t limit = 5) const;
 
         bool _hasValidCache() const;
 
@@ -74,6 +78,8 @@ namespace components {
         );
 
         void _threadCheckAcceptedCompletions();
+
+        void _threadCheckCurrentFilePath();
 
         void _threadDebounceRetrieveCompletion();
     };

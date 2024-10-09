@@ -9,7 +9,6 @@
 #include <components/ConfigManager.h>
 #include <components/InteractionMonitor.h>
 #include <components/MemoryManipulator.h>
-#include <components/ModificationManager.h>
 #include <components/SymbolManager.h>
 #include <components/WebsocketManager.h>
 #include <components/WindowManager.h>
@@ -67,6 +66,7 @@ namespace {
 
 CompletionManager::CompletionManager() {
     _threadCheckAcceptedCompletions();
+    _threadCheckCurrentFilePath();
     _threadDebounceRetrieveCompletion();
     logger::info("CompletionManager is initialized");
 }
@@ -293,7 +293,7 @@ void CompletionManager::interactionPaste(const any&, bool&) {
         WebsocketManager::GetInstance()->send(EditorPasteClientMessage(
             clipboardTextOpt.value(),
             memoryManipulator->getCaretPosition(),
-            ModificationManager::GetInstance()->getRecentFiles()
+            _getRecentFiles()
         ));
     }
 
@@ -392,6 +392,29 @@ bool CompletionManager::_cancelCompletion() {
     return hasCompletion;
 }
 
+vector<filesystem::path> CompletionManager::_getRecentFiles(const uint32_t limit) const {
+    using FileTime = pair<filesystem::path, chrono::high_resolution_clock::time_point>;
+    vector<filesystem::path> recentFiles;
+    priority_queue<FileTime, vector<FileTime>, decltype([](const auto& a, const auto& b) {
+        return a.second > b.second;
+    })> pq; {
+        shared_lock lock(_modifyingFilesMutex);
+        for (const auto& file: _recentFiles) {
+            pq.emplace(file);
+            if (pq.size() > limit) {
+                pq.pop();
+            }
+        }
+    }
+
+    while (!pq.empty()) {
+        recentFiles.push_back(pq.top().first);
+        pq.pop();
+    }
+
+    return recentFiles;
+}
+
 bool CompletionManager::_hasValidCache() const {
     bool hasValidCache; {
         shared_lock lock(_completionCacheMutex);
@@ -457,6 +480,24 @@ void CompletionManager::_threadCheckAcceptedCompletions() {
     }).detach();
 }
 
+void CompletionManager::_threadCheckCurrentFilePath() {
+    thread([this] {
+        while (_isRunning) {
+            filesystem::path currentPath; {
+                const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
+                currentPath = MemoryManipulator::GetInstance()->getCurrentFilePath();
+            }
+            if (const auto extension = currentPath.extension();
+                extension == ".c" || extension == ".h") {
+                SymbolManager::GetInstance()->updateRootPath(currentPath);
+                unique_lock lock(_modifyingFilesMutex);
+                _recentFiles.emplace(currentPath, chrono::high_resolution_clock::now());
+            }
+            this_thread::sleep_for(100ms);
+        }
+    }).detach();
+}
+
 void CompletionManager::_threadDebounceRetrieveCompletion() {
     thread([this] {
         while (_isRunning) {
@@ -502,7 +543,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             unique_lock lock(_componentsMutex);
                             _components.caretPosition = caretPosition;
                             _components.prefix = move(prefix);
-                            _components.recentFiles = ModificationManager::GetInstance()->getRecentFiles();
+                            _components.recentFiles = _getRecentFiles();
                             _components.symbols = SymbolManager::GetInstance()->getSymbols(prefixForSymbol, path);
                             _components.path = move(path);
                             _components.suffix = move(suffix);
