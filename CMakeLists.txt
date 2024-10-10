@@ -13,7 +13,7 @@ message(STATUS "Project version: ${VERSION_STRING}")
 
 set(USE_ZLIB OFF CACHE BOOL "Use zlib" FORCE)
 
-project(cmw-coder-proxy CXX)
+project(cmw-coder-proxy)
 
 if ("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4")
     message("Architecture: i386")
@@ -38,11 +38,12 @@ add_compile_definitions(CMAKE_PROJECT_NAME="${PROJECT_NAME}")
 add_compile_definitions(PROXY_MODULE_NAME="${PROXY_MODULE_NAME}")
 add_compile_definitions(VERSION_STRING="${VERSION_STRING}")
 
-add_library(${PROXY_MODULE_NAME} SHARED proxy.cc main.cc)
+add_library(${PROXY_MODULE_NAME} SHARED main.cc proxy.cc)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_ced.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_libreadtags.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_singleton.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_tree_sitter.cmake)
 
 find_package(ixwebsocket CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
@@ -54,6 +55,8 @@ target_link_libraries(${PROXY_MODULE_NAME} PRIVATE
         magic_enum::magic_enum
         nlohmann_json::nlohmann_json
         singleton::singleton
+        tree-sitter-c
+        cpp-tree-sitter
         universal-ctags::readtags
         Version.lib
 )

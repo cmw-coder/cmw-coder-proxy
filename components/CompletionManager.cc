@@ -2,6 +2,7 @@
 #include <format>
 #include <regex>
 
+#include <cpp-tree-sitter.h>
 #include <magic_enum.hpp>
 #include <nlohmann/json.hpp>
 
@@ -26,6 +27,10 @@ using namespace models;
 using namespace std;
 using namespace types;
 using namespace utils;
+
+extern "C" {
+    TSLanguage* tree_sitter_c();
+}
 
 namespace {
     const vector<string> keywords = {"class", "if", "for", "struct", "switch", "union", "while"};
@@ -504,6 +509,18 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
             if (const auto pastTime = chrono::high_resolution_clock::now() - _debounceRetrieveCompletionTime.load();
                 pastTime >= 150ms && _needRetrieveCompletion.load()) {
                 WindowManager::GetInstance()->setMenuText("Generating...");
+
+                {
+                    ts::Language language = tree_sitter_c();
+                    ts::Parser parser{language};
+                    const auto sourceCode = "int main() {\n    return 0;\n}";
+                    ts::Tree tree = parser.parseString(sourceCode);
+                    const auto rootNode = tree.getRootNode();
+                    const auto firstChildNode = rootNode.getNamedChild(0);
+                    //logger::debug(format("Node: {}", firstChildNode.getType()));
+                    auto nodeString = rootNode.getSExpr();
+                    //logger::debug(format("Syntax tree: {}", nodeString));
+                }
                 try {
                     // TODO: Improve performance
                     logger::debug("[_threadDebounceRetrieveCompletion] Try to get interaction unique lock");
