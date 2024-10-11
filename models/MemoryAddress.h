@@ -106,6 +106,10 @@ namespace models {
             } dataSelection;
 
             struct {
+                uint32_t base;
+            } dataLineCount;
+
+            struct {
                 uint32_t offset1;
             } dataXPos;
 
