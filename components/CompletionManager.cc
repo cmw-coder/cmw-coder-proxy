@@ -1,4 +1,5 @@
 #include <chrono>
+#include <fstream>
 #include <format>
 #include <regex>
 
@@ -29,6 +30,7 @@ namespace {
     const vector<string> keywords = {"class", "if", "for", "struct", "switch", "union", "while"};
 
     bool checkNeedRetrieveCompletion(const char character) {
+        const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
         const auto memoryManipulator = MemoryManipulator::GetInstance();
         const auto currentCaretPosition = memoryManipulator->getCaretPosition();
         const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
@@ -517,7 +519,9 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             suffix.append("\n").append(tempLine);
                         } {
                             retrieveSymbolStartTime = chrono::system_clock::now();
-                            logger::debug(prefix + suffix);
+                            logger::debug(format("currentLineCount: {}", currentLineCount));
+                            ofstream ofs("C:/Users/particleg/Desktop/dump.c");
+                            ofs << prefix << suffix;
                             unique_lock lock(_componentsMutex);
                             _components.caretPosition = caretPosition;
                             _components.prefix = move(prefix);
