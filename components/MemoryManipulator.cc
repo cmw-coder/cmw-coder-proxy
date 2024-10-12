@@ -3,6 +3,7 @@
 #include <types/AddressToFunction.h>
 #include <types/ConstMap.h>
 #include <utils/fs.h>
+#include <utils/iconv.h>
 #include <utils/logger.h>
 #include <utils/memory.h>
 
@@ -207,6 +208,12 @@ filesystem::path MemoryManipulator::getCurrentFilePath() const {
         return payload.str();
     }
     return {};
+}
+
+uint32_t MemoryManipulator::getCurrentLineCount() const {
+    uint32_t currentFileLineCount{};
+    memory::read(memory::offset(_memoryAddress.window.dataLineCount.base), currentFileLineCount);
+    return currentFileLineCount;
 }
 
 uint32_t MemoryManipulator::getHandle(const MemoryAddress::HandleType handleType) const {
