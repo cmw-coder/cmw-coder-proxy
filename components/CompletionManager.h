@@ -35,7 +35,7 @@ namespace components {
 
         void interactionEnterInput(const std::any&, bool&);
 
-        void interactionNavigateWithKey(const std::any& data, bool&);
+        void interactionNavigateWithKey(const std::any&, bool&);
 
         void interactionNavigateWithMouse(const std::any& data, bool&);
 
@@ -53,7 +53,7 @@ namespace components {
         mutable std::shared_mutex _completionsMutex, _completionCacheMutex, _componentsMutex,
                 _editedCompletionMapMutex, _modifyingFilesMutex;
         Components _components;
-        std::atomic<bool> _isNewLine{true}, _isRunning{true},
+        std::atomic<bool> _isRunning{true},
                 _needDiscardWsAction{false}, _needRetrieveCompletion{false};
         std::atomic<types::Time> _debounceRetrieveCompletionTime;
         std::optional<types::Completions> _completionsOpt;

@@ -1,4 +1,5 @@
 #include <chrono>
+#include <fstream>
 #include <format>
 #include <regex>
 
@@ -18,8 +19,6 @@
 #include <utils/logger.h>
 #include <utils/system.h>
 
-#include <windows.h>
-
 using namespace components;
 using namespace magic_enum;
 using namespace models;
@@ -31,6 +30,7 @@ namespace {
     const vector<string> keywords = {"class", "if", "for", "struct", "switch", "union", "while"};
 
     bool checkNeedRetrieveCompletion(const char character) {
+        const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
         const auto memoryManipulator = MemoryManipulator::GetInstance();
         const auto currentCaretPosition = memoryManipulator->getCaretPosition();
         const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
@@ -155,7 +155,6 @@ void CompletionManager::interactionDeleteInput(const any&, bool&) {
             }
         } else {
             if (_hasValidCache()) {
-                _isNewLine = true;
                 _cancelCompletion();
                 logger::log("Delete backward. Send CompletionCancel due to delete across line");
             }
@@ -170,39 +169,22 @@ void CompletionManager::interactionDeleteInput(const any&, bool&) {
 }
 
 void CompletionManager::interactionEnterInput(const any&, bool&) {
-    _isNewLine = true;
     // TODO: Support 1st level cache
     if (_hasValidCache()) {
         _cancelCompletion();
         logger::log("Enter Input. Send CompletionCancel");
     }
     _updateNeedRetrieveCompletion(true, '\n');
-    uint32_t line; {
-        shared_lock lock(_componentsMutex);
-        line = _components.caretPosition.line;
-    } {
+    const auto line = MemoryManipulator::GetInstance()->getCaretPosition().line; {
         unique_lock lock(_editedCompletionMapMutex);
-        for (auto& acceptedCompletion: _editedCompletionMap | views::values) {
-            acceptedCompletion.addLine(line);
+        for (auto& editedCompletion: _editedCompletionMap | views::values) {
+            editedCompletion.addLine(line);
         }
     }
 }
 
-void CompletionManager::interactionNavigateWithKey(const any& data, bool&) {
+void CompletionManager::interactionNavigateWithKey(const any&, bool&) {
     try {
-        switch (any_cast<uint32_t>(data)) {
-            case VK_PRIOR:
-            case VK_NEXT:
-            case VK_LEFT:
-            case VK_UP:
-            case VK_RIGHT:
-            case VK_DOWN: {
-                _isNewLine = true;
-            }
-            default: {
-                break;
-            }
-        }
         if (_hasValidCache()) {
             _cancelCompletion();
             logger::log("Navigate with key. Send CompletionCancel");
@@ -216,9 +198,6 @@ void CompletionManager::interactionNavigateWithMouse(const any& data, bool&) {
     try {
         const auto [newCursorPosition, _] = any_cast<tuple<CaretPosition, CaretPosition>>(data); {
             shared_lock componentsLock(_componentsMutex);
-            if (_components.caretPosition.line != newCursorPosition.line) {
-                _isNewLine = true;
-            }
             if (_components.caretPosition != newCursorPosition) {
                 if (_hasValidCache()) {
                     _cancelCompletion();
@@ -296,8 +275,6 @@ void CompletionManager::interactionPaste(const any&, bool&) {
             _getRecentFiles()
         ));
     }
-
-    _isNewLine = true;
 }
 
 void CompletionManager::interactionSave(const any&, bool&) {
@@ -308,7 +285,6 @@ void CompletionManager::interactionSave(const any&, bool&) {
 }
 
 void CompletionManager::interactionUndo(const any&, bool&) {
-    _isNewLine = true;
     if (_hasValidCache()) {
         _cancelCompletion();
         logger::log("Undo. Send CompletionCancel");
@@ -511,9 +487,10 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     logger::debug("[_threadDebounceRetrieveCompletion] Successfully got interaction unique lock");
                     const auto memoryManipulator = MemoryManipulator::GetInstance();
                     const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
+                    const auto currentLineCount = memoryManipulator->getCurrentLineCount();
                     const auto caretPosition = memoryManipulator->getCaretPosition();
                     if (auto path = memoryManipulator->getCurrentFilePath();
-                        currentFileHandle && !path.empty()) {
+                        currentFileHandle && currentLineCount && !path.empty()) {
                         const auto completionStartTime = chrono::system_clock::now();
                         chrono::time_point<chrono::system_clock> retrieveSymbolStartTime;
 
@@ -524,16 +501,18 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             prefix = iconv::autoDecode(currentLine.substr(0, caretPosition.character));
                             suffix = iconv::autoDecode(currentLine.substr(caretPosition.character));
                         }
-                        for (uint32_t index = 1; index <= min(caretPosition.line, 100u); ++index) {
+                        for (uint32_t index = 1; index <= caretPosition.line; ++index) {
                             const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line - index
                             )).append("\n");
                             prefix.insert(0, tempLine);
-                            if (regex_search(tempLine, regex(R"~(^\/\/.*|^\/\*\*.*)~"))) {
+                            if (prefixForSymbol.empty() && (
+                                    regex_search(tempLine, regex(R"~(^\/\/.*|^\/\*\*.*)~")) || index >= 100
+                                )) {
                                 prefixForSymbol = prefix;
                             }
                         }
-                        for (uint32_t index = 1; index <= 50u; ++index) {
+                        for (uint32_t index = 1; index < currentLineCount - caretPosition.line; ++index) {
                             const auto tempLine = iconv::autoDecode(
                                 memoryManipulator->getLineContent(currentFileHandle, caretPosition.line + index)
                             );
@@ -548,7 +527,6 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             _components.path = move(path);
                             _components.suffix = move(suffix);
                         }
-                        _isNewLine = false;
                         logger::info("Retrieve completion with full prefix");
                         _sendCompletionGenerate(
                             chrono::duration_cast<chrono::milliseconds>(

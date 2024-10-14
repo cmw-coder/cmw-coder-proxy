@@ -3,6 +3,7 @@
 #include <types/AddressToFunction.h>
 #include <types/ConstMap.h>
 #include <utils/fs.h>
+#include <utils/iconv.h>
 #include <utils/logger.h>
 #include <utils/memory.h>
 
@@ -60,6 +61,7 @@ namespace {
                                                 {0x1E3B9C},
                                                 {0x1E3BA4},
                                             },
+                                            {0x1E535C},
                                             {0x000024},
                                             {0x1CCD3C},
                                             {0x09180C, 0X1CCD48},
@@ -100,6 +102,7 @@ namespace {
                                                 {0x26DAE0},
                                                 {0x26DAE8}
                                             },
+                                            {0x26D5C8},
                                             {0x000024},
                                             {0x288F48},
                                             {0x0C88C0, 0X288F2C},
@@ -205,6 +208,12 @@ filesystem::path MemoryManipulator::getCurrentFilePath() const {
         return payload.str();
     }
     return {};
+}
+
+uint32_t MemoryManipulator::getCurrentLineCount() const {
+    uint32_t currentFileLineCount{};
+    memory::read(memory::offset(_memoryAddress.window.dataLineCount.base), currentFileLineCount);
+    return currentFileLineCount;
 }
 
 uint32_t MemoryManipulator::getHandle(const MemoryAddress::HandleType handleType) const {

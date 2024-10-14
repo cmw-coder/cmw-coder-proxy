@@ -31,6 +31,8 @@ namespace components {
 
         [[nodiscard]] std::filesystem::path getCurrentFilePath() const;
 
+        [[nodiscard]] uint32_t getCurrentLineCount() const;
+
         [[nodiscard]] uint32_t getHandle(models::MemoryAddress::HandleType handleType) const;
 
         [[nodiscard]] std::string getLineContent(uint32_t handle, uint32_t line) const;
