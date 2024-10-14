@@ -519,9 +519,6 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             suffix.append("\n").append(tempLine);
                         } {
                             retrieveSymbolStartTime = chrono::system_clock::now();
-                            logger::debug(format("currentLineCount: {}", currentLineCount));
-                            ofstream ofs("C:/Users/particleg/Desktop/dump.c");
-                            ofs << prefix << suffix;
                             unique_lock lock(_componentsMutex);
                             _components.caretPosition = caretPosition;
                             _components.prefix = move(prefix);
