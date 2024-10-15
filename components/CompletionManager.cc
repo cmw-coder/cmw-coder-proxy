@@ -1,5 +1,4 @@
 #include <chrono>
-#include <fstream>
 #include <format>
 #include <regex>
 
@@ -30,10 +29,10 @@ namespace {
     const vector<string> keywords = {"class", "if", "for", "struct", "switch", "union", "while"};
 
     bool checkNeedRetrieveCompletion(const char character) {
-        const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
         const auto memoryManipulator = MemoryManipulator::GetInstance();
         const auto currentCaretPosition = memoryManipulator->getCaretPosition();
         const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
+        // TODO: Make this method safer
         const auto currentLineContent = memoryManipulator->getLineContent(currentFileHandle, currentCaretPosition.line);
         if (currentLineContent.empty() || currentCaretPosition.character < currentLineContent.size()) {
             return false;
