@@ -373,7 +373,7 @@ vector<filesystem::path> CompletionManager::_getRecentFiles(const uint32_t limit
     priority_queue<FileTime, vector<FileTime>, decltype([](const auto& a, const auto& b) {
         return a.second > b.second;
     })> pq; {
-        shared_lock lock(_modifyingFilesMutex);
+        shared_lock lock(_recentFilesMutex);
         for (const auto& file: _recentFiles) {
             pq.emplace(file);
             if (pq.size() > limit) {
@@ -464,8 +464,11 @@ void CompletionManager::_threadCheckCurrentFilePath() {
             }
             if (const auto extension = currentPath.extension();
                 extension == ".c" || extension == ".h") {
-                SymbolManager::GetInstance()->updateRootPath(currentPath);
-                unique_lock lock(_modifyingFilesMutex);
+                if (_currentFilePath != currentPath) {
+                    SymbolManager::GetInstance()->updateRootPath(currentPath);
+                    _currentFilePath = currentPath;
+                }
+                unique_lock lock(_recentFilesMutex);
                 _recentFiles.emplace(currentPath, chrono::high_resolution_clock::now());
             }
             this_thread::sleep_for(100ms);
