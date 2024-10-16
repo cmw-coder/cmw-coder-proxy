@@ -250,7 +250,7 @@ namespace {
             if (const auto pathDistance = distance(
                 referencePathString.cbegin(), ranges::mismatch(
                     referencePathString,
-                    filesystem::path(entry.file).generic_string()
+                    iconv::toPath(entry.file).generic_string()
                 ).in1
             ); pathDistance > mostCommonPathLength) {
                 mostCommonPathLength = pathDistance;
