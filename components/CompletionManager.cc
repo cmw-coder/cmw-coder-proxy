@@ -2,6 +2,7 @@
 #include <format>
 #include <regex>
 
+#include <cpp-base64/base64.h>
 #include <magic_enum.hpp>
 #include <nlohmann/json.hpp>
 
@@ -464,10 +465,6 @@ void CompletionManager::_threadCheckCurrentFilePath() {
             }
             if (const auto extension = currentPath.extension();
                 extension == ".c" || extension == ".h") {
-                if (_currentFilePath != currentPath) {
-                    SymbolManager::GetInstance()->updateRootPath(currentPath);
-                    _currentFilePath = currentPath;
-                }
                 unique_lock lock(_recentFilesMutex);
                 _recentFiles.emplace(currentPath, chrono::high_resolution_clock::now());
             }
@@ -523,11 +520,14 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             retrieveSymbolStartTime = chrono::system_clock::now();
                             unique_lock lock(_componentsMutex);
                             _components.caretPosition = caretPosition;
-                            _components.prefix = move(prefix);
+                            _components.prefix = base64_encode(prefix);
                             _components.recentFiles = _getRecentFiles();
                             _components.symbols = SymbolManager::GetInstance()->getSymbols(prefixForSymbol, path);
+                            if (_components.path != path) {
+                                SymbolManager::GetInstance()->updateRootPath(path);
+                            }
                             _components.path = move(path);
-                            _components.suffix = move(suffix);
+                            _components.suffix = base64_encode(suffix);
                         }
                         logger::info("Retrieve completion with full prefix");
                         _sendCompletionGenerate(

@@ -56,7 +56,6 @@ namespace components {
         std::atomic<bool> _isRunning{true},
                 _needDiscardWsAction{false}, _needRetrieveCompletion{false};
         std::atomic<types::Time> _debounceRetrieveCompletionTime;
-        std::filesystem::path _currentFilePath;
         std::optional<types::Completions> _completionsOpt;
         std::unordered_map<std::filesystem::path, std::chrono::high_resolution_clock::time_point> _recentFiles;
         std::unordered_map<std::string, types::EditedCompletion> _editedCompletionMap;

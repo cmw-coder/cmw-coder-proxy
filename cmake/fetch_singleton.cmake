@@ -10,7 +10,7 @@ if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/singleton-main.zip")
 else ()
     FetchContent_Declare(
             singleton
-            GIT_REPOSITORY https://github.com/jimmy-park/singleton.git
+            GIT_REPOSITORY https://github.com/jimmy-park/singleton
             GIT_TAG main
     )
 endif ()

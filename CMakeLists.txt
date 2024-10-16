@@ -44,6 +44,8 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_ced.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_libreadtags.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_singleton.cmake)
 
+find_path(CPP_BASE64_INCLUDE_DIRS "cpp-base64/base64.cpp")
+
 find_package(ixwebsocket CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
@@ -58,7 +60,10 @@ target_link_libraries(${PROXY_MODULE_NAME} PRIVATE
         Version.lib
 )
 
-target_include_directories(${PROXY_MODULE_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${PROXY_MODULE_NAME} PRIVATE
+        ${CPP_BASE64_INCLUDE_DIRS}
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/components/ COMPONENTS)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/helpers/ HELPERS)
