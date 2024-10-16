@@ -9,7 +9,6 @@
     "documentation": "https://github.com/ParticleG/cmw-coder-proxy/blob/main/README.md",
     "license": "MIT",
     "dependencies": [
-        "cpp-base64",
         {
             "name": "ixwebsocket",
             "default-features": false

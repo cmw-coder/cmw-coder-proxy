@@ -2,7 +2,6 @@
 #include <format>
 #include <regex>
 
-#include <cpp-base64/base64.h>
 #include <magic_enum.hpp>
 #include <nlohmann/json.hpp>
 
@@ -14,6 +13,7 @@
 #include <components/WebsocketManager.h>
 #include <components/WindowManager.h>
 #include <types/CaretPosition.h>
+#include <utils/base64.h>
 #include <utils/common.h>
 #include <utils/iconv.h>
 #include <utils/logger.h>
@@ -520,14 +520,14 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             retrieveSymbolStartTime = chrono::system_clock::now();
                             unique_lock lock(_componentsMutex);
                             _components.caretPosition = caretPosition;
-                            _components.prefix = base64_encode(prefix);
+                            _components.prefix = base64::to_base64(prefix);
                             _components.recentFiles = _getRecentFiles();
                             _components.symbols = SymbolManager::GetInstance()->getSymbols(prefixForSymbol, path);
                             if (_components.path != path) {
                                 SymbolManager::GetInstance()->updateRootPath(path);
                             }
                             _components.path = move(path);
-                            _components.suffix = base64_encode(suffix);
+                            _components.suffix = base64::to_base64(suffix);
                         }
                         logger::info("Retrieve completion with full prefix");
                         _sendCompletionGenerate(
