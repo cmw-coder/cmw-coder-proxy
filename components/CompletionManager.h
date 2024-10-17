@@ -52,6 +52,7 @@ namespace components {
     private:
         mutable std::shared_mutex _completionsMutex, _completionCacheMutex, _componentsMutex,
                 _editedCompletionMapMutex, _recentFilesMutex;
+        types::CaretPosition _lastCaretPosition{};
         Components _components;
         std::atomic<bool> _isRunning{true},
                 _needDiscardWsAction{false}, _needRetrieveCompletion{false};
