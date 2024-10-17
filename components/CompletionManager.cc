@@ -562,7 +562,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                                     )).append("\n");
                                 }
                                 prefix.insert(0, headerPrefix);
-                                for (uint32_t index = 1; index < MAX_SUFFIX_LINE_COUNT - caretPosition.line; ++index) {
+                                for (uint32_t index = 1; index < MAX_SUFFIX_LINE_COUNT; ++index) {
                                     const auto tempLine = iconv::autoDecode(
                                         memoryManipulator->getLineContent(currentFileHandle, caretPosition.line + index)
                                     );
