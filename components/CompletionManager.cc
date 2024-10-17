@@ -515,7 +515,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                                         prefixForSymbol = prefix;
                                     }
                                 }
-                                for (uint32_t index = 1; index < MAX_RETRIEVE_LINE_COUNT; ++index) {
+                                for (uint32_t index = 1; index < MAX_RETRIEVE_LINE_COUNT - caretPosition.line; ++index) {
                                     const auto tempLine = iconv::autoDecode(
                                         memoryManipulator->getLineContent(currentFileHandle, caretPosition.line + index)
                                     );
@@ -535,7 +535,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                                 }
                                 for (
                                     uint32_t index = 1;
-                                    index < MAX_RETRIEVE_LINE_COUNT + MAX_SUFFIX_LINE_COUNT;
+                                    index < MAX_RETRIEVE_LINE_COUNT + MAX_SUFFIX_LINE_COUNT - caretPosition.line;
                                     ++index
                                 ) {
                                     const auto tempLine = iconv::autoDecode(
