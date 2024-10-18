@@ -27,7 +27,6 @@ using namespace types;
 using namespace utils;
 
 namespace {
-    constexpr uint32_t MAX_PREFIX_LINE_COUNT = 1000, MAX_RETRIEVE_LINE_COUNT = 4000, MAX_SUFFIX_LINE_COUNT = 300;
     const vector<string> keywords = {"class", "if", "for", "struct", "switch", "union", "while"};
 
     bool checkNeedRetrieveCompletion(const char character) {
@@ -502,91 +501,20 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             suffix = iconv::autoDecode(currentLine.substr(caretPosition.character));
                         }
 
-                        if (currentLineCount > MAX_RETRIEVE_LINE_COUNT) {
-                            if (caretPosition.line + MAX_SUFFIX_LINE_COUNT < MAX_RETRIEVE_LINE_COUNT) {
-                                for (uint32_t index = 1; index <= caretPosition.line; ++index) {
-                                    const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
-                                        currentFileHandle, caretPosition.line - index
-                                    )).append("\n");
-                                    prefix.insert(0, tempLine);
-                                    if (prefixForSymbol.empty() && (
-                                            regex_search(tempLine, regex(R"~(^\/\/.*|^\/\*\*.*)~")) || index >= 100
-                                        )) {
-                                        prefixForSymbol = prefix;
-                                    }
-                                }
-                                for (uint32_t index = 1; index < MAX_RETRIEVE_LINE_COUNT - caretPosition.line; ++index) {
-                                    const auto tempLine = iconv::autoDecode(
-                                        memoryManipulator->getLineContent(currentFileHandle, caretPosition.line + index)
-                                    );
-                                    suffix.append("\n").append(tempLine);
-                                }
-                            } else if (caretPosition.line - MAX_PREFIX_LINE_COUNT < MAX_RETRIEVE_LINE_COUNT) {
-                                for (uint32_t index = 1; index <= caretPosition.line; ++index) {
-                                    const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
-                                        currentFileHandle, caretPosition.line - index
-                                    )).append("\n");
-                                    prefix.insert(0, tempLine);
-                                    if (prefixForSymbol.empty() && (
-                                            regex_search(tempLine, regex(R"~(^\/\/.*|^\/\*\*.*)~")) || index >= 100
-                                        )) {
-                                        prefixForSymbol = prefix;
-                                    }
-                                }
-                                for (
-                                    uint32_t index = 1;
-                                    index < MAX_RETRIEVE_LINE_COUNT + MAX_SUFFIX_LINE_COUNT - caretPosition.line;
-                                    ++index
-                                ) {
-                                    const auto tempLine = iconv::autoDecode(
-                                        memoryManipulator->getLineContent(currentFileHandle, caretPosition.line + index)
-                                    );
-                                    suffix.append("\n").append(tempLine);
-                                }
-                            } else {
-                                for (uint32_t index = 1; index <= MAX_PREFIX_LINE_COUNT; ++index) {
-                                    const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
-                                        currentFileHandle, caretPosition.line - index
-                                    )).append("\n");
-                                    prefix.insert(0, tempLine);
-                                    if (prefixForSymbol.empty() && (
-                                            regex_search(tempLine, regex(R"~(^\/\/.*|^\/\*\*.*)~")) || index >= 100
-                                        )) {
-                                        prefixForSymbol = prefix;
-                                    }
-                                }
-                                string headerPrefix;
-                                for (uint32_t index = 0; index < MAX_RETRIEVE_LINE_COUNT; ++index) {
-                                    headerPrefix.append(iconv::autoDecode(
-                                        memoryManipulator->getLineContent(currentFileHandle, index)
-                                    )).append("\n");
-                                }
-                                prefix.insert(0, headerPrefix);
-                                for (uint32_t index = 1; index < MAX_SUFFIX_LINE_COUNT; ++index) {
-                                    const auto tempLine = iconv::autoDecode(
-                                        memoryManipulator->getLineContent(currentFileHandle, caretPosition.line + index)
-                                    );
-                                    suffix.append("\n").append(tempLine);
-                                }
+                        for (uint32_t index = 1; index <= min(caretPosition.line, 200u); ++index) {
+                            const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
+                                currentFileHandle, caretPosition.line - index
+                            )).append("\n");
+                            prefix.insert(0, tempLine);
+                            if (prefixForSymbol.empty() && regex_search(tempLine, regex(R"~(^\/\/.*|^\/\*\*.*)~"))) {
+                                prefixForSymbol = prefix;
                             }
-                        } else {
-                            for (uint32_t index = 1; index <= caretPosition.line; ++index) {
-                                const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
-                                    currentFileHandle, caretPosition.line - index
-                                )).append("\n");
-                                prefix.insert(0, tempLine);
-                                if (prefixForSymbol.empty() && (
-                                        regex_search(tempLine, regex(R"~(^\/\/.*|^\/\*\*.*)~")) || index >= 100
-                                    )) {
-                                    prefixForSymbol = prefix;
-                                }
-                            }
-                            for (uint32_t index = 1; index < currentLineCount - caretPosition.line; ++index) {
-                                const auto tempLine = iconv::autoDecode(
-                                    memoryManipulator->getLineContent(currentFileHandle, caretPosition.line + index)
-                                );
-                                suffix.append("\n").append(tempLine);
-                            }
+                        }
+                        for (uint32_t index = 1; index < 80u; ++index) {
+                            const auto tempLine = iconv::autoDecode(
+                                memoryManipulator->getLineContent(currentFileHandle, caretPosition.line + index)
+                            );
+                            suffix.append("\n").append(tempLine);
                         } {
                             retrieveSymbolStartTime = chrono::system_clock::now();
                             unique_lock lock(_componentsMutex);
