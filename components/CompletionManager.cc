@@ -85,32 +85,13 @@ void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockM
         actionId = _completionsOpt.value().actionId;
     }
     if (!content.empty()) {
-        const auto memoryManipulator = MemoryManipulator::GetInstance();
-        const auto currentPosition = memoryManipulator->getCaretPosition(); {
+        {
             unique_lock lock(_editedCompletionMapMutex);
             if (_editedCompletionMap.contains(actionId)) {
                 _editedCompletionMap.at(actionId).react(true);
             }
         }
-
-        uint32_t insertedLineCount{0}, lastLineLength{0};
-        for (const auto lineRange: content.substr(cacheIndex) | views::split("\n"sv)) {
-            auto lineContent = string{lineRange.begin(), lineRange.end()};
-            if (insertedLineCount == 0) {
-                lastLineLength = currentPosition.character + 1 + lineContent.size();
-                memoryManipulator->setSelectionContent(lineContent);
-            } else {
-                lastLineLength = lineContent.size();
-                memoryManipulator->setLineContent(currentPosition.line + insertedLineCount, lineContent, true);
-            }
-            ++insertedLineCount;
-        }
-        memoryManipulator->setCaretPosition({lastLineLength, currentPosition.line + insertedLineCount - 1});
-        if (ConfigManager::GetInstance()->version().first == SiVersion::Major::V35) {
-            WindowManager::GetInstance()->sendLeftThenRight();
-        } else {
-            WindowManager::GetInstance()->sendEnd();
-        }
+        common::insertContent(content.substr(cacheIndex));
         shared_lock lock(_completionsMutex);
         WebsocketManager::GetInstance()->send(CompletionAcceptClientMessage(
             _completionsOpt.value().actionId,
@@ -329,6 +310,7 @@ void CompletionManager::wsCompletionGenerate(nlohmann::json&& data) {
             );
         }
 
+        const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
         const auto [height, xPosition,yPosition] = common::getCaretDimensions();
         WebsocketManager::GetInstance()->send(
             CompletionSelectClientMessage(completions.actionId, index, height, xPosition, yPosition)

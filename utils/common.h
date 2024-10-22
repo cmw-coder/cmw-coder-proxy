@@ -7,5 +7,7 @@ namespace utils::common {
 
     types::CaretDimension getCaretDimensions(bool waitTillAvailable = true);
 
+    void insertContent(const std::string& content);
+
     std::string uuid();
 }

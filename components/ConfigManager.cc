@@ -11,6 +11,8 @@
 
 #include <windows.h>
 
+#include "InteractionMonitor.h"
+
 using namespace components;
 using namespace magic_enum;
 using namespace models;
@@ -92,8 +94,11 @@ void ConfigManager::_threadRetrieveProjectDirectory() {
 void ConfigManager::_threadRetrieveSvnDirectory() {
     thread([this] {
         while (_isRunning) {
-            if (auto tempFile = MemoryManipulator::GetInstance()->getCurrentFilePath().lexically_normal();
-                !tempFile.empty()) {
+            filesystem::path tempFile; {
+                const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
+                tempFile = MemoryManipulator::GetInstance()->getCurrentFilePath().lexically_normal();
+            }
+            if (!tempFile.empty()) {
                 bool isChanged; {
                     shared_lock lock(_currentFilePathMutex);
                     isChanged = tempFile != _currentFilePath;

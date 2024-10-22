@@ -9,6 +9,7 @@
 #include <components/WindowManager.h>
 #include <components/WebsocketManager.h>
 #include <models/WsMessage.h>
+#include <utils/common.h>
 #include <utils/iconv.h>
 #include <utils/logger.h>
 #include <utils/system.h>
@@ -122,27 +123,7 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                             while (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
                                 this_thread::sleep_for(5ms);
                             }
-
-                            const auto memoryManipulator = MemoryManipulator::GetInstance();
-                            const auto currentPosition = memoryManipulator->getCaretPosition();
-
-                            uint32_t insertedlineCount{0}, lastLineLength{0};
-                            for (const auto lineRange: content | views::split("\n"sv)) {
-                                auto lineContent = string{lineRange.begin(), lineRange.end()};
-                                if (insertedlineCount == 0) {
-                                    lastLineLength = currentPosition.character + 1 + lineContent.size();
-                                    memoryManipulator->setSelectionContent(lineContent);
-                                } else {
-                                    lastLineLength = lineContent.size();
-                                    memoryManipulator->setLineContent(currentPosition.line + insertedlineCount,
-                                                                      lineContent, true);
-                                }
-                                ++insertedlineCount;
-                            }
-                            WindowManager::GetInstance()->sendLeftThenRight();
-                            memoryManipulator->setCaretPosition({
-                                lastLineLength, currentPosition.line + insertedlineCount - 1
-                            });
+                            common::insertContent(content);
                         }
                     }
                 }
