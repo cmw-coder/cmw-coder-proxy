@@ -2,16 +2,14 @@
 
 #include <magic_enum.hpp>
 
+#include <components/CompletionManager.h>
 #include <components/ConfigManager.h>
+#include <components/InteractionMonitor.h>
 #include <components/MemoryManipulator.h>
 #include <components/WebsocketManager.h>
 #include <models/WsMessage.h>
 #include <utils/logger.h>
 #include <utils/system.h>
-
-#include <windows.h>
-
-#include "InteractionMonitor.h"
 
 using namespace components;
 using namespace magic_enum;
@@ -20,9 +18,7 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
-ConfigManager::ConfigManager()
-    : _shortcutCommit({'K', {Modifier::Alt, Modifier::Ctrl}}),
-      _shortcutManualCompletion({VK_RETURN, {Modifier::Alt}}) {
+ConfigManager::ConfigManager() {
     if (const auto [major, minor, build, _] = system::getVersion(); major == 3 && minor == 5) {
         _siVersion = make_pair(
             SiVersion::Major::V35,
@@ -36,22 +32,14 @@ ConfigManager::ConfigManager()
         );
         _siVersionString = "_4.00." + format("{:0>{}}", build, 4);
     }
-    _threadRetrieveProjectDirectory();
-    _threadRetrieveSvnDirectory();
+    _threadMonitorCurrentProjectPath();
+    _threadMonitorCurrentFilePath();
 
     logger::info(format("Configurator is initialized with version: {}", _siVersionString));
 }
 
 ConfigManager::~ConfigManager() {
     _isRunning = false;
-}
-
-bool ConfigManager::checkCommit(const uint32_t key, const ModifierSet& modifiers) const {
-    return key == _shortcutCommit.first && modifiers == _shortcutCommit.second;
-}
-
-bool ConfigManager::checkManualCompletion(const uint32_t key, const ModifierSet& modifiers) const {
-    return key == _shortcutManualCompletion.first && modifiers == _shortcutManualCompletion.second;
 }
 
 SiVersion::Full ConfigManager::version() const {
@@ -62,36 +50,7 @@ string ConfigManager::reportVersion() const {
     return _siVersionString;
 }
 
-void ConfigManager::wsSettingSync(nlohmann::json&& data) {
-    if (const auto serverMessage = SettingSyncServerMessage(move(data));
-        serverMessage.result == "success") {
-        if (const auto shortcutManualCompletionOpt = serverMessage.shortcutManualCompletion();
-            shortcutManualCompletionOpt.has_value()) {
-            _shortcutManualCompletion = shortcutManualCompletionOpt.value();
-        }
-    }
-}
-
-void ConfigManager::_threadRetrieveProjectDirectory() {
-    thread([this] {
-        while (_isRunning) {
-            // TODO: Check if need InteractionMonitor::GetInstance()->getInteractionLock();
-            const auto currentProject = MemoryManipulator::GetInstance()->getProjectDirectory();
-            bool isSameProject; {
-                shared_lock lock(_currentProjectPathMutex);
-                isSameProject = currentProject == _currentProjectPath;
-            }
-            if (!isSameProject) {
-                WebsocketManager::GetInstance()->send(EditorSwitchProjectClientMessage(currentProject));
-                unique_lock lock(_currentProjectPathMutex);
-                _currentProjectPath = currentProject;
-            }
-            this_thread::sleep_for(1s);
-        }
-    }).detach();
-}
-
-void ConfigManager::_threadRetrieveSvnDirectory() {
+void ConfigManager::_threadMonitorCurrentFilePath() {
     thread([this] {
         while (_isRunning) {
             filesystem::path tempFile; {
@@ -110,6 +69,25 @@ void ConfigManager::_threadRetrieveSvnDirectory() {
                 }
             }
             this_thread::sleep_for(200ms);
+        }
+    }).detach();
+}
+
+void ConfigManager::_threadMonitorCurrentProjectPath() {
+    thread([this] {
+        while (_isRunning) {
+            // TODO: Check if need InteractionMonitor::GetInstance()->getInteractionLock();
+            const auto currentProject = MemoryManipulator::GetInstance()->getProjectDirectory();
+            bool isSameProject; {
+                shared_lock lock(_currentProjectPathMutex);
+                isSameProject = currentProject == _currentProjectPath;
+            }
+            if (!isSameProject) {
+                WebsocketManager::GetInstance()->send(EditorSwitchProjectClientMessage(currentProject));
+                unique_lock lock(_currentProjectPathMutex);
+                _currentProjectPath = currentProject;
+            }
+            this_thread::sleep_for(1s);
         }
     }).detach();
 }
