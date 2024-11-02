@@ -64,7 +64,8 @@ namespace {
     }
 }
 
-CompletionManager::CompletionManager() {
+CompletionManager::CompletionManager()
+    : _configDebounceDelay(100), _configPrefixLineCount(200), _configSuffixLineCount(80) {
     _threadCheckAcceptedCompletions();
     _threadCheckCurrentFilePath();
     _threadDebounceRetrieveCompletion();
@@ -275,6 +276,21 @@ void CompletionManager::interactionUndo(const any&, bool&) {
     }
 }
 
+void CompletionManager::updateCompletionConfig(const CompletionConfig& completionConfig) {
+    if (const auto debounceDelayOpt = completionConfig.debounceDelay;
+        debounceDelayOpt.has_value()) {
+        _configDebounceDelay.store(debounceDelayOpt.value());
+    }
+    if (const auto prefixLineCountOpt = completionConfig.prefixLineCount;
+        prefixLineCountOpt.has_value()) {
+        _configPrefixLineCount.store(prefixLineCountOpt.value());
+    }
+    if (const auto suffixLineCountOpt = completionConfig.suffixLineCount;
+        suffixLineCountOpt.has_value()) {
+        _configSuffixLineCount.store(suffixLineCountOpt.value());
+    }
+}
+
 void CompletionManager::wsCompletionGenerate(nlohmann::json&& data) {
     if (const auto serverMessage = CompletionGenerateServerMessage(move(data));
         serverMessage.result == "success") {
@@ -459,7 +475,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
     thread([this] {
         while (_isRunning) {
             if (const auto pastTime = chrono::high_resolution_clock::now() - _debounceRetrieveCompletionTime.load();
-                pastTime >= 25ms && _needRetrieveCompletion.load()) {
+                pastTime >= chrono::milliseconds(_configDebounceDelay.load()) && _needRetrieveCompletion.load()) {
                 WindowManager::GetInstance()->setMenuText("Generating...");
                 try {
                     // TODO: Improve performance
@@ -483,7 +499,11 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             suffix = iconv::autoDecode(currentLine.substr(caretPosition.character));
                         }
 
-                        for (uint32_t index = 1; index <= min(caretPosition.line, 200u); ++index) {
+                        for (
+                            uint32_t index = 1;
+                            index <= min(caretPosition.line, _configPrefixLineCount.load());
+                            ++index
+                        ) {
                             const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line - index
                             )).append("\n");
@@ -492,7 +512,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                                 prefixForSymbol = prefix;
                             }
                         }
-                        for (uint32_t index = 1; index < 80u; ++index) {
+                        for (uint32_t index = 1; index < _configSuffixLineCount.load(); ++index) {
                             const auto tempLine = iconv::autoDecode(
                                 memoryManipulator->getLineContent(currentFileHandle, caretPosition.line + index)
                             );

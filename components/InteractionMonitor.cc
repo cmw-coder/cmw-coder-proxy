@@ -3,7 +3,6 @@
 
 #include <magic_enum.hpp>
 
-#include <components/ConfigManager.h>
 #include <components/InteractionMonitor.h>
 #include <components/MemoryManipulator.h>
 #include <components/WebsocketManager.h>
@@ -91,7 +90,9 @@ namespace {
 }
 
 InteractionMonitor::InteractionMonitor()
-    : _cbtHookHandle(
+    : _configCommit({'K', {Modifier::Alt, Modifier::Ctrl}}),
+      _configManualCompletion({VK_RETURN, {Modifier::Alt}}),
+      _cbtHookHandle(
           SetWindowsHookEx(
               WH_CBT,
               _cbtProcedureHook,
@@ -150,6 +151,15 @@ InteractionMonitor::~InteractionMonitor() {
 
 unique_lock<shared_mutex> InteractionMonitor::getInteractionLock() const {
     return unique_lock(_interactionMutex);
+}
+
+void InteractionMonitor::updateShortcutConfig(const ShortcutConfig& shortcutConfig) {
+    if (shortcutConfig.commit.has_value()) {
+        _configCommit.store(shortcutConfig.commit.value());
+    }
+    if (shortcutConfig.manualCompletion.has_value()) {
+        _configManualCompletion.store(shortcutConfig.manualCompletion.value());
+    }
 }
 
 long InteractionMonitor::_cbtProcedureHook(const int nCode, const unsigned int wParam, const long lParam) {
@@ -288,7 +298,6 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
     }
 
     bool needBlockMessage{false};
-    const auto configManager = ConfigManager::GetInstance();
     const auto modifiers = window::getModifierKeys(virtualKeyCode);
     if ((modifiers.empty() || (modifiers.size() == 1 && modifiers.contains(Modifier::Shift))) &&
         ((0x30 <= virtualKeyCode && virtualKeyCode <= 0x39) ||
@@ -301,7 +310,8 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
         return false;
     }
 
-    if (configManager->checkCommit(virtualKeyCode, modifiers)) {
+    if (const auto [shortcutKey, shortcutModifiers] = _configCommit.load();
+        virtualKeyCode == shortcutKey && modifiers == shortcutModifiers) {
         // TODO: Switch lock context
         WebsocketManager::GetInstance()->send(EditorCommitClientMessage(
             MemoryManipulator::GetInstance()->getCurrentFilePath()
@@ -309,7 +319,8 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
         _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
         return true;
     }
-    if (configManager->checkManualCompletion(virtualKeyCode, modifiers)) {
+    if (const auto [shortcutKey, shortcutModifiers] = _configManualCompletion.load();
+        virtualKeyCode == shortcutKey && modifiers == shortcutModifiers) {
         ignore = _handleInteraction(Interaction::EnterInput);
         _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
         return true;

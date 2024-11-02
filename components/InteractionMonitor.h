@@ -7,6 +7,7 @@
 
 #include <singleton_dclp.hpp>
 
+#include <models/configs.h>
 #include <types/common.h>
 #include <types/CaretPosition.h>
 #include <types/Interaction.h>
@@ -32,13 +33,16 @@ namespace components {
             _handlerMap[interaction].push_back(std::bind_front(memberFunction, other));
         }
 
+        void updateShortcutConfig(const models::ShortcutConfig& shortcutConfig);
+
     private:
         mutable std::shared_mutex _interactionMutex;
         std::atomic<bool> _isRunning{true}, _isSelecting{false}, _needReleaseInteractionLock{false};
-        std::atomic<types::CaretPosition> _currentCaretPosition, _downCursorPosition;
-        std::atomic<uint32_t> _navigateKeycode{0};
         std::atomic<std::optional<types::Mouse>> _navigateWithMouse;
+        std::atomic<types::CaretPosition> _currentCaretPosition, _downCursorPosition;
+        std::atomic<types::KeyCombination> _configCommit, _configManualCompletion;
         std::atomic<types::Time> _releaseInteractionLockTime;
+        std::atomic<uint32_t> _navigateKeycode{0};
         std::shared_ptr<void> _cbtHookHandle, _keyHookHandle, _mouseHookHandle, _processHandle, _windowHookHandle;
         std::unordered_map<types::Interaction, std::vector<InteractionCallBack>> _handlerMap;
 
