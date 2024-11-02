@@ -314,10 +314,14 @@ Selection ReviewRequestServerMessage::selection() const {
 }
 
 SettingSyncServerMessage::SettingSyncServerMessage(nlohmann::json&& data)
-    : WsMessage(WsAction::SettingSync, move(data)),
-      result(_data["result"].get<string>()) {
+    : WsMessage(WsAction::SettingSync, move(data)), result(_data["result"].get<string>()) {
     if (result == "success") {
-        _shortcuts.emplace(_data["shortcuts"]);
+        if (_data.contains("shortcutConfig")) {
+            _shortcutConfig.emplace(ShortcutConfig(_data["shortcutConfig"]));
+        }
+        if (_data.contains("completionConfig")) {
+            _completionConfig.emplace(CompletionConfig(_data["completionConfig"]));
+        }
     } else if (_data.contains("message")) {
         _message = _data["message"].get<string>();
     }
@@ -327,16 +331,10 @@ string SettingSyncServerMessage::message() const {
     return _message;
 }
 
-optional<KeyCombination> SettingSyncServerMessage::shortcutManualCompletion() const {
-    if (_shortcuts.has_value()) {
-        if (const auto shortcutConfig = _shortcuts.value()["manualCompletion"];
-            shortcutConfig.contains("key") && shortcutConfig.contains("modifiers")) {
-            // return KeyHelper::KeyCombination{
-            //     shortcutConfig["key"].get<int>(),
-            //     shortcutConfig["modifiers"].get<int>()
-            // };
-            // TODO: Implement logic
-        }
-    }
-    return nullopt;
+optional<CompletionConfig> SettingSyncServerMessage::completionConfig() const {
+    return _completionConfig;
+}
+
+optional<ShortcutConfig> SettingSyncServerMessage::shortcutConfig() const {
+    return _shortcutConfig;
 }
