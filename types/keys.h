@@ -5,9 +5,9 @@
 
 namespace types {
     enum class Modifier {
-        Shift,
-        Ctrl,
         Alt,
+        Ctrl,
+        Shift,
     };
 
     using ModifierSet = std::unordered_set<Modifier>;

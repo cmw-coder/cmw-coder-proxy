@@ -316,11 +316,11 @@ Selection ReviewRequestServerMessage::selection() const {
 SettingSyncServerMessage::SettingSyncServerMessage(nlohmann::json&& data)
     : WsMessage(WsAction::SettingSync, move(data)), result(_data["result"].get<string>()) {
     if (result == "success") {
-        if (_data.contains("shortcutConfig")) {
-            _shortcutConfig.emplace(ShortcutConfig(_data["shortcutConfig"]));
-        }
         if (_data.contains("completionConfig")) {
             _completionConfig.emplace(CompletionConfig(_data["completionConfig"]));
+        }
+        if (_data.contains("shortcutConfig")) {
+            _shortcutConfig.emplace(ShortcutConfig(_data["shortcutConfig"]));
         }
     } else if (_data.contains("message")) {
         _message = _data["message"].get<string>();

@@ -280,14 +280,17 @@ void CompletionManager::updateCompletionConfig(const CompletionConfig& completio
     if (const auto debounceDelayOpt = completionConfig.debounceDelay;
         debounceDelayOpt.has_value()) {
         _configDebounceDelay.store(debounceDelayOpt.value());
+        logger::log(format("Update debounce delay: {}ms", debounceDelayOpt.value()));
     }
     if (const auto prefixLineCountOpt = completionConfig.prefixLineCount;
         prefixLineCountOpt.has_value()) {
         _configPrefixLineCount.store(prefixLineCountOpt.value());
+        logger::log(format("Update prefix line count: {}", prefixLineCountOpt.value()));
     }
     if (const auto suffixLineCountOpt = completionConfig.suffixLineCount;
         suffixLineCountOpt.has_value()) {
         _configSuffixLineCount.store(suffixLineCountOpt.value());
+        logger::log(format("Update suffix line count: {}", suffixLineCountOpt.value()));
     }
 }
 

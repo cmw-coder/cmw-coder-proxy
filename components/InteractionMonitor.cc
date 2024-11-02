@@ -156,9 +156,11 @@ unique_lock<shared_mutex> InteractionMonitor::getInteractionLock() const {
 void InteractionMonitor::updateShortcutConfig(const ShortcutConfig& shortcutConfig) {
     if (shortcutConfig.commit.has_value()) {
         _configCommit.store(shortcutConfig.commit.value());
+        logger::log("Update commit shortcut");
     }
     if (shortcutConfig.manualCompletion.has_value()) {
         _configManualCompletion.store(shortcutConfig.manualCompletion.value());
+        logger::log("Update manual completion shortcut");
     }
 }
 
