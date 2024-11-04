@@ -170,6 +170,7 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                         if (const auto completionConfigOpt = serverMessage.completionConfig();
                             completionConfigOpt.has_value()) {
                             CompletionManager::GetInstance()->updateCompletionConfig(completionConfigOpt.value());
+                            InteractionMonitor::GetInstance()->updateCompletionConfig(completionConfigOpt.value());
                         }
                         if (const auto shortcutConfigOpt = serverMessage.shortcutConfig();
                             shortcutConfigOpt.has_value()) {
