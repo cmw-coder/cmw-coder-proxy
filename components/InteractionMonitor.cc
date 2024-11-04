@@ -90,7 +90,8 @@ namespace {
 }
 
 InteractionMonitor::InteractionMonitor()
-    : _cbtHookHandle(
+    : _interactionUnlockDelay(150),
+      _cbtHookHandle(
           SetWindowsHookEx(
               WH_CBT,
               _cbtProcedureHook,
@@ -151,6 +152,13 @@ InteractionMonitor::~InteractionMonitor() {
 
 unique_lock<shared_mutex> InteractionMonitor::getInteractionLock() const {
     return unique_lock(_interactionMutex);
+}
+
+void InteractionMonitor::updateCompletionConfig(const CompletionConfig& completionConfig) {
+    if (completionConfig.interactionUnlockDelay.has_value()) {
+        _interactionUnlockDelay.store(completionConfig.interactionUnlockDelay.value());
+        logger::log("Update interaction unlock delay");
+    }
 }
 
 void InteractionMonitor::updateShortcutConfig(const ShortcutConfig& shortcutConfig) {
@@ -276,10 +284,10 @@ void InteractionMonitor::_handleMouseButtonUp() {
 }
 
 void InteractionMonitor::_interactionLockShared() {
-    if (!_needReleaseInteractionLock.load()) {
+    if (!_needUnlockInteraction.load()) {
         _interactionMutex.lock_shared();
-        _needReleaseInteractionLock = true;
-        _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
+        _needUnlockInteraction = true;
+        _interactionUnlockTime.store(chrono::high_resolution_clock::now());
     }
 }
 
@@ -310,7 +318,7 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
          (0xBA <= virtualKeyCode && virtualKeyCode <= 0xC0) ||
          (0xDB <= virtualKeyCode && virtualKeyCode <= 0xF5))) {
         ignore = _handleInteraction(Interaction::NormalInput, getNormalInputKey(virtualKeyCode, modifiers));
-        _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
+        _interactionUnlockTime.store(chrono::high_resolution_clock::now());
         return false;
     }
 
@@ -328,13 +336,13 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
         WebsocketManager::GetInstance()->send(EditorCommitClientMessage(
             MemoryManipulator::GetInstance()->getCurrentFilePath()
         ));
-        _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
+        _interactionUnlockTime.store(chrono::high_resolution_clock::now());
         return true;
     }
     if (const auto [shortcutKey, shortcutModifiers] = configManualCompletion;
         virtualKeyCode == shortcutKey && modifiers == shortcutModifiers) {
         ignore = _handleInteraction(Interaction::EnterInput);
-        _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
+        _interactionUnlockTime.store(chrono::high_resolution_clock::now());
         return true;
     }
 
@@ -356,7 +364,7 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
                 break;
             }
         }
-        _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
+        _interactionUnlockTime.store(chrono::high_resolution_clock::now());
         return false;
     }
 
@@ -404,7 +412,7 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
         }
     }
 
-    _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
+    _interactionUnlockTime.store(chrono::high_resolution_clock::now());
     return needBlockMessage;
 }
 
@@ -419,7 +427,7 @@ void InteractionMonitor::_processMouseMessage(const unsigned wParam) {
 
             _navigateWithMouse.store(Mouse::Left);
 
-            _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
+            _interactionUnlockTime.store(chrono::high_resolution_clock::now());
             break;
         }
         case WM_LBUTTONUP: {
@@ -427,7 +435,7 @@ void InteractionMonitor::_processMouseMessage(const unsigned wParam) {
 
             _handleMouseButtonUp();
 
-            _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
+            _interactionUnlockTime.store(chrono::high_resolution_clock::now());
             break;
         }
         default: {
@@ -448,7 +456,7 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                 _isSelecting.store(false);
                 WebsocketManager::GetInstance()->send(EditorSelectionClientMessage({}));
 
-                _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
+                _interactionUnlockTime.store(chrono::high_resolution_clock::now());
                 break;
             }
             case WM_SETFOCUS: {
@@ -456,7 +464,7 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                     WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(true));
                 }
 
-                _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
+                _interactionUnlockTime.store(chrono::high_resolution_clock::now());
                 break;
             }
             default: {
@@ -498,10 +506,10 @@ void InteractionMonitor::_threadMonitorCaretPosition() {
 void InteractionMonitor::_threadReleaseInteractionLock() {
     thread([this] {
         while (_isRunning.load()) {
-            if (_needReleaseInteractionLock.load()) {
-                if (const auto releaseInteractionLockTime = _releaseInteractionLockTime.load();
-                    chrono::high_resolution_clock::now() - releaseInteractionLockTime > 200ms) {
-                    _needReleaseInteractionLock.store(false);
+            if (_needUnlockInteraction.load()) {
+                if (chrono::high_resolution_clock::now() - _interactionUnlockTime.load() >
+                    chrono::milliseconds(_interactionUnlockDelay)) {
+                    _needUnlockInteraction.store(false);
                     _interactionMutex.unlock_shared();
                 }
             }

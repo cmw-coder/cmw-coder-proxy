@@ -33,15 +33,17 @@ namespace components {
             _handlerMap[interaction].push_back(std::bind_front(memberFunction, other));
         }
 
+        void updateCompletionConfig(const models::CompletionConfig& completionConfig);
+
         void updateShortcutConfig(const models::ShortcutConfig& shortcutConfig);
 
     private:
         mutable std::shared_mutex _configCommitMutex, _configManualCompletionMutex, _interactionMutex;
-        std::atomic<bool> _isRunning{true}, _isSelecting{false}, _needReleaseInteractionLock{false};
+        std::atomic<bool> _isRunning{true}, _isSelecting{false}, _needUnlockInteraction{false};
         std::atomic<std::optional<types::Mouse>> _navigateWithMouse;
         std::atomic<types::CaretPosition> _currentCaretPosition, _downCursorPosition;
-        std::atomic<types::Time> _releaseInteractionLockTime;
-        std::atomic<uint32_t> _navigateKeycode{0};
+        std::atomic<types::Time> _interactionUnlockTime;
+        std::atomic<uint32_t> _navigateKeycode{0}, _interactionUnlockDelay;
         std::shared_ptr<void> _cbtHookHandle, _keyHookHandle, _mouseHookHandle, _processHandle, _windowHookHandle;
         std::unordered_map<types::Interaction, std::vector<InteractionCallBack>> _handlerMap;
         types::KeyCombination _configCommit, _configManualCompletion;
