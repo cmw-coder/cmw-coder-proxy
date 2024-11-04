@@ -24,15 +24,15 @@ CompletionConfig::CompletionConfig(const nlohmann::json& data)
     : debounceDelay(
           data.contains("debounceDelay") ? optional(data["debounceDelay"].get<uint32_t>()) : nullopt
       ),
+      interactionUnlockDelay(
+          data.contains("interactionUnlockDelay") ? optional(data["interactionUnlockDelay"].get<uint32_t>()) : nullopt
+      ),
       prefixLineCount(
           data.contains("prefixLineCount") ? optional(data["prefixLineCount"].get<uint32_t>()) : nullopt
       ),
       suffixLineCount(
           data.contains("suffixLineCount") ? optional(data["suffixLineCount"].get<uint32_t>()) : nullopt
       ) {}
-
-CompletionConfig::CompletionConfig(uint32_t debounceDelay, uint32_t prefixLineCount, uint32_t suffixLineCount)
-    : debounceDelay(debounceDelay), prefixLineCount(prefixLineCount), suffixLineCount(suffixLineCount) {}
 
 ShortcutConfig::ShortcutConfig(const nlohmann::json& data)
     : commit(
@@ -41,6 +41,3 @@ ShortcutConfig::ShortcutConfig(const nlohmann::json& data)
       manualCompletion(
           data.contains("manualCompletion") ? optional(parseShortcutConfig(data["manualCompletion"])) : nullopt
       ) {}
-
-ShortcutConfig::ShortcutConfig(const KeyCombination& commit, const KeyCombination& manualCompletion)
-    : commit(commit), manualCompletion(manualCompletion) {}
