@@ -155,22 +155,25 @@ unique_lock<shared_mutex> InteractionMonitor::getInteractionLock() const {
 }
 
 void InteractionMonitor::updateCompletionConfig(const CompletionConfig& completionConfig) {
-    if (completionConfig.interactionUnlockDelay.has_value()) {
-        _interactionUnlockDelay.store(completionConfig.interactionUnlockDelay.value());
-        logger::log("Update interaction unlock delay");
+    if (const auto interactionUnlockDelayOpt = completionConfig.interactionUnlockDelay;
+        interactionUnlockDelayOpt.has_value()) {
+        logger::info(format("Update interaction unlock delay: {}ms", interactionUnlockDelayOpt.value()));
+        _interactionUnlockDelay.store(interactionUnlockDelayOpt.value());
     }
 }
 
 void InteractionMonitor::updateShortcutConfig(const ShortcutConfig& shortcutConfig) {
-    if (shortcutConfig.commit.has_value()) {
+    if (const auto configOpt = shortcutConfig.commit;
+        configOpt.has_value()) {
+        logger::info(format("Update commit shortcut: {}", stringifyKeyCombination(configOpt.value())));
         unique_lock lock(_configCommitMutex);
-        _configCommit = shortcutConfig.commit.value();
-        logger::log("Update commit shortcut");
+        _configCommit = configOpt.value();
     }
-    if (shortcutConfig.manualCompletion.has_value()) {
+    if (const auto configOpt = shortcutConfig.manualCompletion;
+        configOpt.has_value()) {
+        logger::info(format("Update manual-completion shortcut: {}", stringifyKeyCombination(configOpt.value())));
         unique_lock lock(_configManualCompletionMutex);
-        _configManualCompletion = shortcutConfig.manualCompletion.value();
-        logger::log("Update manual completion shortcut");
+        _configManualCompletion = configOpt.value();
     }
 }
 
