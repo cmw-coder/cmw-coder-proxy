@@ -90,9 +90,7 @@ namespace {
 }
 
 InteractionMonitor::InteractionMonitor()
-    : _configCommit({'K', {Modifier::Alt, Modifier::Ctrl}}),
-      _configManualCompletion({VK_RETURN, {Modifier::Alt}}),
-      _cbtHookHandle(
+    : _cbtHookHandle(
           SetWindowsHookEx(
               WH_CBT,
               _cbtProcedureHook,
@@ -128,7 +126,9 @@ InteractionMonitor::InteractionMonitor()
               mainThreadId
           ),
           UnhookWindowsHookEx
-      ) {
+      ),
+      _configCommit({'K', {Modifier::Alt, Modifier::Ctrl}}),
+      _configManualCompletion({VK_RETURN, {Modifier::Alt}}) {
     if (!_processHandle) {
         logger::error("Failed to get Source Insight's process handle");
         abort();
@@ -155,11 +155,13 @@ unique_lock<shared_mutex> InteractionMonitor::getInteractionLock() const {
 
 void InteractionMonitor::updateShortcutConfig(const ShortcutConfig& shortcutConfig) {
     if (shortcutConfig.commit.has_value()) {
-        _configCommit.store(shortcutConfig.commit.value());
+        unique_lock lock(_configCommitMutex);
+        _configCommit = shortcutConfig.commit.value();
         logger::log("Update commit shortcut");
     }
     if (shortcutConfig.manualCompletion.has_value()) {
-        _configManualCompletion.store(shortcutConfig.manualCompletion.value());
+        unique_lock lock(_configManualCompletionMutex);
+        _configManualCompletion = shortcutConfig.manualCompletion.value();
         logger::log("Update manual completion shortcut");
     }
 }
@@ -312,7 +314,15 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
         return false;
     }
 
-    if (const auto [shortcutKey, shortcutModifiers] = _configCommit.load();
+    KeyCombination configCommit, configManualCompletion; {
+        shared_lock lock(_configCommitMutex);
+        configCommit = _configCommit;
+    } {
+        shared_lock lock(_configManualCompletionMutex);
+        configManualCompletion = _configManualCompletion;
+    }
+
+    if (const auto [shortcutKey, shortcutModifiers] = configCommit;
         virtualKeyCode == shortcutKey && modifiers == shortcutModifiers) {
         // TODO: Switch lock context
         WebsocketManager::GetInstance()->send(EditorCommitClientMessage(
@@ -321,7 +331,7 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
         _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
         return true;
     }
-    if (const auto [shortcutKey, shortcutModifiers] = _configManualCompletion.load();
+    if (const auto [shortcutKey, shortcutModifiers] = configManualCompletion;
         virtualKeyCode == shortcutKey && modifiers == shortcutModifiers) {
         ignore = _handleInteraction(Interaction::EnterInput);
         _releaseInteractionLockTime.store(chrono::high_resolution_clock::now());
