@@ -18,6 +18,8 @@ namespace types {
 
         void addLine(uint32_t line);
 
+        void addLines(const std::vector<uint32_t> &lines);
+
         void removeLine(uint32_t line);
 
         [[nodiscard]] models::CompletionEditClientMessage parse() const;

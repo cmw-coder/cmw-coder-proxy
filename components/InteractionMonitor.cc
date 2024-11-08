@@ -232,10 +232,12 @@ void InteractionMonitor::_handleMouseButtonUp() {
     const auto currentFileHandle = memoryManipulator->getHandle(
         MemoryAddress::HandleType::File
     );
-    if (const auto selectionOpt = memoryManipulator->getSelection();
-        currentFileHandle && selectionOpt.has_value() &&
-        selectionOpt.value().end.line - selectionOpt.value().begin.line > 2) {
-        const auto selection = selectionOpt.value();
+    const auto selection = memoryManipulator->getSelection(); {
+        unique_lock lock(_selectionMutex);
+        _selection = selection;
+    }
+    if (currentFileHandle && !selection.isEmpty() &&
+        selection.end.line - selection.begin.line > 2) {
         if (const auto [height, xPosition, yPosition] = common::getCaretDimensions(false);
             height) {
             string selectionBlock, selectionContent;

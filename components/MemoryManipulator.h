@@ -39,7 +39,7 @@ namespace components {
 
         [[nodiscard]] std::filesystem::path getProjectDirectory() const;
 
-        [[nodiscard]] std::optional<types::Selection> getSelection() const;
+        [[nodiscard]] types::Selection getSelection() const;
 
         [[nodiscard]] std::optional<models::SymbolName> getSymbolName() const;
 

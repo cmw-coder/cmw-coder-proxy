@@ -253,7 +253,7 @@ filesystem::path MemoryManipulator::getProjectDirectory() const {
     return is_directory(filePath) ? filePath : filePath.parent_path();
 }
 
-optional<Selection> MemoryManipulator::getSelection() const {
+Selection MemoryManipulator::getSelection() const {
     const auto [isSelecting, lineStart, characterStart, lineEnd, characterEnd] = _memoryAddress.window.dataSelection;
     bool isSelection;
     memory::read(memory::offset(isSelecting.base), isSelection);
@@ -263,9 +263,9 @@ optional<Selection> MemoryManipulator::getSelection() const {
         memory::read(memory::offset(characterStart.base), start.character);
         memory::read(memory::offset(lineEnd.base), end.line);
         memory::read(memory::offset(characterEnd.base), end.character);
-        return Selection(start, end);
+        return {start, end};
     }
-    return nullopt;
+    return {};
 }
 
 optional<SymbolName> MemoryManipulator::getSymbolName() const {

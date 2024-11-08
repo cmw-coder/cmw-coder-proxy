@@ -12,6 +12,7 @@
 #include <types/CaretPosition.h>
 #include <types/Interaction.h>
 #include <types/Mouse.h>
+#include <types/Selection.h>
 
 namespace components {
     class InteractionMonitor : public SingletonDclp<InteractionMonitor> {
@@ -38,7 +39,8 @@ namespace components {
         void updateShortcutConfig(const models::ShortcutConfig& shortcutConfig);
 
     private:
-        mutable std::shared_mutex _configCommitMutex, _configManualCompletionMutex, _interactionMutex;
+        mutable std::shared_mutex _configCommitMutex, _configManualCompletionMutex, _interactionMutex, _selectionMutex;
+        types::Selection _selection;
         std::atomic<bool> _isRunning{true}, _isSelecting{false}, _needUnlockInteraction{false};
         std::atomic<std::optional<types::Mouse>> _navigateWithMouse;
         std::atomic<types::CaretPosition> _currentCaretPosition, _downCursorPosition;

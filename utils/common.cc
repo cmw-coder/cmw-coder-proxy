@@ -15,6 +15,10 @@ bool common::checkHighestBit(const uint16_t value) noexcept {
     return value & 0b1000'0000'0000'0000;
 }
 
+uint32_t common::countLines(const std::string& content) {
+    return content.empty() ? 0 : ranges::count(content, '\n') + 1;
+}
+
 CaretDimension common::getCaretDimensions(const bool waitTillAvailable) {
     const auto [clientX, clientY] = WindowManager::GetInstance()->getClientPosition();
 

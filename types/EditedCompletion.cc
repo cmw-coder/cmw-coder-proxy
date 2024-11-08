@@ -44,6 +44,12 @@ void EditedCompletion::addLine(const uint32_t line) {
     }
 }
 
+void EditedCompletion::addLines(const std::vector<uint32_t>& lines) {
+    for (const auto line: lines) {
+        addLine(line);
+    }
+}
+
 void EditedCompletion::removeLine(const uint32_t line) {
     for (auto& reference: _references) {
         if (line <= reference) {
