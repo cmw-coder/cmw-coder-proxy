@@ -250,15 +250,15 @@ void CompletionManager::interactionPaste(const any&, bool&) {
 
     if (const auto clipboardTextOpt = system::getClipboardText();
         clipboardTextOpt.has_value()) {
-        const auto memoryManipulator = MemoryManipulator::GetInstance();
-        const auto currentLine = memoryManipulator->getCaretPosition().line; {
+        const auto& clipboardText = clipboardTextOpt.value();
+        const auto memoryManipulator = MemoryManipulator::GetInstance(); {
             unique_lock lock(_editedCompletionMapMutex);
             for (auto& editedCompletion: _editedCompletionMap | views::values) {
-                editedCompletion.addLine(currentLine);
+                editedCompletion.addLine(memoryManipulator->getCaretPosition().line, common::countLines(clipboardText));
             }
         }
         WebsocketManager::GetInstance()->send(EditorPasteClientMessage(
-            clipboardTextOpt.value(),
+            clipboardText,
             memoryManipulator->getCaretPosition(),
             _getRecentFiles()
         ));
