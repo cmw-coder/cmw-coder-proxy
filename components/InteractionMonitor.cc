@@ -232,10 +232,8 @@ void InteractionMonitor::_handleMouseButtonUp() {
     const auto currentFileHandle = memoryManipulator->getHandle(
         MemoryAddress::HandleType::File
     );
-    const auto selection = memoryManipulator->getSelection(); {
-        unique_lock lock(_selectionMutex);
-        _selection = selection;
-    }
+    const auto selection = memoryManipulator->getSelection();
+    _selectionLineCount.store(selection.isEmpty() ? 0 : selection.end.line - selection.begin.line + 1);
     if (currentFileHandle && !selection.isEmpty() &&
         selection.end.line - selection.begin.line > 2) {
         if (const auto [height, xPosition, yPosition] = common::getCaretDimensions(false);
@@ -288,6 +286,13 @@ void InteractionMonitor::_handleMouseButtonUp() {
     }
 }
 
+void InteractionMonitor::_handleSelectionReplace(const int32_t offsetLineCount) {
+    if (const auto selectionLineCount = _selectionLineCount.load()) {
+        _selectionLineCount.store(0);
+        ignore = _handleInteraction(Interaction::SelectionReplace, selectionLineCount + offsetLineCount);
+    }
+}
+
 void InteractionMonitor::_interactionLockShared() {
     if (!_needUnlockInteraction.load()) {
         _interactionMutex.lock_shared();
@@ -322,6 +327,7 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
          (0x60 <= virtualKeyCode && virtualKeyCode <= 0x6F) ||
          (0xBA <= virtualKeyCode && virtualKeyCode <= 0xC0) ||
          (0xDB <= virtualKeyCode && virtualKeyCode <= 0xF5))) {
+        _handleSelectionReplace();
         ignore = _handleInteraction(Interaction::NormalInput, getNormalInputKey(virtualKeyCode, modifiers));
         _interactionUnlockTime.store(chrono::high_resolution_clock::now());
         return false;
@@ -358,6 +364,7 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
                 break;
             }
             case 'V': {
+                _handleSelectionReplace();
                 ignore = _handleInteraction(Interaction::Paste);
                 break;
             }
@@ -375,6 +382,7 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
 
     switch (virtualKeyCode) {
         case VK_BACK: {
+            _handleSelectionReplace();
             ignore = _handleInteraction(Interaction::DeleteInput);
             break;
         }
@@ -386,6 +394,7 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
             if (WindowManager::GetInstance()->hasPopListWindow()) {
                 ignore = _handleInteraction(Interaction::CompletionCancel, false);
             } else {
+                _handleSelectionReplace(1);
                 ignore = _handleInteraction(Interaction::EnterInput);
             }
             break;
@@ -409,6 +418,7 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
             break;
         }
         case VK_DELETE: {
+            _handleSelectionReplace();
             ignore = _handleInteraction(Interaction::CompletionCancel, true);
             break;
         }

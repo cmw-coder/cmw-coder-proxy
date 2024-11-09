@@ -39,13 +39,12 @@ namespace components {
         void updateShortcutConfig(const models::ShortcutConfig& shortcutConfig);
 
     private:
-        mutable std::shared_mutex _configCommitMutex, _configManualCompletionMutex, _interactionMutex, _selectionMutex;
-        types::Selection _selection;
+        mutable std::shared_mutex _configCommitMutex, _configManualCompletionMutex, _interactionMutex;
         std::atomic<bool> _isRunning{true}, _isSelecting{false}, _needUnlockInteraction{false};
         std::atomic<std::optional<types::Mouse>> _navigateWithMouse;
         std::atomic<types::CaretPosition> _currentCaretPosition, _downCursorPosition;
         std::atomic<types::Time> _interactionUnlockTime;
-        std::atomic<uint32_t> _navigateKeycode{0}, _interactionUnlockDelay;
+        std::atomic<uint32_t> _navigateKeycode{0}, _interactionUnlockDelay, _selectionLineCount;
         std::shared_ptr<void> _cbtHookHandle, _keyHookHandle, _mouseHookHandle, _processHandle, _windowHookHandle;
         std::unordered_map<types::Interaction, std::vector<InteractionCallBack>> _handlerMap;
         types::KeyCombination _configCommit, _configManualCompletion;
@@ -61,6 +60,8 @@ namespace components {
         bool _handleInteraction(types::Interaction interaction, const std::any& data = {}) const noexcept;
 
         void _handleMouseButtonUp();
+
+        void _handleSelectionReplace(int32_t offsetLineCount = 0);
 
         void _interactionLockShared();
 
