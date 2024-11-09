@@ -16,11 +16,9 @@ namespace types {
 
         [[nodiscard]] bool canReport() const;
 
-        void addLine(uint32_t line);
+        void addLine(uint32_t startLine, uint32_t count = 1);
 
-        void addLines(const std::vector<uint32_t> &lines);
-
-        void removeLine(uint32_t line);
+        void removeLine(uint32_t startLine, uint32_t count = 1);
 
         [[nodiscard]] models::CompletionEditClientMessage parse() const;
 

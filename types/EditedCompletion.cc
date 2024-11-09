@@ -36,24 +36,18 @@ bool EditedCompletion::canReport() const {
                : false;
 }
 
-void EditedCompletion::addLine(const uint32_t line) {
+void EditedCompletion::addLine(const uint32_t startLine, const uint32_t count) {
     for (auto& reference: _references) {
-        if (line < reference) {
-            ++reference;
+        if (startLine <= reference) {
+            reference += count;
         }
     }
 }
 
-void EditedCompletion::addLines(const std::vector<uint32_t>& lines) {
-    for (const auto line: lines) {
-        addLine(line);
-    }
-}
-
-void EditedCompletion::removeLine(const uint32_t line) {
+void EditedCompletion::removeLine(const uint32_t startLine, const uint32_t count) {
     for (auto& reference: _references) {
-        if (line <= reference) {
-            --reference;
+        if (startLine <= reference) {
+            reference -= count;
         }
     }
 }
