@@ -82,9 +82,12 @@ CompletionEditClientMessage EditedCompletion::parse() const {
     } else {
         // TODO: Use file read method
         logger::info(format(
-            "Window handle {:#x} is invalid, skip calculate kept line count ", _windowHandle
+            "Window handle {:#x} is invalid, skip parsing EditedCompletion.", _windowHandle
         ));
     }
+    logger::info(format(
+        "EditedCompletion count: {}, currentContent:\n{}", count, currentContent
+    ));
     return CompletionEditClientMessage(
         actionId,
         count,

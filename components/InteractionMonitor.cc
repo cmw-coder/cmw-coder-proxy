@@ -233,7 +233,7 @@ void InteractionMonitor::_handleMouseButtonUp() {
         MemoryAddress::HandleType::File
     );
     const auto selection = memoryManipulator->getSelection();
-    _selectionLineCount.store(selection.isEmpty() ? 0 : selection.end.line - selection.begin.line + 1);
+    _selectionLineCount.store(selection.end.line - selection.begin.line);
     if (currentFileHandle && !selection.isEmpty() &&
         selection.end.line - selection.begin.line > 2) {
         if (const auto [height, xPosition, yPosition] = common::getCaretDimensions(false);

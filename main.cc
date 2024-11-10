@@ -107,6 +107,11 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 &CompletionManager::interactionSave
             );
             InteractionMonitor::GetInstance()->registerInteraction(
+                Interaction::SelectionReplace,
+                CompletionManager::GetInstance(),
+                &CompletionManager::interactionSelectionReplace
+            );
+            InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::Undo,
                 CompletionManager::GetInstance(),
                 &CompletionManager::interactionUndo

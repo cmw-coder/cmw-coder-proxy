@@ -272,6 +272,25 @@ void CompletionManager::interactionSave(const any&, bool&) {
     }
 }
 
+void CompletionManager::interactionSelectionReplace(const std::any& data, bool&) {
+    try {
+        if (const auto selectionLineCount = any_cast<int32_t>(data);
+            selectionLineCount > 0) {
+            unique_lock lock(_editedCompletionMapMutex);
+            for (auto& editedCompletion: _editedCompletionMap | views::values) {
+                editedCompletion.removeLine(selectionLineCount);
+            }
+        } else if (selectionLineCount < 0) {
+            unique_lock lock(_editedCompletionMapMutex);
+            for (auto& editedCompletion: _editedCompletionMap | views::values) {
+                editedCompletion.addLine(selectionLineCount);
+            }
+        }
+    } catch (const bad_any_cast& e) {
+        logger::log(format("Invalid interactionSelectionReplace data: {}", e.what()));
+    }
+}
+
 void CompletionManager::interactionUndo(const any&, bool&) {
     if (_hasValidCache()) {
         _cancelCompletion();

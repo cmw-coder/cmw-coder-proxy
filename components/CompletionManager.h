@@ -45,6 +45,8 @@ namespace components {
 
         void interactionSave(const std::any&, bool&);
 
+        void interactionSelectionReplace(const std::any& data, bool&);
+
         void interactionUndo(const std::any&, bool&);
 
         void updateCompletionConfig(const models::CompletionConfig& completionConfig);

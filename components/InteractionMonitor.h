@@ -12,7 +12,6 @@
 #include <types/CaretPosition.h>
 #include <types/Interaction.h>
 #include <types/Mouse.h>
-#include <types/Selection.h>
 
 namespace components {
     class InteractionMonitor : public SingletonDclp<InteractionMonitor> {
@@ -41,10 +40,11 @@ namespace components {
     private:
         mutable std::shared_mutex _configCommitMutex, _configManualCompletionMutex, _interactionMutex;
         std::atomic<bool> _isRunning{true}, _isSelecting{false}, _needUnlockInteraction{false};
+        std::atomic<int32_t> _selectionLineCount{};
         std::atomic<std::optional<types::Mouse>> _navigateWithMouse;
         std::atomic<types::CaretPosition> _currentCaretPosition, _downCursorPosition;
         std::atomic<types::Time> _interactionUnlockTime;
-        std::atomic<uint32_t> _navigateKeycode{0}, _interactionUnlockDelay, _selectionLineCount;
+        std::atomic<uint32_t> _navigateKeycode{0}, _interactionUnlockDelay;
         std::shared_ptr<void> _cbtHookHandle, _keyHookHandle, _mouseHookHandle, _processHandle, _windowHookHandle;
         std::unordered_map<types::Interaction, std::vector<InteractionCallBack>> _handlerMap;
         types::KeyCombination _configCommit, _configManualCompletion;
