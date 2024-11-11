@@ -60,13 +60,8 @@ CompletionEditClientMessage EditedCompletion::parse() const {
     if (const auto fileHandleOpt = WindowManager::GetInstance()->getAssociatedFileHandle(_windowHandle);
         fileHandleOpt.has_value() && !_references.empty()) {
         WindowManager::GetInstance()->sendF13();
-        // for (uint32_t line = _references.front() < 10 ? 0 : _references.front() - 10;
-        //      line <= _references.back() + 10; ++line) {
-        //     currentContent
-        //             .append(iconv::autoDecode(memoryManipulator->getLineContent(fileHandleOpt.value(), line)))
-        //             .append("\n");
-        // }
-        for (uint32_t line = _references.front(); line <= _references.back(); ++line) {
+        for (uint32_t line = _references.front() < 10 ? 0 : _references.front() - 10;
+             line <= _references.back() + 10; ++line) {
             currentContent
                     .append(iconv::autoDecode(memoryManipulator->getLineContent(fileHandleOpt.value(), line)))
                     .append("\n");
