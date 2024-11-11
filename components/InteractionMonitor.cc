@@ -228,13 +228,13 @@ bool InteractionMonitor::_handleInteraction(const Interaction interaction, const
 
 void InteractionMonitor::_handleMouseButtonUp() {
     const auto memoryManipulator = MemoryManipulator::GetInstance();
+    const auto websocketManager = WebsocketManager::GetInstance();
     const auto path = memoryManipulator->getCurrentFilePath();
     const auto currentFileHandle = memoryManipulator->getHandle(
         MemoryAddress::HandleType::File
     );
-    const auto selection = memoryManipulator->getSelection();
-    _selectionLineCount.store(selection.end.line - selection.begin.line);
-    if (currentFileHandle && !selection.isEmpty() &&
+    if (const auto selection = memoryManipulator->getSelection();
+        currentFileHandle && !selection.isEmpty() &&
         selection.end.line - selection.begin.line > 2) {
         if (const auto [height, xPosition, yPosition] = common::getCaretDimensions(false);
             height) {
@@ -270,7 +270,7 @@ void InteractionMonitor::_handleMouseButtonUp() {
                 }
             }
             _isSelecting.store(true);
-            WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(
+            websocketManager->send(EditorSelectionClientMessage(
                 path,
                 selectionContent,
                 selectionBlock,
@@ -282,14 +282,7 @@ void InteractionMonitor::_handleMouseButtonUp() {
         }
     } else {
         _isSelecting.store(false);
-        WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(path));
-    }
-}
-
-void InteractionMonitor::_handleSelectionReplace(const int32_t offsetLineCount) {
-    if (const auto selectionLineCount = _selectionLineCount.load()) {
-        _selectionLineCount.store(0);
-        ignore = _handleInteraction(Interaction::SelectionReplace, selectionLineCount + offsetLineCount);
+        websocketManager->send(EditorSelectionClientMessage(path));
     }
 }
 
@@ -305,6 +298,8 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
     if (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
         return false;
     }
+    const auto memoryManipulator = MemoryManipulator::GetInstance();
+    const auto websocketManager = WebsocketManager::GetInstance();
 
     _interactionLockShared();
 
@@ -314,9 +309,7 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
 
     if (_isSelecting.load()) {
         _isSelecting.store(false);
-        WebsocketManager::GetInstance()->send(EditorSelectionClientMessage(
-            MemoryManipulator::GetInstance()->getCurrentFilePath()
-        ));
+        websocketManager->send(EditorSelectionClientMessage(memoryManipulator->getCurrentFilePath()));
     }
 
     bool needBlockMessage{false};
@@ -327,7 +320,8 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
          (0x60 <= virtualKeyCode && virtualKeyCode <= 0x6F) ||
          (0xBA <= virtualKeyCode && virtualKeyCode <= 0xC0) ||
          (0xDB <= virtualKeyCode && virtualKeyCode <= 0xF5))) {
-        _handleSelectionReplace();
+        const auto selection = memoryManipulator->getSelection();
+        ignore = _handleInteraction(Interaction::SelectionReplace, selection.begin.line - selection.end.line);
         ignore = _handleInteraction(Interaction::NormalInput, getNormalInputKey(virtualKeyCode, modifiers));
         _interactionUnlockTime.store(chrono::high_resolution_clock::now());
         return false;
@@ -344,9 +338,7 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
     if (const auto [shortcutKey, shortcutModifiers] = configCommit;
         virtualKeyCode == shortcutKey && modifiers == shortcutModifiers) {
         // TODO: Switch lock context
-        WebsocketManager::GetInstance()->send(EditorCommitClientMessage(
-            MemoryManipulator::GetInstance()->getCurrentFilePath()
-        ));
+        websocketManager->send(EditorCommitClientMessage(memoryManipulator->getCurrentFilePath()));
         _interactionUnlockTime.store(chrono::high_resolution_clock::now());
         return true;
     }
@@ -364,7 +356,8 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
                 break;
             }
             case 'V': {
-                _handleSelectionReplace();
+                const auto selection = memoryManipulator->getSelection();
+                ignore = _handleInteraction(Interaction::SelectionReplace, selection.end.line - selection.begin.line);
                 ignore = _handleInteraction(Interaction::Paste);
                 break;
             }
@@ -382,7 +375,8 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
 
     switch (virtualKeyCode) {
         case VK_BACK: {
-            _handleSelectionReplace();
+            const auto selection = memoryManipulator->getSelection();
+            ignore = _handleInteraction(Interaction::SelectionReplace, selection.begin.line - selection.end.line);
             ignore = _handleInteraction(Interaction::DeleteInput);
             break;
         }
@@ -394,7 +388,8 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
             if (WindowManager::GetInstance()->hasPopListWindow()) {
                 ignore = _handleInteraction(Interaction::CompletionCancel, false);
             } else {
-                _handleSelectionReplace(1);
+                const auto selection = memoryManipulator->getSelection();
+                ignore = _handleInteraction(Interaction::SelectionReplace, selection.begin.line - selection.end.line + 1);
                 ignore = _handleInteraction(Interaction::EnterInput);
             }
             break;
@@ -418,7 +413,8 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
             break;
         }
         case VK_DELETE: {
-            _handleSelectionReplace();
+            const auto selection = memoryManipulator->getSelection();
+            ignore = _handleInteraction(Interaction::SelectionReplace, selection.begin.line - selection.end.line);
             ignore = _handleInteraction(Interaction::CompletionCancel, true);
             break;
         }
@@ -463,20 +459,21 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
     const auto windowProcData = reinterpret_cast<PCWPSTRUCT>(lParam);
     if (const auto editorWindowHandle = reinterpret_cast<int64_t>(windowProcData->hwnd);
         window::getWindowClassName(editorWindowHandle) == "si_Sw") {
+        const auto websocketManager = WebsocketManager::GetInstance();
         switch (windowProcData->message) {
             case WM_KILLFOCUS: {
                 if (WindowManager::GetInstance()->checkNeedHideWhenLostFocus(windowProcData->wParam)) {
-                    WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(false));
+                    websocketManager->send(EditorFocusStateClientMessage(false));
                 }
                 _isSelecting.store(false);
-                WebsocketManager::GetInstance()->send(EditorSelectionClientMessage({}));
+                websocketManager->send(EditorSelectionClientMessage({}));
 
                 _interactionUnlockTime.store(chrono::high_resolution_clock::now());
                 break;
             }
             case WM_SETFOCUS: {
                 if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(editorWindowHandle)) {
-                    WebsocketManager::GetInstance()->send(EditorFocusStateClientMessage(true));
+                    websocketManager->send(EditorFocusStateClientMessage(true));
                 }
 
                 _interactionUnlockTime.store(chrono::high_resolution_clock::now());

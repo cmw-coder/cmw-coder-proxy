@@ -40,7 +40,6 @@ namespace components {
     private:
         mutable std::shared_mutex _configCommitMutex, _configManualCompletionMutex, _interactionMutex;
         std::atomic<bool> _isRunning{true}, _isSelecting{false}, _needUnlockInteraction{false};
-        std::atomic<int32_t> _selectionLineCount{};
         std::atomic<std::optional<types::Mouse>> _navigateWithMouse;
         std::atomic<types::CaretPosition> _currentCaretPosition, _downCursorPosition;
         std::atomic<types::Time> _interactionUnlockTime;
@@ -60,8 +59,6 @@ namespace components {
         bool _handleInteraction(types::Interaction interaction, const std::any& data = {}) const noexcept;
 
         void _handleMouseButtonUp();
-
-        void _handleSelectionReplace(int32_t offsetLineCount = 0);
 
         void _interactionLockShared();
 
