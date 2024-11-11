@@ -12,6 +12,7 @@
 #include <types/CaretPosition.h>
 #include <types/Interaction.h>
 #include <types/Mouse.h>
+#include <types/Selection.h>
 
 namespace components {
     class InteractionMonitor : public SingletonDclp<InteractionMonitor> {
@@ -59,6 +60,8 @@ namespace components {
         bool _handleInteraction(types::Interaction interaction, const std::any& data = {}) const noexcept;
 
         void _handleMouseButtonUp();
+
+        void _handleSelectionReplace(const types::Selection& selection, int32_t offsetCount = 0) const;
 
         void _interactionLockShared();
 
