@@ -32,7 +32,7 @@ void EditedCompletion::react(const bool isAccept) {
 
 bool EditedCompletion::canReport() const {
     return _reactTime.has_value()
-               ? chrono::high_resolution_clock::now() - _reactTime.value() >= 5min
+               ? chrono::high_resolution_clock::now() - _reactTime.value() >= 10s
                : false;
 }
 
@@ -60,8 +60,13 @@ CompletionEditClientMessage EditedCompletion::parse() const {
     if (const auto fileHandleOpt = WindowManager::GetInstance()->getAssociatedFileHandle(_windowHandle);
         fileHandleOpt.has_value() && !_references.empty()) {
         WindowManager::GetInstance()->sendF13();
-        for (uint32_t line = _references.front() < 10 ? 0 : _references.front() - 10;
-             line <= _references.back() + 10; ++line) {
+        // for (uint32_t line = _references.front() < 10 ? 0 : _references.front() - 10;
+        //      line <= _references.back() + 10; ++line) {
+        //     currentContent
+        //             .append(iconv::autoDecode(memoryManipulator->getLineContent(fileHandleOpt.value(), line)))
+        //             .append("\n");
+        // }
+        for (uint32_t line = _references.front(); line <= _references.back(); ++line) {
             currentContent
                     .append(iconv::autoDecode(memoryManipulator->getLineContent(fileHandleOpt.value(), line)))
                     .append("\n");
@@ -85,9 +90,6 @@ CompletionEditClientMessage EditedCompletion::parse() const {
             "Window handle {:#x} is invalid, skip parsing EditedCompletion.", _windowHandle
         ));
     }
-    logger::info(format(
-        "EditedCompletion count: {}, currentContent:\n{}", count, currentContent
-    ));
     return CompletionEditClientMessage(
         actionId,
         count,

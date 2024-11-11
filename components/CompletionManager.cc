@@ -283,7 +283,7 @@ void CompletionManager::interactionSelectionReplace(const std::any& data, bool&)
         } else if (count < 0) {
             unique_lock lock(_editedCompletionMapMutex);
             for (auto& editedCompletion: _editedCompletionMap | views::values) {
-                editedCompletion.removeLine(startLine, count);
+                editedCompletion.removeLine(startLine, -count);
             }
         }
     } catch (const bad_any_cast& e) {
