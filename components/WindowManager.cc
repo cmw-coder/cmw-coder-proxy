@@ -30,9 +30,8 @@ WindowManager::~WindowManager() {
 }
 
 bool WindowManager::checkNeedHideWhenLostFocus(const uint32_t windowHandle) {
-    const auto windowClass = window::getWindowClassName(windowHandle);
-    logger::debug(format("Target window class: {}", windowClass));
-    if (windowClass == "si_Poplist") {
+    if (const auto windowClass = window::getWindowClassName(windowHandle);
+        windowClass == "si_Poplist") {
         _popListWindowHandle.store(windowHandle);
     } else if (_currentWindowHandle.load().has_value()) {
         _currentWindowHandle.store(nullopt);
