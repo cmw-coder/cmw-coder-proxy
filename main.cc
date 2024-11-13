@@ -9,8 +9,6 @@
 #include <components/WindowManager.h>
 #include <components/WebsocketManager.h>
 #include <models/WsMessage.h>
-#include <utils/common.h>
-#include <utils/iconv.h>
 #include <utils/logger.h>
 #include <utils/system.h>
 
@@ -116,23 +114,22 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 CompletionManager::GetInstance(),
                 &CompletionManager::interactionUndo
             );
-
-            WebsocketManager::GetInstance()->registerAction(
-                WsAction::ChatInsert,
-                [](nlohmann::json&& data) {
-                    if (const auto serverMessage = ChatInsertServerMessage(move(data));
-                        serverMessage.result == "success") {
-                        auto content = serverMessage.content().value();
-                        if (content = iconv::autoEncode(content);
-                            !content.empty()) {
-                            while (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
-                                this_thread::sleep_for(5ms);
-                            }
-                            common::insertContent(content);
-                        }
-                    }
-                }
-            );
+            // WebsocketManager::GetInstance()->registerAction(
+            //     WsAction::ChatInsert,
+            //     [](nlohmann::json&& data) {
+            //         if (const auto serverMessage = ChatInsertServerMessage(move(data));
+            //             serverMessage.result == "success") {
+            //             auto content = serverMessage.content().value();
+            //             if (content = iconv::autoEncode(content);
+            //                 !content.empty()) {
+            //                 while (!WindowManager::GetInstance()->getCurrentWindowHandle().has_value()) {
+            //                     this_thread::sleep_for(5ms);
+            //                 }
+            //                 common::insertContent(content);
+            //             }
+            //         }
+            //     }
+            // );
             WebsocketManager::GetInstance()->registerAction(
                 WsAction::CompletionGenerate,
                 CompletionManager::GetInstance(),
