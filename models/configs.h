@@ -8,10 +8,8 @@
 namespace models {
     class CompletionConfig {
     public:
-        const std::optional<uint32_t> debounceDelay;
-        const std::optional<uint32_t> interactionUnlockDelay;
-        const std::optional<uint32_t> prefixLineCount;
-        const std::optional<uint32_t> suffixLineCount;
+        const std::optional<uint32_t> debounceDelay, interactionUnlockDelay, prefixLineCount, recentFileCount,
+                suffixLineCount;
 
         explicit CompletionConfig(const nlohmann::json& data);
     };

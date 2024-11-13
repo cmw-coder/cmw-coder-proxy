@@ -65,7 +65,7 @@ namespace {
 }
 
 CompletionManager::CompletionManager()
-    : _configDebounceDelay(100), _configPrefixLineCount(200), _configSuffixLineCount(80) {
+    : _configDebounceDelay(100), _configPrefixLineCount(200), _configRecentFileCount{5}, _configSuffixLineCount(80) {
     _threadCheckAcceptedCompletions();
     _threadCheckCurrentFilePath();
     _threadDebounceRetrieveCompletion();
@@ -262,6 +262,7 @@ void CompletionManager::interactionPaste(const any&, bool&) {
             memoryManipulator->getCaretPosition(),
             _getRecentFiles()
         ));
+        _updateNeedRetrieveCompletion(true, '\n');
     }
 }
 
@@ -311,6 +312,11 @@ void CompletionManager::updateCompletionConfig(const CompletionConfig& completio
         prefixLineCountOpt.has_value()) {
         logger::info(format("Update prefix line count: {}", prefixLineCountOpt.value()));
         _configPrefixLineCount.store(prefixLineCountOpt.value());
+    }
+    if (const auto recentFileCountOpt = completionConfig.recentFileCount;
+        recentFileCountOpt.has_value()) {
+        logger::info(format("Update recent file count: {}", recentFileCountOpt.value()));
+        _configRecentFileCount.store(recentFileCountOpt.value());
     }
     if (const auto suffixLineCountOpt = completionConfig.suffixLineCount;
         suffixLineCountOpt.has_value()) {
@@ -394,16 +400,17 @@ bool CompletionManager::_cancelCompletion() {
     return hasCompletion;
 }
 
-vector<filesystem::path> CompletionManager::_getRecentFiles(const uint32_t limit) const {
+vector<filesystem::path> CompletionManager::_getRecentFiles() const {
     using FileTime = pair<filesystem::path, chrono::high_resolution_clock::time_point>;
     vector<filesystem::path> recentFiles;
     priority_queue<FileTime, vector<FileTime>, decltype([](const auto& a, const auto& b) {
         return a.second > b.second;
     })> pq; {
+        const auto recentFileCount = _configRecentFileCount.load();
         shared_lock lock(_recentFilesMutex);
         for (const auto& file: _recentFiles) {
             pq.emplace(file);
-            if (pq.size() > limit) {
+            if (pq.size() > recentFileCount) {
                 pq.pop();
             }
         }

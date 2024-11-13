@@ -60,7 +60,8 @@ namespace components {
         Components _components;
         std::atomic<bool> _isRunning{true}, _needDiscardWsAction{false}, _needRetrieveCompletion{false};
         std::atomic<types::Time> _debounceRetrieveCompletionTime;
-        std::atomic<uint32_t> _configDebounceDelay, _configPrefixLineCount, _configSuffixLineCount;
+        std::atomic<uint32_t> _configDebounceDelay, _configPrefixLineCount,
+                _configRecentFileCount, _configSuffixLineCount;
         std::optional<types::Completions> _completionsOpt;
         std::unordered_map<std::filesystem::path, std::chrono::high_resolution_clock::time_point> _recentFiles;
         std::unordered_map<std::string, types::EditedCompletion> _editedCompletionMap;
@@ -68,7 +69,7 @@ namespace components {
 
         bool _cancelCompletion();
 
-        std::vector<std::filesystem::path> _getRecentFiles(uint32_t limit = 5) const;
+        std::vector<std::filesystem::path> _getRecentFiles() const;
 
         bool _hasValidCache() const;
 

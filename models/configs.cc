@@ -30,6 +30,9 @@ CompletionConfig::CompletionConfig(const nlohmann::json& data)
       prefixLineCount(
           data.contains("prefixLineCount") ? optional(data["prefixLineCount"].get<uint32_t>()) : nullopt
       ),
+      recentFileCount(
+          data.contains("recentFileCount") ? optional(data["recentFileCount"].get<uint32_t>()) : nullopt
+      ),
       suffixLineCount(
           data.contains("suffixLineCount") ? optional(data["suffixLineCount"].get<uint32_t>()) : nullopt
       ) {}
