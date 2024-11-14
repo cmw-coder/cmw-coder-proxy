@@ -90,8 +90,7 @@ namespace {
 }
 
 InteractionMonitor::InteractionMonitor()
-    : _interactionUnlockDelay(150),
-      _cbtHookHandle(
+    : _cbtHookHandle(
           SetWindowsHookEx(
               WH_CBT,
               _cbtProcedureHook,
@@ -158,7 +157,7 @@ void InteractionMonitor::updateCompletionConfig(const CompletionConfig& completi
     if (const auto interactionUnlockDelayOpt = completionConfig.interactionUnlockDelay;
         interactionUnlockDelayOpt.has_value()) {
         logger::info(format("Update interaction unlock delay: {}ms", interactionUnlockDelayOpt.value()));
-        _interactionUnlockDelay.store(interactionUnlockDelayOpt.value());
+        _configInteractionUnlockDelay.store(interactionUnlockDelayOpt.value());
     }
 }
 
@@ -522,7 +521,7 @@ void InteractionMonitor::_threadReleaseInteractionLock() {
         while (_isRunning.load()) {
             if (_needUnlockInteraction.load()) {
                 if (chrono::high_resolution_clock::now() - _interactionUnlockTime.load() >
-                    chrono::milliseconds(_interactionUnlockDelay)) {
+                    chrono::milliseconds(_configInteractionUnlockDelay)) {
                     _needUnlockInteraction.store(false);
                     _interactionMutex.unlock_shared();
                 }

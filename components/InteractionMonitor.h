@@ -44,7 +44,7 @@ namespace components {
         std::atomic<std::optional<types::Mouse>> _navigateWithMouse;
         std::atomic<types::CaretPosition> _currentCaretPosition, _downCursorPosition;
         std::atomic<types::Time> _interactionUnlockTime;
-        std::atomic<uint32_t> _navigateKeycode{0}, _interactionUnlockDelay;
+        std::atomic<uint32_t> _configInteractionUnlockDelay{50}, _navigateKeycode{0};
         std::shared_ptr<void> _cbtHookHandle, _keyHookHandle, _mouseHookHandle, _processHandle, _windowHookHandle;
         std::unordered_map<types::Interaction, std::vector<InteractionCallBack>> _handlerMap;
         types::KeyCombination _configCommit, _configManualCompletion;
