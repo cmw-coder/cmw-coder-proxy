@@ -21,7 +21,10 @@ namespace {
 }
 
 CompletionConfig::CompletionConfig(const nlohmann::json& data)
-    : debounceDelay(
+    : completionOnPaste(
+          data.contains("completionOnPaste") ? optional(data["completionOnPaste"].get<bool>()) : nullopt
+      ),
+      debounceDelay(
           data.contains("debounceDelay") ? optional(data["debounceDelay"].get<uint32_t>()) : nullopt
       ),
       interactionUnlockDelay(

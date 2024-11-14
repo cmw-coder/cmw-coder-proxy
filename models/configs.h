@@ -8,6 +8,7 @@
 namespace models {
     class CompletionConfig {
     public:
+        const std::optional<bool> completionOnPaste;
         const std::optional<uint32_t> debounceDelay, interactionUnlockDelay, prefixLineCount, recentFileCount,
                 suffixLineCount;
 

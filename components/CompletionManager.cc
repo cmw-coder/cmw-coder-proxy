@@ -64,8 +64,7 @@ namespace {
     }
 }
 
-CompletionManager::CompletionManager()
-    : _configDebounceDelay(100), _configPrefixLineCount(200), _configRecentFileCount{5}, _configSuffixLineCount(80) {
+CompletionManager::CompletionManager() {
     _threadCheckAcceptedCompletions();
     _threadCheckCurrentFilePath();
     _threadDebounceRetrieveCompletion();
@@ -303,6 +302,11 @@ void CompletionManager::interactionUndo(const any&, bool&) {
 }
 
 void CompletionManager::updateCompletionConfig(const CompletionConfig& completionConfig) {
+    if (const auto completionOnPasteOpt = completionConfig.completionOnPaste;
+        completionOnPasteOpt.has_value()) {
+        logger::info(format("Update completion on paste: {}", completionOnPasteOpt.value()));
+        _configCompletionOnPaste.store(completionOnPasteOpt.value());
+    }
     if (const auto debounceDelayOpt = completionConfig.debounceDelay;
         debounceDelayOpt.has_value()) {
         logger::info(format("Update debounce delay: {}ms", debounceDelayOpt.value()));
