@@ -261,7 +261,9 @@ void CompletionManager::interactionPaste(const any&, bool&) {
             memoryManipulator->getCaretPosition(),
             _getRecentFiles()
         ));
-        _updateNeedRetrieveCompletion(true, '\n');
+        if (_configCompletionOnPaste.load()) {
+            _updateNeedRetrieveCompletion(true, '\n');
+        }
     }
 }
 
