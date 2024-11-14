@@ -286,6 +286,9 @@ void InteractionMonitor::_handleMouseButtonUp() {
 }
 
 void InteractionMonitor::_handleSelectionReplace(const Selection& selection, const int32_t offsetCount) const {
+    if (selection.isEmpty()) {
+        return;
+    }
     ignore = _handleInteraction(
         Interaction::SelectionReplace,
         make_pair(selection.begin.line, static_cast<int32_t>(selection.begin.line - selection.end.line + offsetCount))

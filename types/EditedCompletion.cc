@@ -23,6 +23,12 @@ EditedCompletion::EditedCompletion(
             _references.emplace_back(_references.back() + 1);
         }
     }
+
+    // string log;
+    // for (const auto& reference: _references) {
+    //     log.append(format("{},", reference));
+    // }
+    // logger::debug(format("EditedCompletion created with references: {}", log));
 }
 
 void EditedCompletion::react(const bool isAccept) {
@@ -42,6 +48,12 @@ void EditedCompletion::addLine(const uint32_t startLine, const uint32_t count) {
             reference += count;
         }
     }
+
+    // string log;
+    // for (const auto& reference: _references) {
+    //     log.append(format("{},", reference));
+    // }
+    // logger::debug(format("EditedCompletion updated with references: {}", log));
 }
 
 void EditedCompletion::removeLine(const uint32_t startLine, const uint32_t count) {
@@ -50,6 +62,12 @@ void EditedCompletion::removeLine(const uint32_t startLine, const uint32_t count
             reference -= count;
         }
     }
+
+    // string log;
+    // for (const auto& reference: _references) {
+    //     log.append(format("{},", reference));
+    // }
+    // logger::debug(format("EditedCompletion updated with references: {}", log));
 }
 
 CompletionEditClientMessage EditedCompletion::parse() const {
