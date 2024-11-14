@@ -15,7 +15,7 @@ EditedCompletion::EditedCompletion(
     const uint32_t windowHandle,
     const uint32_t line,
     string completion
-) : actionId(move(actionId)), _windowHandle(windowHandle), _completion(move(completion)) {
+) : actionId(move(actionId)), windowHandle(windowHandle), _completion(move(completion)) {
     for ([[maybe_unused]] const auto _: _completion | views::split("\n"sv)) {
         if (_references.empty()) {
             _references.emplace_back(line);
@@ -75,7 +75,7 @@ CompletionEditClientMessage EditedCompletion::parse() const {
     string currentContent;
     uint32_t count{};
 
-    if (const auto fileHandleOpt = WindowManager::GetInstance()->getAssociatedFileHandle(_windowHandle);
+    if (const auto fileHandleOpt = WindowManager::GetInstance()->getAssociatedFileHandle(windowHandle);
         fileHandleOpt.has_value() && !_references.empty()) {
         WindowManager::GetInstance()->sendF13();
         for (uint32_t line = _references.front() < 10 ? 0 : _references.front() - 10;
@@ -100,9 +100,10 @@ CompletionEditClientMessage EditedCompletion::parse() const {
     } else {
         // TODO: Use file read method
         logger::info(format(
-            "Window handle {:#x} is invalid, skip parsing EditedCompletion.", _windowHandle
+            "Window handle {:#x} is invalid, skip parsing EditedCompletion.", windowHandle
         ));
     }
+    // logger::debug(format("EditedCompletion parsed with count: {}, content: \n{}\n$END$", count, currentContent));
     return CompletionEditClientMessage(
         actionId,
         count,

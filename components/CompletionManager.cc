@@ -139,9 +139,14 @@ void CompletionManager::interactionDeleteInput(const any&, bool&) {
                 _cancelCompletion();
                 logger::log("Delete backward. Send CompletionCancel due to delete across line");
             }
-            unique_lock lock(_editedCompletionMapMutex);
-            for (auto& acceptedCompletion: _editedCompletionMap | views::values) {
-                acceptedCompletion.removeLine(line);
+            if (const auto currentWindowHandleOpt = WindowManager::GetInstance()->getCurrentWindowHandle();
+                currentWindowHandleOpt.has_value()) {
+                unique_lock lock(_editedCompletionMapMutex);
+                for (auto& editedCompletion: _editedCompletionMap | views::values) {
+                    if (editedCompletion.windowHandle == currentWindowHandleOpt.value()) {
+                        editedCompletion.removeLine(line);
+                    }
+                }
             }
         }
     } catch (const bad_any_cast& e) {
@@ -156,10 +161,14 @@ void CompletionManager::interactionEnterInput(const any&, bool&) {
         logger::log("Enter Input. Send CompletionCancel");
     }
     _updateNeedRetrieveCompletion(true, '\n');
-    const auto line = MemoryManipulator::GetInstance()->getCaretPosition().line; {
+    if (const auto currentWindowHandleOpt = WindowManager::GetInstance()->getCurrentWindowHandle();
+        currentWindowHandleOpt.has_value()) {
+        const auto line = MemoryManipulator::GetInstance()->getCaretPosition().line;
         unique_lock lock(_editedCompletionMapMutex);
         for (auto& editedCompletion: _editedCompletionMap | views::values) {
-            editedCompletion.addLine(line);
+            if (editedCompletion.windowHandle == currentWindowHandleOpt.value()) {
+                editedCompletion.addLine(line);
+            }
         }
     }
 }
@@ -250,10 +259,16 @@ void CompletionManager::interactionPaste(const any&, bool&) {
     if (const auto clipboardTextOpt = system::getClipboardText();
         clipboardTextOpt.has_value()) {
         const auto& clipboardText = clipboardTextOpt.value();
-        const auto memoryManipulator = MemoryManipulator::GetInstance(); {
+        const auto memoryManipulator = MemoryManipulator::GetInstance();
+        if (const auto currentWindowHandleOpt = WindowManager::GetInstance()->getCurrentWindowHandle();
+            currentWindowHandleOpt.has_value()) {
             unique_lock lock(_editedCompletionMapMutex);
             for (auto& editedCompletion: _editedCompletionMap | views::values) {
-                editedCompletion.addLine(memoryManipulator->getCaretPosition().line, common::countLines(clipboardText));
+                if (editedCompletion.windowHandle == currentWindowHandleOpt.value()) {
+                    editedCompletion.addLine(
+                        memoryManipulator->getCaretPosition().line, common::countLines(clipboardText)
+                    );
+                }
             }
         }
         WebsocketManager::GetInstance()->send(EditorPasteClientMessage(
@@ -278,14 +293,24 @@ void CompletionManager::interactionSelectionReplace(const std::any& data, bool&)
     try {
         if (const auto [startLine, count] = any_cast<pair<uint32_t, int32_t>>(data);
             count > 0) {
-            unique_lock lock(_editedCompletionMapMutex);
-            for (auto& editedCompletion: _editedCompletionMap | views::values) {
-                editedCompletion.addLine(startLine, count);
+            if (const auto currentWindowHandleOpt = WindowManager::GetInstance()->getCurrentWindowHandle();
+                currentWindowHandleOpt.has_value()) {
+                unique_lock lock(_editedCompletionMapMutex);
+                for (auto& editedCompletion: _editedCompletionMap | views::values) {
+                    if (editedCompletion.windowHandle == currentWindowHandleOpt.value()) {
+                        editedCompletion.addLine(startLine, count);
+                    }
+                }
             }
         } else if (count < 0) {
-            unique_lock lock(_editedCompletionMapMutex);
-            for (auto& editedCompletion: _editedCompletionMap | views::values) {
-                editedCompletion.removeLine(startLine, -count);
+            if (const auto currentWindowHandleOpt = WindowManager::GetInstance()->getCurrentWindowHandle();
+                currentWindowHandleOpt.has_value()) {
+                unique_lock lock(_editedCompletionMapMutex);
+                for (auto& editedCompletion: _editedCompletionMap | views::values) {
+                    if (editedCompletion.windowHandle == currentWindowHandleOpt.value()) {
+                        editedCompletion.removeLine(startLine, -count);
+                    }
+                }
             }
         }
     } catch (const bad_any_cast& e) {

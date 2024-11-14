@@ -8,7 +8,8 @@
 namespace types {
     class EditedCompletion {
     public:
-        std::string actionId;
+        const std::string actionId;
+        const uint32_t windowHandle;
 
         EditedCompletion(std::string actionId, uint32_t windowHandle, uint32_t line, std::string completion);
 
@@ -24,7 +25,6 @@ namespace types {
 
     private:
         bool _isAccept = false;
-        uint32_t _windowHandle;
         std::optional<Time> _reactTime;
         std::string _completion;
         std::vector<uint32_t> _references;
