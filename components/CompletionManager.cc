@@ -262,12 +262,13 @@ void CompletionManager::interactionPaste(const any&, bool&) {
         const auto memoryManipulator = MemoryManipulator::GetInstance();
         if (const auto currentWindowHandleOpt = WindowManager::GetInstance()->getCurrentWindowHandle();
             currentWindowHandleOpt.has_value()) {
+            const auto addedLineCount = memoryManipulator->getCaretPosition().character == 0
+                                            ? common::countLines(clipboardText)
+                                            : common::countLines(clipboardText) - 1;
             unique_lock lock(_editedCompletionMapMutex);
             for (auto& editedCompletion: _editedCompletionMap | views::values) {
                 if (editedCompletion.windowHandle == currentWindowHandleOpt.value()) {
-                    editedCompletion.addLine(
-                        memoryManipulator->getCaretPosition().line, common::countLines(clipboardText) - 1
-                    );
+                    editedCompletion.addLine(memoryManipulator->getCaretPosition().line, addedLineCount);
                 }
             }
         }
