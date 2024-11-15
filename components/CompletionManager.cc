@@ -266,7 +266,7 @@ void CompletionManager::interactionPaste(const any&, bool&) {
             for (auto& editedCompletion: _editedCompletionMap | views::values) {
                 if (editedCompletion.windowHandle == currentWindowHandleOpt.value()) {
                     editedCompletion.addLine(
-                        memoryManipulator->getCaretPosition().line, common::countLines(clipboardText)
+                        memoryManipulator->getCaretPosition().line, common::countLines(clipboardText) - 1
                     );
                 }
             }
