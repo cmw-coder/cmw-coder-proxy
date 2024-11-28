@@ -1,4 +1,4 @@
-#include <magic_enum.hpp>
+#include <magic_enum/magic_enum.hpp>
 
 #include <types/common.h>
 #include <utils/common.h>

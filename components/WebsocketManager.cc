@@ -1,5 +1,5 @@
 #include <ixwebsocket/IXNetSystem.h>
-#include <magic_enum.hpp>
+#include <magic_enum/magic_enum.hpp>
 
 #include <components/ConfigManager.h>
 #include <components/MemoryManipulator.h>

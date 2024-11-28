@@ -363,11 +363,7 @@ optional<SymbolRecord> MemoryManipulator::getSymbolRecordDeclared(SymbolName sym
 }
 
 void MemoryManipulator::setCaretPosition(const CaretPosition& caretPosition) const {
-    if (const auto windowHandle = getHandle(MemoryAddress::HandleType::Window)) {
-        AddressToFunction<void(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(
-            memory::offset(_memoryAddress.window.funcSetWndSel.base)
-        )(windowHandle, caretPosition.line, caretPosition.character, caretPosition.line, caretPosition.character);
-    }
+    setSelection({caretPosition, caretPosition});
 }
 
 void MemoryManipulator::setLineContent(const uint32_t line, const string& content, const bool isInsertion) const {
@@ -375,6 +371,14 @@ void MemoryManipulator::setLineContent(const uint32_t line, const string& conten
         AddressToFunction<void(uint32_t, uint32_t, void*)>(memory::offset(
             isInsertion ? _memoryAddress.file.funcInsBufLine.base : _memoryAddress.file.funcPutBufLine.base
         ))(fileHandle, line, SimpleString(content).data());
+    }
+}
+
+void MemoryManipulator::setSelection(const Selection& selection) const {
+    if (const auto windowHandle = getHandle(MemoryAddress::HandleType::Window)) {
+        AddressToFunction<void(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(
+            memory::offset(_memoryAddress.window.funcSetWndSel.base)
+        )(windowHandle, selection.begin.line, selection.begin.character, selection.end.line, selection.end.character);
     }
 }
 

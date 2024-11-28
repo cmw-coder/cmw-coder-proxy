@@ -1,6 +1,6 @@
 #include <format>
 
-#include <magic_enum.hpp>
+#include <magic_enum/magic_enum.hpp>
 
 #include <components/CompletionManager.h>
 #include <components/ConfigManager.h>

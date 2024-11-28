@@ -5,7 +5,7 @@
 #include <regex>
 #include <unordered_set>
 
-#include <magic_enum.hpp>
+#include <magic_enum/magic_enum.hpp>
 #include <nlohmann/json.hpp>
 #include <readtags.h>
 

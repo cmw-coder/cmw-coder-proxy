@@ -1,6 +1,7 @@
 #pragma once
 
 #include <types/CaretDimension.h>
+#include <types/Selection.h>
 
 namespace utils::common {
     bool checkHighestBit(uint16_t value) noexcept;
@@ -10,6 +11,8 @@ namespace utils::common {
     types::CaretDimension getCaretDimensions(bool waitTillAvailable = true);
 
     void insertContent(const std::string& content);
+
+    void replaceContent(const types::Selection& replaceRange, std::string content);
 
     std::string uuid();
 }

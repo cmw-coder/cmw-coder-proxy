@@ -59,6 +59,8 @@ namespace components {
 
         void setLineContent(uint32_t line, const std::string& content, bool isInsertion) const;
 
+        void setSelection(const types::Selection& selection) const;
+
         void setSelectionContent(const std::string& content) const;
 
     private:

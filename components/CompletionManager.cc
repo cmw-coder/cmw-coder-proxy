@@ -2,7 +2,7 @@
 #include <format>
 #include <regex>
 
-#include <magic_enum.hpp>
+#include <magic_enum/magic_enum.hpp>
 #include <nlohmann/json.hpp>
 
 #include <components/CompletionManager.h>

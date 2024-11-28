@@ -2,7 +2,7 @@
 #include <format>
 
 #include <compact_enc_det/compact_enc_det.h>
-#include <magic_enum.hpp>
+#include <magic_enum/magic_enum.hpp>
 
 #include <components/ConfigManager.h>
 #include <utils/iconv.h>

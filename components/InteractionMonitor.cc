@@ -1,7 +1,7 @@
 #include <format>
 #include <regex>
 
-#include <magic_enum.hpp>
+#include <magic_enum/magic_enum.hpp>
 
 #include <components/InteractionMonitor.h>
 #include <components/MemoryManipulator.h>
