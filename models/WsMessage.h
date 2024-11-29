@@ -90,7 +90,7 @@ namespace models {
         );
     };
 
-    class CompletionGenerateServerMessage final : public WsMessage {
+    class CompletionGenerateServerMessage : public WsMessage {
     public:
         enum class CompletionType {
             Function,
@@ -143,6 +143,11 @@ namespace models {
             const std::vector<std::filesystem::path>& recentFiles,
             const std::string& suffix
         );
+    };
+
+    class EditorPasteServerMessage final : public CompletionGenerateServerMessage {
+    public:
+        explicit EditorPasteServerMessage(nlohmann::json&& data);
     };
 
     class EditorSwitchFileMessage final : public WsMessage {

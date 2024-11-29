@@ -444,6 +444,43 @@ void CompletionManager::wsCompletionGenerate(nlohmann::json&& data) {
     WindowManager::GetInstance()->unsetMenuText();
 }
 
+void CompletionManager::wsEditorPaste(nlohmann::json&& data) {
+    if (const auto serverMessage = EditorPasteServerMessage(move(data));
+        serverMessage.result == "success") {
+        const auto completions = serverMessage.completions().value();
+        if (completions.empty()) {
+            logger::log("(WsAction::EditorPaste) Ignore due to empty completions");
+            return;
+        }
+        const auto& actionId = completions.actionId;
+        if (_needDiscardWsAction.load()) {
+            logger::log("(WsAction::EditorPaste) Ignore due to debounce");
+            WebsocketManager::GetInstance()->send(CompletionCancelClientMessage(actionId, false));
+            return;
+        }
+        const auto [candidate, index] = completions.current(); {
+            unique_lock lock(_completionsMutex);
+            _completionsOpt.emplace(completions);
+        } {
+            unique_lock lock(_completionCacheMutex);
+            _completionCache.reset(iconv::autoEncode(candidate));
+        }
+
+        const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
+        const auto [height, xPosition,yPosition] = common::getCaretDimensions();
+        WebsocketManager::GetInstance()->send(
+            CompletionSelectClientMessage(completions.actionId, index, height, xPosition, yPosition)
+        );
+    } else {
+        logger::warn(format(
+            "(WsAction::CompletionGenerate) Result: {}\n"
+            "\tMessage: {}",
+            serverMessage.result,
+            serverMessage.message()
+        ));
+    }
+}
+
 bool CompletionManager::_cancelCompletion() {
     bool hasCompletion;
     optional<Completions> completionsOpt; {

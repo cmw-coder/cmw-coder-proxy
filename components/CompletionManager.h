@@ -53,6 +53,8 @@ namespace components {
 
         void wsCompletionGenerate(nlohmann::json&& data);
 
+        void wsEditorPaste(nlohmann::json&& data);
+
     private:
         mutable std::shared_mutex _completionsMutex, _completionCacheMutex, _componentsMutex,
                 _editedCompletionMapMutex, _recentFilesMutex;

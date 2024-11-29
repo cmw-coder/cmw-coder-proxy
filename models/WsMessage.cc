@@ -201,6 +201,9 @@ EditorPasteClientMessage::EditorPasteClientMessage(
     }
 }
 
+EditorPasteServerMessage::EditorPasteServerMessage(nlohmann::json&& data)
+    : CompletionGenerateServerMessage(move(data)) {}
+
 EditorSwitchFileMessage::EditorSwitchFileMessage(const filesystem::path& path)
     : WsMessage(WsAction::EditorSwitchFile, iconv::autoDecode(path.generic_string())) {}
 
