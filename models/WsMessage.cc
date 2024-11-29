@@ -174,19 +174,26 @@ EditorFocusStateClientMessage::EditorFocusStateClientMessage(const bool isFocuse
     : WsMessage(WsAction::EditorFocusState, isFocused) {}
 
 EditorPasteClientMessage::EditorPasteClientMessage(
+    const CaretPosition& caret,
     const string& content,
-    const CaretPosition& caretPosition,
-    const vector<filesystem::path>& recentFiles
+    const filesystem::path& path,
+    const string& prefix,
+    const vector<filesystem::path>& recentFiles,
+    const string& suffix
 ): WsMessage(
     WsAction::EditorPaste, {
-        {"content", content},
         {
-            "position", {
-                {"character", caretPosition.character},
-                {"line", caretPosition.line},
+            "caret", {
+                {"character", caret.character},
+                {"line", caret.line},
             }
         },
+        {"content", content},
+        {"path", iconv::autoDecode(path.generic_string())},
+        {"prefix", prefix},
         {"recentFiles", nlohmann::json::array()},
+        {"suffix", suffix},
+        {"symbols", nlohmann::json::array()},
     }
 ) {
     for (const auto& recentFile: recentFiles) {

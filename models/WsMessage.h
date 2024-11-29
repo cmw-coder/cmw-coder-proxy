@@ -136,9 +136,12 @@ namespace models {
     class EditorPasteClientMessage final : public WsMessage {
     public:
         explicit EditorPasteClientMessage(
+            const types::CaretPosition& caret,
             const std::string& content,
-            const types::CaretPosition& caretPosition,
-            const std::vector<std::filesystem::path>& recentFiles
+            const std::filesystem::path& path,
+            const std::string& prefix,
+            const std::vector<std::filesystem::path>& recentFiles,
+            const std::string& suffix
         );
     };
 
