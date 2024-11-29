@@ -272,13 +272,49 @@ void CompletionManager::interactionPaste(const any&, bool&) {
                 }
             }
         }
-        WebsocketManager::GetInstance()->send(EditorPasteClientMessage(
-            clipboardText,
-            memoryManipulator->getCaretPosition(),
-            _getRecentFiles()
-        ));
-        if (_configCompletionOnPaste.load()) {
-            _updateNeedRetrieveCompletion(true, '\n');
+
+        const auto caretPosition = memoryManipulator->getCaretPosition();
+        const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
+        const auto currentLineCount = memoryManipulator->getCurrentLineCount();
+        try {
+            const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
+            if (auto path = memoryManipulator->getCurrentFilePath();
+                currentFileHandle && currentLineCount && !path.empty()) {
+                string prefix, suffix; {
+                    const auto currentLine = memoryManipulator->getLineContent(
+                        currentFileHandle, caretPosition.line
+                    );
+                    prefix = iconv::autoDecode(currentLine.substr(0, caretPosition.character));
+                    suffix = iconv::autoDecode(currentLine.substr(caretPosition.character));
+                }
+
+                for (
+                    uint32_t index = 1;
+                    index <= min(caretPosition.line, _configPrefixLineCount.load());
+                    ++index
+                ) {
+                    const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
+                        currentFileHandle, caretPosition.line - index
+                    )).append("\n");
+                    prefix.insert(0, tempLine);
+                }
+                for (uint32_t index = 1; index < _configSuffixLineCount.load(); ++index) {
+                    const auto tempLine = iconv::autoDecode(
+                        memoryManipulator->getLineContent(currentFileHandle, caretPosition.line + index)
+                    );
+                    suffix.append("\n").append(tempLine);
+                }
+                WebsocketManager::GetInstance()->send(EditorPasteClientMessage(
+                    caretPosition,
+                    clipboardText,
+                    move(path),
+                    prefix,
+                    _getRecentFiles(),
+                    suffix
+                ));
+            }
+        } catch (const exception& e) {
+            logger::warn(format("(interactionPaste) Exception: {}", e.what()));
         }
     }
 }
@@ -546,9 +582,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                 WindowManager::GetInstance()->setMenuText("Generating...");
                 try {
                     // TODO: Improve performance
-                    logger::debug("[_threadDebounceRetrieveCompletion] Try to get interaction unique lock");
                     const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
-                    logger::debug("[_threadDebounceRetrieveCompletion] Successfully got interaction unique lock");
                     const auto memoryManipulator = MemoryManipulator::GetInstance();
                     const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
                     const auto currentLineCount = memoryManipulator->getCurrentLineCount();
@@ -611,7 +645,7 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                         );
                     }
                 } catch (const exception& e) {
-                    logger::warn(format("Exception when retrieving completion: {}", e.what()));
+                    logger::warn(format("(_threadDebounceRetrieveCompletion) Exception: {}", e.what()));
                 }
                 _needRetrieveCompletion.store(false);
             }
