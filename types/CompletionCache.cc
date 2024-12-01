@@ -33,9 +33,15 @@ optional<pair<char, optional<string>>> CompletionCache::next() {
     return make_pair(currentChar, nullopt);
 }
 
-pair<string, int64_t> CompletionCache::reset(string content) {
-    const auto previousState = make_pair(_content, _index);
+tuple<CompletionComponents::GenerateType, string, Selection, int64_t> CompletionCache::reset(
+    const CompletionComponents::GenerateType generateType,
+    string content,
+    Selection selection
+) {
+    const auto previousState = make_tuple(_generateType, _content, _selection, _index);
+    _generateType = generateType;
     _content = move(content);
+    _selection = move(selection);
     _index = _content.empty() ? -1 : 0;
     return previousState;
 }
