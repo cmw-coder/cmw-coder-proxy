@@ -5,25 +5,29 @@
 using namespace std;
 using namespace types;
 
-Completions::Completions(string actionId, const vector<string>& candidates)
-    : actionId(move(actionId)), _candidates(candidates) {}
+Completions::Completions(
+    string actionId,
+    const CompletionComponents::GenerateType generateType,
+    const vector<pair<string, Selection>>& candidates
+): actionId(move(actionId)), generateType(generateType), _candidates(candidates) {}
 
-tuple<string, uint32_t> Completions::current() const {
-    return {_candidates[_currentIndex], _currentIndex};
+tuple<string, Selection, uint32_t> Completions::current() const {
+    const auto& [content, selection] = _candidates[_currentIndex];
+    return {content, selection, _currentIndex};
 }
 
 bool Completions::empty() const {
     return _candidates.empty();
 }
 
-tuple<string, uint32_t> Completions::next() {
+tuple<string, Selection, uint32_t> Completions::next() {
     if (_currentIndex < _candidates.size() - 1) {
         _currentIndex++;
     }
     return current();
 }
 
-tuple<string, uint32_t> Completions::previous() {
+tuple<string, Selection, uint32_t> Completions::previous() {
     if (_currentIndex > 0) {
         _currentIndex--;
     }
