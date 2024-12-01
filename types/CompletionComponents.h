@@ -12,7 +12,7 @@ namespace types {
     public:
         enum class GenerateType {
             Common,
-            Paste,
+            PasteReplace,
         };
 
         CompletionComponents(
