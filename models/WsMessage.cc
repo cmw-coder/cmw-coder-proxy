@@ -76,51 +76,8 @@ CompletionEditClientMessage::CompletionEditClientMessage(
     }
 ) {}
 
-CompletionGenerateClientMessage::CompletionGenerateClientMessage(
-    const CaretPosition& caret,
-    const filesystem::path& path,
-    const string& prefix,
-    const vector<filesystem::path>& recentFiles,
-    const string& suffix,
-    const vector<SymbolInfo>& symbols,
-    int64_t completionStartTime,
-    int64_t symbolStartTime,
-    int64_t completionEndTime
-): WsMessage(
-    WsAction::CompletionGenerate, {
-        {
-            "caret", {
-                {"character", caret.character},
-                {"line", caret.line},
-            }
-        },
-        {"path", iconv::autoDecode(path.generic_string())},
-        {"prefix", prefix},
-        {"recentFiles", nlohmann::json::array()},
-        {"suffix", suffix},
-        {"symbols", nlohmann::json::array()},
-        {
-            "times", {
-                {"start", completionStartTime},
-                {"symbol", symbolStartTime},
-                {"end", completionEndTime},
-            }
-        }
-    }
-) {
-    for (const auto& recentFile: recentFiles) {
-        _data["recentFiles"].push_back(iconv::autoDecode(recentFile.generic_string()));
-    }
-    for (const auto& [path, name, type, startLine, endLine]: symbols) {
-        _data["symbols"].push_back({
-            {"endLine", endLine},
-            {"name", name},
-            {"path", iconv::autoDecode(path.generic_string())},
-            {"startLine", startLine},
-            {"type", enum_name(type)},
-        });
-    }
-}
+CompletionGenerateClientMessage::CompletionGenerateClientMessage(const CompletionComponents& completionComponents)
+    : WsMessage(WsAction::CompletionGenerate, completionComponents.toJson()) {}
 
 CompletionGenerateServerMessage::CompletionGenerateServerMessage(nlohmann::json&& data)
     : WsMessage(WsAction::CompletionGenerate, move(data)), result(_data["result"].get<string>()) {
@@ -174,26 +131,19 @@ EditorFocusStateClientMessage::EditorFocusStateClientMessage(const bool isFocuse
     : WsMessage(WsAction::EditorFocusState, isFocused) {}
 
 EditorPasteClientMessage::EditorPasteClientMessage(
-    const CaretPosition& caret,
     const string& content,
-    const filesystem::path& path,
-    const string& prefix,
-    const vector<filesystem::path>& recentFiles,
-    const string& suffix
+    const CaretPosition& caretPosition,
+    const vector<filesystem::path>& recentFiles
 ): WsMessage(
     WsAction::EditorPaste, {
+        {"content", content},
         {
-            "caret", {
-                {"character", caret.character},
-                {"line", caret.line},
+            "position", {
+                {"character", caretPosition.character},
+                {"line", caretPosition.line},
             }
         },
-        {"content", content},
-        {"path", iconv::autoDecode(path.generic_string())},
-        {"prefix", prefix},
         {"recentFiles", nlohmann::json::array()},
-        {"suffix", suffix},
-        {"symbols", nlohmann::json::array()},
     }
 ) {
     for (const auto& recentFile: recentFiles) {

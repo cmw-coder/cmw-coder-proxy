@@ -14,15 +14,6 @@
 namespace components {
     class CompletionManager : public SingletonDclp<CompletionManager> {
     public:
-        struct Components {
-            types::CaretPosition caretPosition;
-            std::filesystem::path path;
-            std::string prefix;
-            std::vector<std::filesystem::path> recentFiles;
-            std::string suffix;
-            std::vector<models::SymbolInfo> symbols;
-        };
-
         CompletionManager();
 
         ~CompletionManager() override;
@@ -56,10 +47,9 @@ namespace components {
         void wsEditorPaste(nlohmann::json&& data);
 
     private:
-        mutable std::shared_mutex _completionsMutex, _completionCacheMutex, _componentsMutex,
-                _editedCompletionMapMutex, _recentFilesMutex;
+        mutable std::shared_mutex _completionsMutex, _completionCacheMutex, _editedCompletionMapMutex,
+                _lastCaretPositionMutex, _recentFilesMutex;
         types::CaretPosition _lastCaretPosition{};
-        Components _components;
         std::atomic<bool> _configCompletionOnPaste{true}, _isRunning{true}, _needDiscardWsAction{false},
                 _needRetrieveCompletion{false};
         std::atomic<types::Time> _debounceRetrieveCompletionTime;

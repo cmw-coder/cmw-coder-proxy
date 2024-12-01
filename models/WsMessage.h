@@ -4,8 +4,8 @@
 
 #include <models/configs.h>
 #include <models/ReviewReference.h>
-#include <models/SymbolInfo.h>
 #include <types/CaretPosition.h>
+#include <types/CompletionComponents.h>
 #include <types/Completions.h>
 #include <types/Selection.h>
 #include <types/WsAction.h>
@@ -77,17 +77,7 @@ namespace models {
 
     class CompletionGenerateClientMessage final : public WsMessage {
     public:
-        CompletionGenerateClientMessage(
-            const types::CaretPosition& caret,
-            const std::filesystem::path& path,
-            const std::string& prefix,
-            const std::vector<std::filesystem::path>& recentFiles,
-            const std::string& suffix,
-            const std::vector<SymbolInfo>& symbols,
-            int64_t completionStartTime,
-            int64_t symbolStartTime,
-            int64_t completionEndTime
-        );
+        CompletionGenerateClientMessage(const types::CompletionComponents& completionComponents);
     };
 
     class CompletionGenerateServerMessage : public WsMessage {
@@ -136,12 +126,9 @@ namespace models {
     class EditorPasteClientMessage final : public WsMessage {
     public:
         explicit EditorPasteClientMessage(
-            const types::CaretPosition& caret,
             const std::string& content,
-            const std::filesystem::path& path,
-            const std::string& prefix,
-            const std::vector<std::filesystem::path>& recentFiles,
-            const std::string& suffix
+            const types::CaretPosition& caretPosition,
+            const std::vector<std::filesystem::path>& recentFiles
         );
     };
 
