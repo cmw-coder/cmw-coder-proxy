@@ -1,11 +1,12 @@
 #include <magic_enum/magic_enum.hpp>
 
 #include <types/CompletionComponents.h>
+#include <utils/base64.h>
 #include <utils/iconv.h>
 
 using namespace magic_enum;
 using namespace std;
-using namespace std::chrono;
+using namespace chrono;
 using namespace types;
 using namespace utils;
 
@@ -27,10 +28,14 @@ CompletionComponents::CompletionComponents(
     _symbolTime = currentTime;
 }
 
+filesystem::path CompletionComponents::getPath() const {
+    return _path;
+}
+
 void CompletionComponents::setContext(
-    const std::string& prefix,
-    const std::string& infix,
-    const std::string& suffix
+    const string& prefix,
+    const string& infix,
+    const string& suffix
 ) {
     _prefix = prefix;
     _infix = infix;
@@ -38,12 +43,12 @@ void CompletionComponents::setContext(
     _contextTime = system_clock::now();
 }
 
-void CompletionComponents::setRecentFiles(const std::vector<std::filesystem::path>& recentFiles) {
+void CompletionComponents::setRecentFiles(const vector<filesystem::path>& recentFiles) {
     _recentFiles = recentFiles;
     _recentFilesTime = system_clock::now();
 }
 
-void CompletionComponents::setSymbols(const std::vector<models::SymbolInfo>& symbols) {
+void CompletionComponents::setSymbols(const vector<models::SymbolInfo>& symbols) {
     _symbols = symbols;
     _symbolTime = system_clock::now();
 }
@@ -60,9 +65,9 @@ nlohmann::json CompletionComponents::toJson() const {
         {"path", iconv::autoDecode(_path.generic_string())},
         {
             "context", {
-                {"infix", _infix},
-                {"prefix", _prefix},
-                {"suffix", _suffix},
+                {"infix", base64::to_base64(_infix)},
+                {"prefix", base64::to_base64(_prefix)},
+                {"suffix", base64::to_base64(_suffix)},
             },
         },
         {"recentFiles", nlohmann::json::array()},

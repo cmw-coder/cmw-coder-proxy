@@ -21,6 +21,8 @@ namespace types {
             const std::filesystem::path& path
         );
 
+        std::filesystem::path getPath() const;
+
         void setContext(
             const std::string& prefix,
             const std::string& infix,

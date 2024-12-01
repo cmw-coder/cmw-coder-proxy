@@ -44,23 +44,24 @@ namespace components {
 
         void wsCompletionGenerate(nlohmann::json&& data);
 
-        void wsEditorPaste(nlohmann::json&& data);
-
     private:
         mutable std::shared_mutex _completionsMutex, _completionCacheMutex, _editedCompletionMapMutex,
-                _lastCaretPositionMutex, _recentFilesMutex;
+                _lastCaretPositionMutex, _lastEditedFilePathMutex, _recentFilesMutex;
         types::CaretPosition _lastCaretPosition{};
         std::atomic<bool> _configCompletionOnPaste{true}, _isRunning{true}, _needDiscardWsAction{false},
                 _needRetrieveCompletion{false};
         std::atomic<types::Time> _debounceRetrieveCompletionTime;
         std::atomic<uint32_t> _configDebounceDelay{50}, _configPrefixLineCount{200}, _configRecentFileCount{5},
                 _configSuffixLineCount{80};
+        std::filesystem::path _lastEditedFilePath;
         std::optional<types::Completions> _completionsOpt;
         std::unordered_map<std::filesystem::path, std::chrono::high_resolution_clock::time_point> _recentFiles;
         std::unordered_map<std::string, types::EditedCompletion> _editedCompletionMap;
         types::CompletionCache _completionCache;
 
         bool _cancelCompletion();
+
+        void _sendGenerateMessage(const types::CompletionComponents& completionComponents);
 
         std::vector<std::filesystem::path> _getRecentFiles() const;
 
@@ -69,12 +70,6 @@ namespace components {
         void _prolongRetrieveCompletion();
 
         void _updateNeedRetrieveCompletion(bool need = true, char character = 0);
-
-        void _sendCompletionGenerate(
-            int64_t completionStartTime,
-            int64_t symbolStartTime,
-            int64_t completionEndTime
-        );
 
         void _threadCheckAcceptedCompletions();
 

@@ -136,11 +136,6 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 &CompletionManager::wsCompletionGenerate
             );
             WebsocketManager::GetInstance()->registerAction(
-                WsAction::EditorPaste,
-                CompletionManager::GetInstance(),
-                &CompletionManager::wsEditorPaste
-            );
-            WebsocketManager::GetInstance()->registerAction(
                 WsAction::ReviewRequest,
                 [](nlohmann::json&& data) {
                     if (const auto serverMessage = ReviewRequestServerMessage(move(data));

@@ -13,7 +13,7 @@
 #include <components/WebsocketManager.h>
 #include <components/WindowManager.h>
 #include <types/CaretPosition.h>
-#include <utils/base64.h>
+#include <types/CompletionComponents.h>
 #include <utils/common.h>
 #include <utils/iconv.h>
 #include <utils/logger.h>
@@ -187,16 +187,16 @@ void CompletionManager::interactionNavigateWithKey(const any&, bool&) {
 void CompletionManager::interactionNavigateWithMouse(const any& data, bool&) {
     try {
         const auto [newCursorPosition, _] = any_cast<tuple<CaretPosition, CaretPosition>>(data); {
-            shared_lock componentsLock(_componentsMutex);
-            if (_components.caretPosition != newCursorPosition) {
+            shared_lock componentsLock(_lastCaretPositionMutex);
+            if (_lastCaretPosition != newCursorPosition) {
                 if (_hasValidCache()) {
                     _cancelCompletion();
                     logger::log("Navigate with mouse. Send CompletionCancel");
                 }
             }
         }
-        unique_lock lock(_componentsMutex);
-        _components.caretPosition = newCursorPosition;
+        unique_lock lock(_lastCaretPositionMutex);
+        _lastCaretPosition = newCursorPosition;
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid interactionNavigateWithMouse data: {}", e.what()));
     }
@@ -280,6 +280,14 @@ void CompletionManager::interactionPaste(const any&, bool&) {
             const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
             if (auto path = memoryManipulator->getCurrentFilePath();
                 currentFileHandle && currentLineCount && !path.empty()) {
+                const auto recentFiles = _getRecentFiles();
+                WebsocketManager::GetInstance()->send(
+                    EditorPasteClientMessage(clipboardText, caretPosition, recentFiles)
+                );
+
+                CompletionComponents completionComponents(
+                    CompletionComponents::GenerateType::Paste, caretPosition, path
+                );
                 string prefix, suffix; {
                     const auto currentLine = memoryManipulator->getLineContent(
                         currentFileHandle, caretPosition.line
@@ -287,7 +295,6 @@ void CompletionManager::interactionPaste(const any&, bool&) {
                     prefix = iconv::autoDecode(currentLine.substr(0, caretPosition.character));
                     suffix = iconv::autoDecode(currentLine.substr(caretPosition.character));
                 }
-
                 for (
                     uint32_t index = 1;
                     index <= min(caretPosition.line, _configPrefixLineCount.load());
@@ -304,14 +311,12 @@ void CompletionManager::interactionPaste(const any&, bool&) {
                     );
                     suffix.append("\n").append(tempLine);
                 }
-                WebsocketManager::GetInstance()->send(EditorPasteClientMessage(
-                    caretPosition,
-                    clipboardText,
-                    move(path),
-                    prefix,
-                    _getRecentFiles(),
-                    suffix
-                ));
+
+                completionComponents.setContext(prefix, clipboardText, suffix);
+                completionComponents.setRecentFiles(recentFiles);
+
+                _sendGenerateMessage(completionComponents);
+                logger::info("Generate 'paste' completion");
             }
         } catch (const exception& e) {
             logger::warn(format("(interactionPaste) Exception: {}", e.what()));
@@ -326,7 +331,7 @@ void CompletionManager::interactionSave(const any&, bool&) {
     }
 }
 
-void CompletionManager::interactionSelectionReplace(const std::any& data, bool&) {
+void CompletionManager::interactionSelectionReplace(const any& data, bool&) {
     try {
         if (const auto [startLine, count] = any_cast<pair<uint32_t, int32_t>>(data);
             count > 0) {
@@ -444,43 +449,6 @@ void CompletionManager::wsCompletionGenerate(nlohmann::json&& data) {
     WindowManager::GetInstance()->unsetMenuText();
 }
 
-void CompletionManager::wsEditorPaste(nlohmann::json&& data) {
-    if (const auto serverMessage = EditorPasteServerMessage(move(data));
-        serverMessage.result == "success") {
-        const auto completions = serverMessage.completions().value();
-        if (completions.empty()) {
-            logger::log("(WsAction::EditorPaste) Ignore due to empty completions");
-            return;
-        }
-        const auto& actionId = completions.actionId;
-        if (_needDiscardWsAction.load()) {
-            logger::log("(WsAction::EditorPaste) Ignore due to debounce");
-            WebsocketManager::GetInstance()->send(CompletionCancelClientMessage(actionId, false));
-            return;
-        }
-        const auto [candidate, index] = completions.current(); {
-            unique_lock lock(_completionsMutex);
-            _completionsOpt.emplace(completions);
-        } {
-            unique_lock lock(_completionCacheMutex);
-            _completionCache.reset(iconv::autoEncode(candidate));
-        }
-
-        const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
-        const auto [height, xPosition,yPosition] = common::getCaretDimensions();
-        WebsocketManager::GetInstance()->send(
-            CompletionSelectClientMessage(completions.actionId, index, height, xPosition, yPosition)
-        );
-    } else {
-        logger::warn(format(
-            "(WsAction::CompletionGenerate) Result: {}\n"
-            "\tMessage: {}",
-            serverMessage.result,
-            serverMessage.message()
-        ));
-    }
-}
-
 bool CompletionManager::_cancelCompletion() {
     bool hasCompletion;
     optional<Completions> completionsOpt; {
@@ -503,6 +471,23 @@ bool CompletionManager::_cancelCompletion() {
         }
     }
     return hasCompletion;
+}
+
+void CompletionManager::_sendGenerateMessage(const CompletionComponents& completionComponents) {
+    auto currentPath = completionComponents.getPath();
+    bool isSameFilePath; {
+        shared_lock lock(_lastEditedFilePathMutex);
+        isSameFilePath = _lastEditedFilePath == currentPath;
+    }
+    if (!isSameFilePath) {
+        SymbolManager::GetInstance()->updateRootPath(currentPath);
+        unique_lock lock(_lastEditedFilePathMutex);
+        _lastEditedFilePath = move(currentPath);
+    }
+
+    _needDiscardWsAction.store(false);
+    WebsocketManager::GetInstance()->send(CompletionGenerateClientMessage(completionComponents));
+    logger::info("Generate 'common' completion");
 }
 
 vector<filesystem::path> CompletionManager::_getRecentFiles() const {
@@ -545,30 +530,6 @@ void CompletionManager::_updateNeedRetrieveCompletion(const bool need, const cha
     _prolongRetrieveCompletion();
     _needDiscardWsAction.store(true);
     _needRetrieveCompletion.store(need && (!character || checkNeedRetrieveCompletion(character)));
-}
-
-void CompletionManager::_sendCompletionGenerate(
-    const int64_t completionStartTime,
-    const int64_t symbolStartTime,
-    const int64_t completionEndTime
-) {
-    try {
-        shared_lock componentsLock(_componentsMutex);
-        _needDiscardWsAction.store(false);
-        WebsocketManager::GetInstance()->send(CompletionGenerateClientMessage(
-            _components.caretPosition,
-            _components.path,
-            _components.prefix,
-            _components.recentFiles,
-            _components.suffix,
-            _components.symbols,
-            completionStartTime,
-            symbolStartTime,
-            completionEndTime
-        ));
-    } catch (const runtime_error& e) {
-        logger::warn(e.what());
-    }
 }
 
 void CompletionManager::_threadCheckAcceptedCompletions() {
@@ -626,9 +587,9 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                     const auto caretPosition = memoryManipulator->getCaretPosition();
                     if (auto path = memoryManipulator->getCurrentFilePath();
                         currentFileHandle && currentLineCount && !path.empty()) {
-                        const auto completionStartTime = chrono::system_clock::now();
-                        chrono::time_point<chrono::system_clock> retrieveSymbolStartTime;
-
+                        CompletionComponents completionComponents(
+                            CompletionComponents::GenerateType::Common, caretPosition, path
+                        );
                         string prefix, prefixForSymbol, suffix; {
                             const auto currentLine = memoryManipulator->getLineContent(
                                 currentFileHandle, caretPosition.line
@@ -636,7 +597,6 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                             prefix = iconv::autoDecode(currentLine.substr(0, caretPosition.character));
                             suffix = iconv::autoDecode(currentLine.substr(caretPosition.character));
                         }
-
                         for (
                             uint32_t index = 1;
                             index <= min(caretPosition.line, _configPrefixLineCount.load());
@@ -655,31 +615,16 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                                 memoryManipulator->getLineContent(currentFileHandle, caretPosition.line + index)
                             );
                             suffix.append("\n").append(tempLine);
-                        } {
-                            retrieveSymbolStartTime = chrono::system_clock::now();
-                            unique_lock lock(_componentsMutex);
-                            _components.caretPosition = caretPosition;
-                            _components.prefix = base64::to_base64(prefix);
-                            _components.recentFiles = _getRecentFiles();
-                            _components.symbols = SymbolManager::GetInstance()->getSymbols(prefixForSymbol, path);
-                            if (_components.path != path) {
-                                SymbolManager::GetInstance()->updateRootPath(path);
-                            }
-                            _components.path = move(path);
-                            _components.suffix = base64::to_base64(suffix);
                         }
-                        logger::info("Retrieve completion with full prefix");
-                        _sendCompletionGenerate(
-                            chrono::duration_cast<chrono::milliseconds>(
-                                completionStartTime.time_since_epoch()
-                            ).count(),
-                            chrono::duration_cast<chrono::milliseconds>(
-                                retrieveSymbolStartTime.time_since_epoch()
-                            ).count(),
-                            chrono::duration_cast<chrono::milliseconds>(
-                                chrono::system_clock::now().time_since_epoch()
-                            ).count()
+
+                        completionComponents.setContext(prefix, {}, suffix);
+                        completionComponents.setRecentFiles(_getRecentFiles());
+                        completionComponents.setSymbols(
+                            SymbolManager::GetInstance()->getSymbols(prefixForSymbol, path)
                         );
+
+                        _sendGenerateMessage(completionComponents);
+                        logger::info("Generate common completion");
                     }
                 } catch (const exception& e) {
                     logger::warn(format("(_threadDebounceRetrieveCompletion) Exception: {}", e.what()));

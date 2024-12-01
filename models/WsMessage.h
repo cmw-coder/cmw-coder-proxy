@@ -77,7 +77,7 @@ namespace models {
 
     class CompletionGenerateClientMessage final : public WsMessage {
     public:
-        CompletionGenerateClientMessage(const types::CompletionComponents& completionComponents);
+        explicit CompletionGenerateClientMessage(const types::CompletionComponents& completionComponents);
     };
 
     class CompletionGenerateServerMessage : public WsMessage {
