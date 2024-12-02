@@ -452,9 +452,14 @@ void CompletionManager::wsCompletionGenerate(nlohmann::json&& data) {
 
         const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
         const auto [height, xPosition,yPosition] = common::getCaretDimensions();
-        WebsocketManager::GetInstance()->send(
-            CompletionSelectClientMessage(completions.actionId, index, height, xPosition, yPosition)
-        );
+        WebsocketManager::GetInstance()->send(CompletionSelectClientMessage(
+            completions.actionId,
+            completions.generateType,
+            index,
+            height,
+            xPosition,
+            yPosition
+        ));
     } else {
         logger::warn(format(
             "(WsAction::CompletionGenerate) Result: {}\n"
