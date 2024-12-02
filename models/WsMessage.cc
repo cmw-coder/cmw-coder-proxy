@@ -119,13 +119,15 @@ optional<Completions> CompletionGenerateServerMessage::completions() const {
 
 CompletionSelectClientMessage::CompletionSelectClientMessage(
     const string& actionId,
-    uint32_t index,
+    const CompletionComponents::GenerateType generateType,
+    const uint32_t index,
     const int64_t height,
     const int64_t x,
     const int64_t y
 ): WsMessage(
     WsAction::CompletionSelect, {
         {"actionId", actionId},
+        {"type", enum_name(generateType)},
         {"index", index},
         {
             "dimensions", {

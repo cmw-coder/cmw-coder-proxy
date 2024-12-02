@@ -99,6 +99,7 @@ namespace models {
     public:
         explicit CompletionSelectClientMessage(
             const std::string& actionId,
+            types::CompletionComponents::GenerateType generateType,
             uint32_t index,
             int64_t height,
             int64_t x,
