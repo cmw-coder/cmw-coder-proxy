@@ -1,6 +1,7 @@
 #include <magic_enum/magic_enum.hpp>
 
 #include <models/WsMessage.h>
+#include <utils/base64.h>
 #include <utils/common.h>
 #include <utils/iconv.h>
 
@@ -143,17 +144,25 @@ EditorFocusStateClientMessage::EditorFocusStateClientMessage(const bool isFocuse
     : WsMessage(WsAction::EditorFocusState, isFocused) {}
 
 EditorPasteClientMessage::EditorPasteClientMessage(
-    const string& content,
     const CaretPosition& caretPosition,
+    const string& infix,
+    const string& prefix,
+    const string& suffix,
     const vector<filesystem::path>& recentFiles
 ): WsMessage(
     WsAction::EditorPaste, {
-        {"content", content},
         {
-            "position", {
+            "caret", {
                 {"character", caretPosition.character},
                 {"line", caretPosition.line},
             }
+        },
+        {
+            "context", {
+                {"infix", base64::to_base64(infix)},
+                {"prefix", base64::to_base64(prefix)},
+                {"suffix", base64::to_base64(suffix)},
+            },
         },
         {"recentFiles", nlohmann::json::array()},
     }
