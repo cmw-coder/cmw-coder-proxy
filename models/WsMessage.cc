@@ -92,7 +92,7 @@ CompletionGenerateServerMessage::CompletionGenerateServerMessage(nlohmann::json&
         _completionsOpt.emplace(
             _data["actionId"].get<string>(),
             type,
-            {
+            Selection{
                 {
                     _data["selection"]["begin"]["character"].get<uint32_t>(),
                     _data["selection"]["begin"]["line"].get<uint32_t>()

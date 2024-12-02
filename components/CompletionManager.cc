@@ -293,11 +293,6 @@ void CompletionManager::interactionPaste(const any&, bool&) {
             const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
             if (auto path = memoryManipulator->getCurrentFilePath();
                 currentFileHandle && currentLineCount && !path.empty()) {
-                const auto recentFiles = _getRecentFiles();
-                WebsocketManager::GetInstance()->send(
-                    EditorPasteClientMessage(clipboardText, caretPosition, recentFiles)
-                );
-
                 CompletionComponents completionComponents(
                     CompletionComponents::GenerateType::PasteReplace, caretPosition, path
                 );
@@ -324,10 +319,19 @@ void CompletionManager::interactionPaste(const any&, bool&) {
                     );
                     suffix.append("\n").append(tempLine);
                 }
-
                 completionComponents.setContext(prefix, clipboardText, suffix);
+                const auto recentFiles = _getRecentFiles();
                 completionComponents.setRecentFiles(recentFiles);
 
+                WebsocketManager::GetInstance()->send(
+                    EditorPasteClientMessage(
+                        caretPosition,
+                        clipboardText,
+                        prefix,
+                        suffix,
+                        recentFiles
+                    )
+                );
                 _sendGenerateMessage(completionComponents);
                 logger::info("Generate 'paste' completion");
             }
