@@ -82,12 +82,6 @@ namespace models {
 
     class CompletionGenerateServerMessage : public WsMessage {
     public:
-        enum class CompletionType {
-            Function,
-            Line,
-            Snippet,
-        };
-
         const std::string result;
 
         explicit CompletionGenerateServerMessage(nlohmann::json&& data);
@@ -97,7 +91,6 @@ namespace models {
         [[nodiscard]] std::optional<types::Completions> completions() const;
 
     private:
-        CompletionType _type{CompletionType::Snippet};
         std::string _message;
         std::optional<types::Completions> _completionsOpt{};
     };

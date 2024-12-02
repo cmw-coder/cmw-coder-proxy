@@ -76,22 +76,37 @@ CompletionManager::~CompletionManager() {
 }
 
 void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockMessage) {
+    CompletionComponents::GenerateType generateType;
+    Selection selection;
     string actionId, content;
     int64_t cacheIndex; {
         unique_lock lock(_completionCacheMutex);
         tie(content, cacheIndex) = _completionCache.reset();
     } {
         shared_lock lock(_completionsMutex);
-        actionId = _completionsOpt.value().actionId;
+        const auto& completions = _completionsOpt.value();
+        generateType = completions.generateType;
+        selection = completions.selection;
+        actionId = completions.actionId;
     }
     if (!content.empty()) {
         {
+            // TODO: Adapt to CompletionComponents::GenerateType::PasteReplace
             unique_lock lock(_editedCompletionMapMutex);
             if (_editedCompletionMap.contains(actionId)) {
                 _editedCompletionMap.at(actionId).react(true);
             }
         }
-        common::insertContent(content.substr(cacheIndex));
+        switch (generateType) {
+            case CompletionComponents::GenerateType::Common: {
+                common::insertContent(content.substr(cacheIndex));
+                break;
+            }
+            case CompletionComponents::GenerateType::PasteReplace: {
+                common::replaceContent(selection, content);
+                break;
+            }
+        }
         shared_lock lock(_completionsMutex);
         WebsocketManager::GetInstance()->send(CompletionAcceptClientMessage(
             _completionsOpt.value().actionId,
@@ -218,7 +233,6 @@ void CompletionManager::interactionNormalInput(const any& data, bool&) {
                 if (completionOpt.has_value()) {
                     // In cache
                     WebsocketManager::GetInstance()->send(CompletionCacheClientMessage(false));
-                    // logger::log("Normal input. Send CompletionCache due to cache hit");
                 } else {
                     // Out of cache
                     _completionCache.reset(); {
@@ -228,7 +242,6 @@ void CompletionManager::interactionNormalInput(const any& data, bool&) {
                             get<1>(_completionsOpt.value().current())
                         ));
                     }
-                    // logger::log("Normal input. Send CompletionAccept due to cache complete");
                 }
             } else {
                 // Cache miss
@@ -286,7 +299,7 @@ void CompletionManager::interactionPaste(const any&, bool&) {
                 );
 
                 CompletionComponents completionComponents(
-                    CompletionComponents::GenerateType::Paste, caretPosition, path
+                    CompletionComponents::GenerateType::PasteReplace, caretPosition, path
                 );
                 string prefix, suffix; {
                     const auto currentLine = memoryManipulator->getLineContent(

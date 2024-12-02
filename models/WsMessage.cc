@@ -82,13 +82,25 @@ CompletionGenerateClientMessage::CompletionGenerateClientMessage(const Completio
 CompletionGenerateServerMessage::CompletionGenerateServerMessage(nlohmann::json&& data)
     : WsMessage(WsAction::CompletionGenerate, move(data)), result(_data["result"].get<string>()) {
     if (result == "success") {
-        if (const auto completionTypeOpt = enum_cast<CompletionType>(
-            _data["completions"]["type"].get<string>()
+        auto type = CompletionComponents::GenerateType::Common;
+        if (const auto completionTypeOpt = enum_cast<CompletionComponents::GenerateType>(
+            _data["type"].get<string>()
         ); completionTypeOpt.has_value()) {
-            _type = completionTypeOpt.value();
+            type = completionTypeOpt.value();
         }
         _completionsOpt.emplace(
             _data["actionId"].get<string>(),
+            type,
+            {
+                {
+                    _data["selection"]["begin"]["character"].get<uint32_t>(),
+                    _data["selection"]["begin"]["line"].get<uint32_t>()
+                },
+                {
+                    _data["selection"]["end"]["character"].get<uint32_t>(),
+                    _data["selection"]["end"]["line"].get<uint32_t>()
+                },
+            },
             _data["completions"]["candidates"].get<vector<string>>()
         );
     } else if (_data.contains("message")) {

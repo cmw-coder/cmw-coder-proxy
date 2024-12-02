@@ -12,18 +12,12 @@ namespace types {
 
         std::optional<std::pair<char, std::optional<std::string>>> next();
 
-        std::tuple<CompletionComponents::GenerateType, std::string, Selection, int64_t> reset(
-            CompletionComponents::GenerateType generateType = CompletionComponents::GenerateType::Common,
-            std::string content = {},
-            Selection selection = {}
-        );
+        std::tuple<std::string, int64_t> reset(std::string content = {});
 
         [[nodiscard]] bool valid() const;
 
     private:
-        CompletionComponents::GenerateType _generateType = CompletionComponents::GenerateType::Common;
         std::string _content;
-        Selection _selection{};
         int64_t _index = -1;
     };
 }
