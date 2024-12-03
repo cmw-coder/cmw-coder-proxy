@@ -468,7 +468,6 @@ void CompletionManager::wsCompletionGenerate(nlohmann::json&& data) {
             serverMessage.message()
         ));
     }
-    WindowManager::GetInstance()->unsetMenuText();
 }
 
 bool CompletionManager::_cancelCompletion() {
@@ -599,7 +598,6 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
         while (_isRunning) {
             if (const auto pastTime = chrono::high_resolution_clock::now() - _debounceRetrieveCompletionTime.load();
                 pastTime >= chrono::milliseconds(_configDebounceDelay.load()) && _needRetrieveCompletion.load()) {
-                WindowManager::GetInstance()->setMenuText("Generating...");
                 try {
                     // TODO: Improve performance
                     const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();

@@ -14,14 +14,7 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
-namespace {
-    const auto versionText = format("v{}", VERSION_STRING);
-    atomic<uint32_t> mainWindowHandle;
-}
-
 WindowManager::WindowManager() {
-    _threadInitMenuHandle();
-
     logger::info("WindowManager is initialized");
 }
 
@@ -133,24 +126,6 @@ bool WindowManager::sendFocus() const {
     return false;
 }
 
-void WindowManager::setMenuText(const string& text) const {
-    if (_menuHandle < 0) {
-        return;
-    }
-    ModifyMenu(
-        reinterpret_cast<HMENU>(_menuHandle.load()),
-        _menuItemIndex,
-        MF_DISABLED,
-        _menuItemIndex,
-        (_menuBaseText + text).c_str()
-    );
-    DrawMenuBar(reinterpret_cast<HWND>(mainWindowHandle.load()));
-}
-
-void WindowManager::unsetMenuText() const {
-    setMenuText(versionText);
-}
-
 void WindowManager::_addEditorWindowHandle(const uint32_t windowHandle) {
     unique_lock lock(_fileHandleMapMutex);
     _fileHandleMap.emplace(
@@ -161,23 +136,4 @@ void WindowManager::_addEditorWindowHandle(const uint32_t windowHandle) {
 
 void WindowManager::_cancelRetrieveInfo() {
     _needRetrieveInfo.store(false);
-}
-
-void WindowManager::_threadInitMenuHandle() {
-    thread([this] {
-        mainWindowHandle = window::getMainWindowHandle(GetCurrentProcessId());
-        while (!mainWindowHandle) {
-            this_thread::sleep_for(chrono::milliseconds(10));
-            mainWindowHandle = window::getMainWindowHandle(GetCurrentProcessId());
-        }
-        const auto menuHandle = GetMenu(reinterpret_cast<HWND>(mainWindowHandle.load()));
-        _menuHandle.store(reinterpret_cast<int64_t>(menuHandle));
-        _menuItemIndex = GetMenuItemCount(menuHandle);
-        AppendMenu(
-            menuHandle,
-            MF_DISABLED,
-            _menuItemIndex,
-            (_menuBaseText + versionText).c_str()
-        );
-    }).detach();
 }

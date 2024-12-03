@@ -41,16 +41,11 @@ namespace components {
 
         bool sendFocus() const;
 
-        void setMenuText(const std::string& text) const;
-
-        void unsetMenuText() const;
-
     private:
         mutable std::shared_mutex _fileHandleMapMutex;
 
-        const std::string _menuBaseText = "Comware Coder Proxy: ";
         std::atomic<bool> _isRunning{true}, _needRetrieveInfo{false};
-        std::atomic<int64_t> _menuHandle{-1}, _menuItemIndex{-1}, _popListWindowHandle{-1};
+        std::atomic<int64_t> _popListWindowHandle{-1};
         std::atomic<std::optional<uint32_t>> _currentWindowHandle{};
         std::atomic<types::Time> _debounceRetrieveInfoTime;
         std::unordered_map<uint32_t, uint32_t> _fileHandleMap;
@@ -58,7 +53,5 @@ namespace components {
         void _addEditorWindowHandle(uint32_t windowHandle);
 
         void _cancelRetrieveInfo();
-
-        void _threadInitMenuHandle();
     };
 }
