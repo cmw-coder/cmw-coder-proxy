@@ -461,13 +461,22 @@ void InteractionMonitor::_processMouseMessage(const unsigned wParam) {
 
 void InteractionMonitor::_processWindowMessage(const long lParam) {
     const auto windowProcData = reinterpret_cast<PCWPSTRUCT>(lParam);
-    if (const auto editorWindowHandle = reinterpret_cast<int64_t>(windowProcData->hwnd);
-        window::getWindowClassName(editorWindowHandle) == "si_Sw") {
+    const auto windowHandle = reinterpret_cast<int64_t>(windowProcData->hwnd);
+    if (const auto windowClassName = window::getWindowClassName(windowHandle);
+        windowClassName == "si_Sw") {
         const auto websocketManager = WebsocketManager::GetInstance();
         switch (windowProcData->message) {
+            case WM_SETFOCUS: {
+                if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(windowHandle)) {
+                    websocketManager->send(EditorStateClientMessage(true));
+                }
+
+                _interactionUnlockTime.store(chrono::high_resolution_clock::now());
+                break;
+            }
             case WM_KILLFOCUS: {
                 if (WindowManager::GetInstance()->checkNeedHideWhenLostFocus(windowProcData->wParam)) {
-                    websocketManager->send(EditorFocusStateClientMessage(false));
+                    websocketManager->send(EditorStateClientMessage(false));
                 }
                 _isSelecting.store(false);
                 websocketManager->send(EditorSelectionClientMessage({}));
@@ -475,12 +484,22 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                 _interactionUnlockTime.store(chrono::high_resolution_clock::now());
                 break;
             }
-            case WM_SETFOCUS: {
-                if (WindowManager::GetInstance()->checkNeedShowWhenGainFocus(editorWindowHandle)) {
-                    websocketManager->send(EditorFocusStateClientMessage(true));
-                }
-
-                _interactionUnlockTime.store(chrono::high_resolution_clock::now());
+            default: {
+                break;
+            }
+        }
+    } else if (windowClassName == "si_Frame") {
+        const auto websocketManager = WebsocketManager::GetInstance();
+        switch (windowProcData->message) {
+            case WM_SIZE:
+            case WM_MOVE: {
+                const auto [left, top, right, bottom] = window::getWindowRect(windowHandle);
+                websocketManager->send(EditorStateClientMessage({
+                    .height = bottom - top,
+                    .width = right - left,
+                    .x = left,
+                    .y = top
+                }));
                 break;
             }
             default: {

@@ -142,9 +142,6 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
 EditorCommitClientMessage::EditorCommitClientMessage(const filesystem::path& path)
     : WsMessage(WsAction::EditorCommit, iconv::autoDecode(path.generic_string())) {}
 
-EditorFocusStateClientMessage::EditorFocusStateClientMessage(const bool isFocused)
-    : WsMessage(WsAction::EditorFocusState, isFocused) {}
-
 EditorPasteClientMessage::EditorPasteClientMessage(
     const CaretPosition& caretPosition,
     const string& infix,
@@ -176,12 +173,6 @@ EditorPasteClientMessage::EditorPasteClientMessage(
 
 EditorPasteServerMessage::EditorPasteServerMessage(nlohmann::json&& data)
     : CompletionGenerateServerMessage(move(data)) {}
-
-EditorSwitchFileMessage::EditorSwitchFileMessage(const filesystem::path& path)
-    : WsMessage(WsAction::EditorSwitchFile, iconv::autoDecode(path.generic_string())) {}
-
-EditorSwitchProjectClientMessage::EditorSwitchProjectClientMessage(const filesystem::path& path)
-    : WsMessage(WsAction::EditorSwitchProject, iconv::autoDecode(path.generic_string())) {}
 
 EditorSelectionClientMessage::EditorSelectionClientMessage(
     const filesystem::path& path,
@@ -217,6 +208,42 @@ EditorSelectionClientMessage::EditorSelectionClientMessage(
         }
     }
 ) {}
+
+EditorStateClientMessage::EditorStateClientMessage(const bool isFocused)
+    : WsMessage(WsAction::EditorState, {{"isFocused", isFocused}}) {}
+
+EditorStateClientMessage::EditorStateClientMessage(const _Dimensions& dimensions)
+    : WsMessage(
+        WsAction::EditorState, {
+            {
+                "dimensions", {
+                    {"height", dimensions.height},
+                    {"width", dimensions.width},
+                    {"x", dimensions.x},
+                    {"y", dimensions.y},
+                }
+            }
+        }
+    ) {}
+
+void EditorStateClientMessage::setFocused(bool isFocused) {
+    _data["isFocused"] = isFocused;
+}
+
+void EditorStateClientMessage::setDimensions(const _Dimensions& dimensions) {
+    _data["dimensions"] = {
+        {"height", dimensions.height},
+        {"width", dimensions.width},
+        {"x", dimensions.x},
+        {"y", dimensions.y},
+    };
+}
+
+EditorSwitchFileMessage::EditorSwitchFileMessage(const filesystem::path& path)
+    : WsMessage(WsAction::EditorSwitchFile, iconv::autoDecode(path.generic_string())) {}
+
+EditorSwitchProjectClientMessage::EditorSwitchProjectClientMessage(const filesystem::path& path)
+    : WsMessage(WsAction::EditorSwitchProject, iconv::autoDecode(path.generic_string())) {}
 
 HandShakeClientMessage::HandShakeClientMessage(const filesystem::path& currentProject, string&& version)
     : WsMessage(

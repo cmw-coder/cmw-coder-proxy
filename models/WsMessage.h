@@ -112,11 +112,6 @@ namespace models {
         explicit EditorCommitClientMessage(const std::filesystem::path& path);
     };
 
-    class EditorFocusStateClientMessage final : public WsMessage {
-    public:
-        explicit EditorFocusStateClientMessage(bool isFocused);
-    };
-
     class EditorPasteClientMessage final : public WsMessage {
     public:
         explicit EditorPasteClientMessage(
@@ -133,16 +128,6 @@ namespace models {
         explicit EditorPasteServerMessage(nlohmann::json&& data);
     };
 
-    class EditorSwitchFileMessage final : public WsMessage {
-    public:
-        explicit EditorSwitchFileMessage(const std::filesystem::path& path);
-    };
-
-    class EditorSwitchProjectClientMessage final : public WsMessage {
-    public:
-        explicit EditorSwitchProjectClientMessage(const std::filesystem::path& path);
-    };
-
     class EditorSelectionClientMessage final : public WsMessage {
     public:
         explicit EditorSelectionClientMessage(
@@ -154,6 +139,31 @@ namespace models {
             int64_t x = {},
             int64_t y = {}
         );
+    };
+
+    class EditorStateClientMessage final : public WsMessage {
+        struct _Dimensions {
+            int64_t height, width, x, y;
+        };
+
+    public:
+        explicit EditorStateClientMessage(bool isFocused);
+
+        explicit EditorStateClientMessage(const _Dimensions& dimensions);
+
+        void setFocused(bool isFocused);
+
+        void setDimensions(const _Dimensions& dimensions);
+    };
+
+    class EditorSwitchFileMessage final : public WsMessage {
+    public:
+        explicit EditorSwitchFileMessage(const std::filesystem::path& path);
+    };
+
+    class EditorSwitchProjectClientMessage final : public WsMessage {
+    public:
+        explicit EditorSwitchProjectClientMessage(const std::filesystem::path& path);
     };
 
     class HandShakeClientMessage final : public WsMessage {
