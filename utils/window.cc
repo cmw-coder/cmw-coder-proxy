@@ -58,9 +58,14 @@ ModifierSet window::getModifierKeys(const uint8_t currentKeycode) {
 }
 
 tuple<int64_t, int64_t> window::getWindowPosition(const int64_t hwnd) {
+    const auto [left, top, right, bottom] = getWindowRect(hwnd);
+    return {left, top};
+}
+
+tuple<int64_t, int64_t, int64_t, int64_t> window::getWindowRect(const int64_t hwnd) {
     RECT rect;
     GetWindowRect(reinterpret_cast<HWND>(hwnd), &rect);
-    return {rect.left, rect.top};
+    return {rect.left, rect.top, rect.right, rect.bottom};
 }
 
 string window::getWindowText(const int64_t hwnd) {
