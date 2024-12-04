@@ -332,8 +332,14 @@ void CompletionManager::interactionPaste(const any&, bool&) {
                         recentFiles
                     )
                 );
-                _sendGenerateMessage(completionComponents);
-                logger::info("Generate 'paste' completion");
+
+                if (const auto lineCount = ranges::count(clipboardText, '\n') + 1;
+                    lineCount == 1) {
+                    _updateNeedRetrieveCompletion(true, clipboardText.back());
+                } else if (lineCount < 20) {
+                    _sendGenerateMessage(completionComponents);
+                    logger::info("Generate 'paste' completion");
+                }
             }
         } catch (const exception& e) {
             logger::warn(format("(interactionPaste) Exception: {}", e.what()));
