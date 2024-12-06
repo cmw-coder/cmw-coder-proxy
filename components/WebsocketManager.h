@@ -20,6 +20,8 @@ namespace components {
 
         ~WebsocketManager() override;
 
+        void close();
+
         void registerAction(
             const types::WsAction action,
             std::function<void(nlohmann::json&&)> handleFunction

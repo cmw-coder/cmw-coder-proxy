@@ -66,8 +66,16 @@ WebsocketManager::WebsocketManager(string&& url, const chrono::seconds& pingInte
 }
 
 WebsocketManager::~WebsocketManager() {
-    _client.stop();
+    while (_client.getReadyState() != ReadyState::Closed) {
+        _client.disableAutomaticReconnection();
+        _client.stop();
+    }
     uninitNetSystem();
+}
+
+void WebsocketManager::close() {
+    _client.disableAutomaticReconnection();
+    _client.close();
 }
 
 void WebsocketManager::send(const WsMessage& message) {

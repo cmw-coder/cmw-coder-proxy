@@ -491,8 +491,8 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
     } else if (windowClassName == "si_Frame") {
         const auto websocketManager = WebsocketManager::GetInstance();
         switch (windowProcData->message) {
-            case WM_SIZE:
-            case WM_MOVE: {
+            case WM_MOVE:
+            case WM_SIZE: {
                 const auto [left, top, right, bottom] = window::getWindowRect(windowHandle);
                 websocketManager->send(EditorStateClientMessage({
                     .height = bottom - top,
@@ -500,6 +500,11 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
                     .x = left,
                     .y = top
                 }));
+                break;
+            }
+            case WM_CLOSE: {
+                logger::debug("si_Frame is destroyed.");
+                websocketManager->close();
                 break;
             }
             default: {
