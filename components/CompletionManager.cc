@@ -271,22 +271,22 @@ void CompletionManager::interactionPaste(const any&, bool&) {
 
     if (const auto clipboardTextOpt = system::getClipboardText();
         clipboardTextOpt.has_value()) {
-        const auto& clipboardText = clipboardTextOpt.value();
+        const auto& clipboardText = iconv::autoDecode(clipboardTextOpt.value());
         const auto memoryManipulator = MemoryManipulator::GetInstance();
+        const auto caretPosition = memoryManipulator->getCaretPosition();
         if (const auto currentWindowHandleOpt = WindowManager::GetInstance()->getCurrentWindowHandle();
             currentWindowHandleOpt.has_value()) {
-            const auto addedLineCount = memoryManipulator->getCaretPosition().character == 0
+            const auto addedLineCount = caretPosition.character == 0
                                             ? common::countLines(clipboardText)
                                             : common::countLines(clipboardText) - 1;
             unique_lock lock(_editedCompletionMapMutex);
             for (auto& editedCompletion: _editedCompletionMap | views::values) {
                 if (editedCompletion.windowHandle == currentWindowHandleOpt.value()) {
-                    editedCompletion.addLine(memoryManipulator->getCaretPosition().line, addedLineCount);
+                    editedCompletion.addLine(caretPosition.line, addedLineCount);
                 }
             }
         }
 
-        const auto caretPosition = memoryManipulator->getCaretPosition();
         const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
         const auto currentLineCount = memoryManipulator->getCurrentLineCount();
         try {

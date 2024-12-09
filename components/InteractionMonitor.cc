@@ -422,9 +422,6 @@ bool InteractionMonitor::_processKeyMessage(const uint32_t virtualKeyCode, const
             ignore = _handleInteraction(Interaction::CompletionCancel, true);
             break;
         }
-        case VK_F11: {
-            throw runtime_error("F11 is not supported.");
-        }
         default: {
             break;
         }
