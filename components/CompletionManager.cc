@@ -77,7 +77,7 @@ CompletionManager::~CompletionManager() {
 
 void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockMessage) {
     CompletionComponents::GenerateType generateType;
-    Selection selection;
+    Selection selection{};
     string actionId, content;
     int64_t cacheIndex; {
         unique_lock lock(_completionCacheMutex);
