@@ -333,7 +333,7 @@ void CompletionManager::interactionPaste(const any&, bool&) {
                     )
                 );
 
-                if (const auto lineCount = ranges::count(clipboardText, '\n') + 1;
+                if (const auto lineCount = common::countLines(clipboardText);
                     lineCount == 1) {
                     _updateNeedRetrieveCompletion(true, clipboardText.back());
                 } else if (lineCount < 20) {
