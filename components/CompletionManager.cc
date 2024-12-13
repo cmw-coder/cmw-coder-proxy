@@ -335,10 +335,19 @@ void CompletionManager::interactionPaste(const any&, bool&) {
 
                 if (const auto lineCount = common::countLines(clipboardText);
                     lineCount == 1) {
-                    _updateNeedRetrieveCompletion(true, clipboardText.back());
-                } else if (lineCount < 20) {
+                    const auto lastNonSpaceIndex = clipboardText.find_last_not_of(" \t");
+                    const auto lastNonSpaceChar = lastNonSpaceIndex == string::npos
+                                                      ? clipboardText.back()
+                                                      : clipboardText[lastNonSpaceIndex];
+                    if (lastNonSpaceChar != ';') {
+                        _prolongRetrieveCompletion();
+                        _needDiscardWsAction.store(true);
+                        _needRetrieveCompletion.store(true);
+                    } else {
+                        _sendGenerateMessage(completionComponents);
+                    }
+                } else if (lineCount < 10) {
                     _sendGenerateMessage(completionComponents);
-                    logger::info("Generate 'paste' completion");
                 }
             }
         } catch (const exception& e) {
