@@ -603,7 +603,7 @@ void CompletionManager::_threadCheckCurrentFilePath() {
                 unique_lock lock(_recentFilesMutex);
                 _recentFiles.emplace(currentPath, chrono::high_resolution_clock::now());
             }
-            this_thread::sleep_for(100ms);
+            this_thread::sleep_for(3s);
         }
     }).detach();
 }

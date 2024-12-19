@@ -42,9 +42,30 @@ CaretDimension common::getCaretDimensions(const bool waitTillAvailable) {
     };
 }
 
-void common::insertContent(const std::string& content) {
-    const auto currentPosition = MemoryManipulator::GetInstance()->getCaretPosition();
-    replaceContent({currentPosition, currentPosition}, content);
+void common::insertContent(const std::string& content) { {
+        const auto memoryManipulator = MemoryManipulator::GetInstance();
+        const auto currentPosition = memoryManipulator->getCaretPosition();
+        uint32_t insertedLineCount{0}, lastLineLength{0};
+        const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
+        for (const auto lineRange: content | views::split("\n"sv)) {
+            auto lineContent = string{lineRange.begin(), lineRange.end()};
+            if (insertedLineCount == 0) {
+                lastLineLength = currentPosition.character + 1 + lineContent.size();
+                memoryManipulator->setSelectionContent(lineContent);
+            } else {
+                lastLineLength = lineContent.size();
+                memoryManipulator->setLineContent(currentPosition.line + insertedLineCount, lineContent, true);
+            }
+            this_thread::sleep_for(5ms);
+            ++insertedLineCount;
+        }
+        memoryManipulator->setCaretPosition({lastLineLength, currentPosition.line + insertedLineCount - 1});
+    }
+    if (ConfigManager::GetInstance()->version().first == SiVersion::Major::V35) {
+        WindowManager::GetInstance()->sendLeftThenRight();
+    } else {
+        WindowManager::GetInstance()->sendEnd();
+    }
 }
 
 void common::replaceContent(const Selection& replaceRange, string content) { {
