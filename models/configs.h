@@ -9,8 +9,8 @@ namespace models {
     class CompletionConfig {
     public:
         const std::optional<bool> completionOnPaste;
-        const std::optional<uint32_t> debounceDelay, interactionUnlockDelay, prefixLineCount, recentFileCount,
-                suffixLineCount;
+        const std::optional<uint32_t> debounceDelay, interactionUnlockDelay, pasteMaxLineCount, prefixLineCount,
+                recentFileCount, suffixLineCount;
 
         explicit CompletionConfig(const nlohmann::json& data);
     };

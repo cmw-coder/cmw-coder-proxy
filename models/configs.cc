@@ -30,6 +30,9 @@ CompletionConfig::CompletionConfig(const nlohmann::json& data)
       interactionUnlockDelay(
           data.contains("interactionUnlockDelay") ? optional(data["interactionUnlockDelay"].get<uint32_t>()) : nullopt
       ),
+      pasteMaxLineCount(
+          data.contains("pasteMaxLineCount") ? optional(data["pasteMaxLineCount"].get<uint32_t>()) : nullopt
+      ),
       prefixLineCount(
           data.contains("prefixLineCount") ? optional(data["prefixLineCount"].get<uint32_t>()) : nullopt
       ),

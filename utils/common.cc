@@ -91,6 +91,7 @@ void common::replaceContent(const Selection& replaceRange, string content) { {
             } else {
                 memoryManipulator->setLineContent(replaceRange.begin.line + insertedLineCount, lineContent, true);
             }
+            this_thread::sleep_for(5ms);
             ++insertedLineCount;
         }
 

@@ -51,8 +51,8 @@ namespace components {
         std::atomic<bool> _configCompletionOnPaste{true}, _isRunning{true}, _needDiscardWsAction{false},
                 _needRetrieveCompletion{false};
         std::atomic<types::Time> _debounceRetrieveCompletionTime;
-        std::atomic<uint32_t> _configDebounceDelay{50}, _configPrefixLineCount{200}, _configRecentFileCount{5},
-                _configSuffixLineCount{80};
+        std::atomic<uint32_t> _configDebounceDelay{50}, _configPasteMaxLineCount{10}, _configPrefixLineCount{200},
+                _configRecentFileCount{5}, _configSuffixLineCount{80};
         std::filesystem::path _lastEditedFilePath;
         std::optional<types::Completions> _completionsOpt;
         std::unordered_map<std::filesystem::path, std::chrono::high_resolution_clock::time_point> _recentFiles;

@@ -346,7 +346,7 @@ void CompletionManager::interactionPaste(const any&, bool&) {
                     } else {
                         _sendGenerateMessage(completionComponents);
                     }
-                } else if (lineCount < 10) {
+                } else if (lineCount < _configPasteMaxLineCount.load()) {
                     _sendGenerateMessage(completionComponents);
                 }
             }
@@ -412,6 +412,11 @@ void CompletionManager::updateCompletionConfig(const CompletionConfig& completio
         debounceDelayOpt.has_value()) {
         logger::info(format("Update debounce delay: {}ms", debounceDelayOpt.value()));
         _configDebounceDelay.store(debounceDelayOpt.value());
+    }
+    if (const auto pasteMaxLineCountOpt = completionConfig.pasteMaxLineCount;
+        pasteMaxLineCountOpt.has_value()) {
+        logger::info(format("Update paste max line count: {}", pasteMaxLineCountOpt.value()));
+        _configPasteMaxLineCount.store(pasteMaxLineCountOpt.value());
     }
     if (const auto prefixLineCountOpt = completionConfig.prefixLineCount;
         prefixLineCountOpt.has_value()) {
