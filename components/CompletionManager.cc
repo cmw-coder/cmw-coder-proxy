@@ -62,9 +62,17 @@ namespace {
             }
         }
     }
+
+    bool fileTimeCompare(
+        const CompletionManager::FileTime& a,
+        const CompletionManager::FileTime& b
+    ) {
+        return a.second > b.second;
+    }
 }
 
 CompletionManager::CompletionManager() {
+    ranges::make_heap(_recentFiles, fileTimeCompare);
     _threadCheckAcceptedCompletions();
     _threadCheckCurrentFilePath();
     _threadDebounceRetrieveCompletion();
@@ -293,7 +301,7 @@ void CompletionManager::interactionPaste(const any&, bool&) {
                 CompletionComponents::GenerateType::PasteReplace,
                 clipboardText
             ); completionComponentsOpt.has_value()) {
-                const auto completionComponents = completionComponentsOpt.value();
+                const auto& completionComponents = completionComponentsOpt.value();
                 WebsocketManager::GetInstance()->send(EditorPasteClientMessage(
                     caretPosition,
                     clipboardText,
@@ -501,27 +509,8 @@ void CompletionManager::_sendGenerateMessage(const CompletionComponents& complet
 }
 
 vector<filesystem::path> CompletionManager::_getRecentFiles() const {
-    using FileTime = pair<filesystem::path, chrono::high_resolution_clock::time_point>;
-    vector<filesystem::path> recentFiles;
-    priority_queue<FileTime, vector<FileTime>, decltype([](const auto& a, const auto& b) {
-        return a.second > b.second;
-    })> pq; {
-        const auto recentFileCount = _configRecentFileCount.load();
-        shared_lock lock(_recentFilesMutex);
-        for (const auto& file: _recentFiles) {
-            pq.emplace(file);
-            if (pq.size() > recentFileCount) {
-                pq.pop();
-            }
-        }
-    }
-
-    while (!pq.empty()) {
-        recentFiles.push_back(pq.top().first);
-        pq.pop();
-    }
-
-    return recentFiles;
+    shared_lock lock(_recentFilesMutex);
+    return _recentFiles | views::keys | ranges::to<vector>();
 }
 
 optional<CompletionComponents> CompletionManager::_retrieveContext(
@@ -625,7 +614,12 @@ void CompletionManager::_threadCheckCurrentFilePath() {
             if (const auto extension = currentPath.extension();
                 extension == ".c" || extension == ".h") {
                 unique_lock lock(_recentFilesMutex);
-                _recentFiles.emplace(currentPath, chrono::high_resolution_clock::now());
+                _recentFiles.emplace_back(currentPath, chrono::high_resolution_clock::now());
+                ranges::push_heap(_recentFiles, fileTimeCompare);
+                if (_recentFiles.size() > _configRecentFileCount.load()) {
+                    ranges::pop_heap(_recentFiles, fileTimeCompare);
+                    _recentFiles.pop_front();
+                }
             }
             this_thread::sleep_for(3s);
         }

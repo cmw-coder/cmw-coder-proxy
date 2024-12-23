@@ -1,6 +1,7 @@
 #pragma once
 
 #include <any>
+#include <deque>
 
 #include <singleton_dclp.hpp>
 
@@ -14,6 +15,8 @@
 namespace components {
     class CompletionManager : public SingletonDclp<CompletionManager> {
     public:
+        using FileTime = std::pair<std::filesystem::path, std::chrono::high_resolution_clock::time_point>;
+
         CompletionManager();
 
         ~CompletionManager() override;
@@ -55,7 +58,7 @@ namespace components {
                 _configRecentFileCount{5}, _configSuffixLineCount{80};
         std::filesystem::path _lastEditedFilePath;
         std::optional<types::Completions> _completionsOpt;
-        std::unordered_map<std::filesystem::path, std::chrono::high_resolution_clock::time_point> _recentFiles;
+        std::deque<FileTime> _recentFiles;
         std::unordered_map<std::string, types::EditedCompletion> _editedCompletionMap;
         types::CompletionCache _completionCache;
 
