@@ -287,51 +287,20 @@ void CompletionManager::interactionPaste(const any&, bool&) {
             }
         }
 
-        const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
-        const auto currentLineCount = memoryManipulator->getCurrentLineCount();
         try {
-            const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
-            if (auto path = memoryManipulator->getCurrentFilePath();
-                currentFileHandle && currentLineCount && !path.empty()) {
-                CompletionComponents completionComponents(
-                    CompletionComponents::GenerateType::PasteReplace, caretPosition, path
-                );
-                string prefix, suffix; {
-                    const auto currentLine = memoryManipulator->getLineContent(
-                        currentFileHandle, caretPosition.line
-                    );
-                    prefix = iconv::autoDecode(currentLine.substr(0, caretPosition.character));
-                    suffix = iconv::autoDecode(currentLine.substr(caretPosition.character));
-                }
-                for (
-                    uint32_t index = 1;
-                    index <= min(caretPosition.line, _configPrefixLineCount.load());
-                    ++index
-                ) {
-                    const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
-                        currentFileHandle, caretPosition.line - index
-                    )).append("\n");
-                    prefix.insert(0, tempLine);
-                }
-                for (uint32_t index = 1; index < _configSuffixLineCount.load(); ++index) {
-                    const auto tempLine = iconv::autoDecode(
-                        memoryManipulator->getLineContent(currentFileHandle, caretPosition.line + index)
-                    );
-                    suffix.append("\n").append(tempLine);
-                }
-                completionComponents.setContext(prefix, clipboardText, suffix);
-                const auto recentFiles = _getRecentFiles();
-                completionComponents.setRecentFiles(recentFiles);
-
-                WebsocketManager::GetInstance()->send(
-                    EditorPasteClientMessage(
-                        caretPosition,
-                        clipboardText,
-                        prefix,
-                        suffix,
-                        recentFiles
-                    )
-                );
+            if (const auto completionComponentsOpt = _retrieveContext(
+                caretPosition,
+                CompletionComponents::GenerateType::PasteReplace,
+                clipboardText
+            ); completionComponentsOpt.has_value()) {
+                const auto completionComponents = completionComponentsOpt.value();
+                WebsocketManager::GetInstance()->send(EditorPasteClientMessage(
+                    caretPosition,
+                    clipboardText,
+                    completionComponents.getPrefix(),
+                    completionComponents.getSuffix(),
+                    completionComponents.getRecentFiles()
+                ));
 
                 if (const auto lineCount = common::countLines(clipboardText);
                     lineCount == 1) {
@@ -515,7 +484,7 @@ bool CompletionManager::_cancelCompletion() {
 }
 
 void CompletionManager::_sendGenerateMessage(const CompletionComponents& completionComponents) {
-    auto currentPath = completionComponents.getPath();
+    auto currentPath = completionComponents.path;
     bool isSameFilePath; {
         shared_lock lock(_lastEditedFilePathMutex);
         isSameFilePath = _lastEditedFilePath == currentPath;
@@ -553,6 +522,56 @@ vector<filesystem::path> CompletionManager::_getRecentFiles() const {
     }
 
     return recentFiles;
+}
+
+optional<CompletionComponents> CompletionManager::_retrieveContext(
+    const CaretPosition& caretPosition,
+    const CompletionComponents::GenerateType generateType,
+    const string& infix
+) const {
+    const auto memoryManipulator = MemoryManipulator::GetInstance();
+    const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
+    const auto currentLineCount = memoryManipulator->getCurrentLineCount();
+
+    const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
+    if (const auto path = memoryManipulator->getCurrentFilePath();
+        currentFileHandle && currentLineCount && !path.empty()) {
+        CompletionComponents completionComponents(generateType, caretPosition, path);
+        string prefix, prefixForSymbol, suffix; {
+            const auto currentLine = memoryManipulator->getLineContent(
+                currentFileHandle, caretPosition.line
+            );
+            prefix = iconv::autoDecode(currentLine.substr(0, caretPosition.character));
+            suffix = iconv::autoDecode(currentLine.substr(caretPosition.character));
+        }
+        for (
+            uint32_t index = 1;
+            index <= min(caretPosition.line, _configPrefixLineCount.load());
+            ++index
+        ) {
+            const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
+                currentFileHandle, caretPosition.line - index
+            )).append("\n");
+            prefix.insert(0, tempLine);
+            if (prefixForSymbol.empty() && regex_search(tempLine, regex(R"~(^\/\/.*|^\/\*\*.*)~"))) {
+                prefixForSymbol = prefix;
+            }
+        }
+        for (uint32_t index = 1; index < _configSuffixLineCount.load(); ++index) {
+            const auto tempLine = iconv::autoDecode(
+                memoryManipulator->getLineContent(currentFileHandle, caretPosition.line + index)
+            );
+            suffix.append("\n").append(tempLine);
+        }
+        completionComponents.setContext(prefix, infix, suffix);
+        completionComponents.setRecentFiles(_getRecentFiles());
+        completionComponents.setSymbols(
+            SymbolManager::GetInstance()->getSymbols(prefixForSymbol, path)
+        );
+
+        return completionComponents;
+    }
+    return nullopt;
 }
 
 bool CompletionManager::_hasValidCache() const {
@@ -619,51 +638,13 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
             if (const auto pastTime = chrono::high_resolution_clock::now() - _debounceRetrieveCompletionTime.load();
                 pastTime >= chrono::milliseconds(_configDebounceDelay.load()) && _needRetrieveCompletion.load()) {
                 try {
-                    // TODO: Improve performance
-                    const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
                     const auto memoryManipulator = MemoryManipulator::GetInstance();
-                    const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
-                    const auto currentLineCount = memoryManipulator->getCurrentLineCount();
                     const auto caretPosition = memoryManipulator->getCaretPosition();
-                    if (auto path = memoryManipulator->getCurrentFilePath();
-                        currentFileHandle && currentLineCount && !path.empty()) {
-                        CompletionComponents completionComponents(
-                            CompletionComponents::GenerateType::Common, caretPosition, path
-                        );
-                        string prefix, prefixForSymbol, suffix; {
-                            const auto currentLine = memoryManipulator->getLineContent(
-                                currentFileHandle, caretPosition.line
-                            );
-                            prefix = iconv::autoDecode(currentLine.substr(0, caretPosition.character));
-                            suffix = iconv::autoDecode(currentLine.substr(caretPosition.character));
-                        }
-                        for (
-                            uint32_t index = 1;
-                            index <= min(caretPosition.line, _configPrefixLineCount.load());
-                            ++index
-                        ) {
-                            const auto tempLine = iconv::autoDecode(memoryManipulator->getLineContent(
-                                currentFileHandle, caretPosition.line - index
-                            )).append("\n");
-                            prefix.insert(0, tempLine);
-                            if (prefixForSymbol.empty() && regex_search(tempLine, regex(R"~(^\/\/.*|^\/\*\*.*)~"))) {
-                                prefixForSymbol = prefix;
-                            }
-                        }
-                        for (uint32_t index = 1; index < _configSuffixLineCount.load(); ++index) {
-                            const auto tempLine = iconv::autoDecode(
-                                memoryManipulator->getLineContent(currentFileHandle, caretPosition.line + index)
-                            );
-                            suffix.append("\n").append(tempLine);
-                        }
-
-                        completionComponents.setContext(prefix, {}, suffix);
-                        completionComponents.setRecentFiles(_getRecentFiles());
-                        completionComponents.setSymbols(
-                            SymbolManager::GetInstance()->getSymbols(prefixForSymbol, path)
-                        );
-
-                        _sendGenerateMessage(completionComponents);
+                    if (const auto completionComponentsOpt = _retrieveContext(
+                        caretPosition,
+                        CompletionComponents::GenerateType::Common
+                    ); completionComponentsOpt.has_value()) {
+                        _sendGenerateMessage(completionComponentsOpt.value());
                         logger::info("Generate common completion");
                     }
                 } catch (const exception& e) {

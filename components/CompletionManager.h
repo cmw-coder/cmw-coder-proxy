@@ -61,9 +61,15 @@ namespace components {
 
         bool _cancelCompletion();
 
-        void _sendGenerateMessage(const types::CompletionComponents& completionComponents);
-
         std::vector<std::filesystem::path> _getRecentFiles() const;
+
+        std::optional<types::CompletionComponents> _retrieveContext(
+            const types::CaretPosition& caretPosition,
+            types::CompletionComponents::GenerateType generateType,
+            const std::string& infix = ""
+        ) const;
+
+        void _sendGenerateMessage(const types::CompletionComponents& completionComponents);
 
         bool _hasValidCache() const;
 

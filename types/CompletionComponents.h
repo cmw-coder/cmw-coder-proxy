@@ -5,7 +5,6 @@
 #include <nlohmann/json.hpp>
 
 #include <models/SymbolInfo.h>
-#include <models/WsMessage.h>
 #include <types/CaretPosition.h>
 
 namespace types {
@@ -24,7 +23,11 @@ namespace types {
             const std::filesystem::path& path
         );
 
-        models::EditorPasteClientMessage toEditorPasteClientMessage() const;
+        std::string getPrefix() const;
+
+        std::vector<std::filesystem::path> getRecentFiles() const;
+
+        std::string getSuffix() const;
 
         void setContext(
             const std::string& prefix,

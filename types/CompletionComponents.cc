@@ -28,14 +28,16 @@ CompletionComponents::CompletionComponents(
     _symbolTime = currentTime;
 }
 
-EditorPasteClientMessage CompletionComponents::toEditorPasteClientMessage() const {
-    return EditorPasteClientMessage(
-        _caretPosition,
-        _infix,
-        _prefix,
-        _suffix,
-        _recentFiles
-    );
+string CompletionComponents::getPrefix() const {
+    return _prefix;
+}
+
+vector<filesystem::path> CompletionComponents::getRecentFiles() const {
+    return _recentFiles;
+}
+
+string CompletionComponents::getSuffix() const {
+    return _suffix;
 }
 
 void CompletionComponents::setContext(
