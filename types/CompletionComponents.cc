@@ -5,14 +5,14 @@
 #include <utils/iconv.h>
 
 using namespace magic_enum;
+using namespace models;
 using namespace std;
-using namespace chrono;
 using namespace types;
 using namespace utils;
 
 namespace {
-    uint64_t getMilliseconds(const time_point<system_clock>& time = system_clock::now()) {
-        return duration_cast<milliseconds>(time.time_since_epoch()).count();
+    uint64_t getMilliseconds(const chrono::time_point<chrono::system_clock>& time = chrono::system_clock::now()) {
+        return duration_cast<chrono::milliseconds>(time.time_since_epoch()).count();
     }
 }
 
@@ -20,16 +20,22 @@ CompletionComponents::CompletionComponents(
     const GenerateType generateType,
     const CaretPosition& caretPosition,
     const filesystem::path& path
-): _generateType(generateType), _caretPosition(caretPosition), _path(path) {
-    const auto currentTime = system_clock::now();
+): path(path), _generateType(generateType), _caretPosition(caretPosition) {
+    const auto currentTime = chrono::system_clock::now();
     _initTime = currentTime;
     _contextTime = currentTime;
     _recentFilesTime = currentTime;
     _symbolTime = currentTime;
 }
 
-filesystem::path CompletionComponents::getPath() const {
-    return _path;
+EditorPasteClientMessage CompletionComponents::toEditorPasteClientMessage() const {
+    return EditorPasteClientMessage(
+        _caretPosition,
+        _infix,
+        _prefix,
+        _suffix,
+        _recentFiles
+    );
 }
 
 void CompletionComponents::setContext(
@@ -40,17 +46,17 @@ void CompletionComponents::setContext(
     _prefix = prefix;
     _infix = infix;
     _suffix = suffix;
-    _contextTime = system_clock::now();
+    _contextTime = chrono::system_clock::now();
 }
 
 void CompletionComponents::setRecentFiles(const vector<filesystem::path>& recentFiles) {
     _recentFiles = recentFiles;
-    _recentFilesTime = system_clock::now();
+    _recentFilesTime = chrono::system_clock::now();
 }
 
-void CompletionComponents::setSymbols(const vector<models::SymbolInfo>& symbols) {
+void CompletionComponents::setSymbols(const vector<SymbolInfo>& symbols) {
     _symbols = symbols;
-    _symbolTime = system_clock::now();
+    _symbolTime = chrono::system_clock::now();
 }
 
 nlohmann::json CompletionComponents::toJson() const {
@@ -62,7 +68,7 @@ nlohmann::json CompletionComponents::toJson() const {
                 {"line", _caretPosition.line},
             }
         },
-        {"path", iconv::autoDecode(_path.generic_string())},
+        {"path", iconv::autoDecode(path.generic_string())},
         {
             "context", {
                 {"infix", base64::to_base64(_infix)},

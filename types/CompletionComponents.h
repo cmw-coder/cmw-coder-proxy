@@ -2,9 +2,10 @@
 
 #include <filesystem>
 
-#include <models/SymbolInfo.h>
 #include <nlohmann/json.hpp>
 
+#include <models/SymbolInfo.h>
+#include <models/WsMessage.h>
 #include <types/CaretPosition.h>
 
 namespace types {
@@ -15,13 +16,15 @@ namespace types {
             PasteReplace,
         };
 
+        const std::filesystem::path path;
+
         CompletionComponents(
             GenerateType generateType,
             const CaretPosition& caretPosition,
             const std::filesystem::path& path
         );
 
-        std::filesystem::path getPath() const;
+        models::EditorPasteClientMessage toEditorPasteClientMessage() const;
 
         void setContext(
             const std::string& prefix,
@@ -38,7 +41,6 @@ namespace types {
     private:
         GenerateType _generateType;
         CaretPosition _caretPosition;
-        std::filesystem::path _path;
         std::string _infix, _prefix, _suffix;
         std::vector<std::filesystem::path> _recentFiles;
         std::vector<models::SymbolInfo> _symbols;
