@@ -9,10 +9,18 @@ namespace models {
     class CompletionConfig {
     public:
         const std::optional<bool> completionOnPaste;
-        const std::optional<uint32_t> debounceDelay, interactionUnlockDelay, pasteMaxLineCount, prefixLineCount,
-                recentFileCount, suffixLineCount;
+        const std::optional<std::chrono::milliseconds> debounceDelay;
+        const std::optional<uint32_t> pasteFixMaxTriggerLineCount, prefixLineCount, recentFileCount, suffixLineCount;
 
         explicit CompletionConfig(const nlohmann::json& data);
+    };
+
+    class GenericConfig {
+    public:
+        const std::optional<std::chrono::milliseconds> interactionUnlockDelay;
+        const std::optional<std::chrono::seconds> autoSaveInterval;
+
+        explicit GenericConfig(const nlohmann::json& data);
     };
 
     class ShortcutConfig {
@@ -21,5 +29,12 @@ namespace models {
         const std::optional<types::KeyCombination> manualCompletion;
 
         explicit ShortcutConfig(const nlohmann::json& data);
+    };
+
+    class StatisticConfig {
+    public:
+        const std::optional<bool> checkEditedCompletion;
+
+        explicit StatisticConfig(const nlohmann::json& data);
     };
 }
