@@ -5,6 +5,7 @@
 #include <components/InteractionMonitor.h>
 #include <components/MemoryManipulator.h>
 #include <components/ModuleProxy.h>
+#include <components/StatisticManager.h>
 #include <components/SymbolManager.h>
 #include <components/WindowManager.h>
 #include <components/WebsocketManager.h>
@@ -27,21 +28,23 @@ namespace {
         ModuleProxy::Construct();
         ConfigManager::Construct();
         MemoryManipulator::Construct(ConfigManager::GetInstance()->version());
+        WindowManager::Construct();
         WebsocketManager::Construct("ws://127.0.0.1:3000");
         SymbolManager::Construct();
-        CompletionManager::Construct();
         InteractionMonitor::Construct();
-        WindowManager::Construct();
+        StatisticManager::Construct();
+        CompletionManager::Construct();
     }
 
     void finalize() {
         logger::info("Comware Coder Proxy is finalizing...");
 
-        WindowManager::Destruct();
-        InteractionMonitor::Destruct();
         CompletionManager::Destruct();
+        StatisticManager::Construct();
+        InteractionMonitor::Destruct();
         SymbolManager::Destruct();
         WebsocketManager::Destruct();
+        WindowManager::Destruct();
         MemoryManipulator::Destruct();
         ConfigManager::Destruct();
         ModuleProxy::Destruct();
@@ -106,8 +109,18 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
             );
             InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::SelectionReplace,
-                CompletionManager::GetInstance(),
-                &CompletionManager::interactionSelectionReplace
+                [](const std::any& data, bool&) {
+                    try {
+                        if (const auto [startLine, count] = any_cast<pair<uint32_t, int32_t>>(data);
+                            count > 0) {
+                            StatisticManager::GetInstance()->addLine(startLine, count);
+                        } else if (count < 0) {
+                            StatisticManager::GetInstance()->removeLine(startLine, -count);
+                        }
+                    } catch (const bad_any_cast& e) {
+                        logger::log(format("Invalid interactionSelectionReplace data: {}", e.what()));
+                    }
+                }
             );
             InteractionMonitor::GetInstance()->registerInteraction(
                 Interaction::Undo,
@@ -136,6 +149,30 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                 &CompletionManager::wsCompletionGenerate
             );
             WebsocketManager::GetInstance()->registerAction(
+                WsAction::EditorConfig,
+                [](nlohmann::json&& data) {
+                    if (const auto serverMessage = EditorConfigServerMessage(move(data));
+                        serverMessage.result == "success") {
+                        if (const auto completionConfigOpt = serverMessage.completionConfig();
+                            completionConfigOpt.has_value()) {
+                            CompletionManager::GetInstance()->updateCompletionConfig(completionConfigOpt.value());
+                        }
+                        if (const auto genericConfigOpt = serverMessage.genericConfig();
+                            genericConfigOpt.has_value()) {
+                            InteractionMonitor::GetInstance()->updateGenericConfig(genericConfigOpt.value());
+                        }
+                        if (const auto shortcutConfigOpt = serverMessage.shortcutConfig();
+                            shortcutConfigOpt.has_value()) {
+                            InteractionMonitor::GetInstance()->updateShortcutConfig(shortcutConfigOpt.value());
+                        }
+                        if (const auto statisticConfigOpt = serverMessage.statisticConfig();
+                            statisticConfigOpt.has_value()) {
+                            StatisticManager::GetInstance()->updateStatisticConfig(statisticConfigOpt.value());
+                        }
+                    }
+                }
+            );
+            WebsocketManager::GetInstance()->registerAction(
                 WsAction::ReviewRequest,
                 [](nlohmann::json&& data) {
                     if (const auto serverMessage = ReviewRequestServerMessage(move(data));
@@ -161,23 +198,6 @@ BOOL __stdcall DllMain(const HMODULE hModule, const DWORD dwReason, [[maybe_unus
                             serverMessage.id(),
                             reviewReferences
                         });
-                    }
-                }
-            );
-            WebsocketManager::GetInstance()->registerAction(
-                WsAction::SettingSync,
-                [](nlohmann::json&& data) {
-                    if (const auto serverMessage = SettingSyncServerMessage(move(data));
-                        serverMessage.result == "success") {
-                        if (const auto completionConfigOpt = serverMessage.completionConfig();
-                            completionConfigOpt.has_value()) {
-                            CompletionManager::GetInstance()->updateCompletionConfig(completionConfigOpt.value());
-                            InteractionMonitor::GetInstance()->updateCompletionConfig(completionConfigOpt.value());
-                        }
-                        if (const auto shortcutConfigOpt = serverMessage.shortcutConfig();
-                            shortcutConfigOpt.has_value()) {
-                            InteractionMonitor::GetInstance()->updateShortcutConfig(shortcutConfigOpt.value());
-                        }
                     }
                 }
             );
