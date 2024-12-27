@@ -10,6 +10,7 @@ namespace types {
         CompletionGenerate,
         CompletionSelect,
         EditorCommit,
+        EditorConfig,
         EditorPaste,
         EditorSelection,
         EditorState,
@@ -17,6 +18,5 @@ namespace types {
         EditorSwitchProject,
         HandShake,
         ReviewRequest,
-        SettingSync,
     };
 }

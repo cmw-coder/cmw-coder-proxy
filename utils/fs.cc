@@ -21,7 +21,6 @@ string fs::readFile(const string& path) {
         out.append(buf, 0, stream.gcount());
     }
     out.append(buf, 0, stream.gcount());
-    // Remove \r using ranges::remove
     erase(out, '\r');
     return out;
 }
@@ -46,7 +45,6 @@ string fs::readFile(const string& path, const uint32_t startLine, const uint32_t
         }
         out.append(line).append("\n");
     }
-    // Remove \r using ranges::remove
     erase(out, '\r');
     return out;
 }
