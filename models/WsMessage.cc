@@ -142,6 +142,46 @@ CompletionSelectClientMessage::CompletionSelectClientMessage(
 EditorCommitClientMessage::EditorCommitClientMessage(const filesystem::path& path)
     : WsMessage(WsAction::EditorCommit, iconv::autoDecode(path.generic_string())) {}
 
+EditorConfigServerMessage::EditorConfigServerMessage(nlohmann::json&& data)
+    : WsMessage(WsAction::EditorConfig, move(data)), result(_data["result"].get<string>()) {
+    if (result == "success") {
+        if (_data.contains("completion")) {
+            _completionConfig.emplace(CompletionConfig(_data["completion"]));
+        }
+        if (_data.contains("generic")) {
+            _genericConfig.emplace(GenericConfig(_data["generic"]));
+        }
+        if (_data.contains("shortcut")) {
+            _shortcutConfig.emplace(ShortcutConfig(_data["shortcut"]));
+        }
+        if (_data.contains("statistic")) {
+            _statisticConfig.emplace(StatisticConfig(_data["statistic"]));
+        }
+    } else if (_data.contains("message")) {
+        _message = _data["message"].get<string>();
+    }
+}
+
+string EditorConfigServerMessage::message() const {
+    return _message;
+}
+
+optional<CompletionConfig> EditorConfigServerMessage::completionConfig() const {
+    return _completionConfig;
+}
+
+std::optional<GenericConfig> EditorConfigServerMessage::genericConfig() const {
+    return _genericConfig;
+}
+
+optional<ShortcutConfig> EditorConfigServerMessage::shortcutConfig() const {
+    return _shortcutConfig;
+}
+
+std::optional<StatisticConfig> EditorConfigServerMessage::statisticConfig() const {
+    return _statisticConfig;
+}
+
 EditorPasteClientMessage::EditorPasteClientMessage(
     const CaretPosition& caretPosition,
     const string& infix,
@@ -321,30 +361,4 @@ filesystem::path ReviewRequestServerMessage::path() const {
 
 Selection ReviewRequestServerMessage::selection() const {
     return _selection;
-}
-
-SettingSyncServerMessage::SettingSyncServerMessage(nlohmann::json&& data)
-    : WsMessage(WsAction::SettingSync, move(data)), result(_data["result"].get<string>()) {
-    if (result == "success") {
-        if (_data.contains("completionConfig")) {
-            _completionConfig.emplace(CompletionConfig(_data["completionConfig"]));
-        }
-        if (_data.contains("shortcutConfig")) {
-            _shortcutConfig.emplace(ShortcutConfig(_data["shortcutConfig"]));
-        }
-    } else if (_data.contains("message")) {
-        _message = _data["message"].get<string>();
-    }
-}
-
-string SettingSyncServerMessage::message() const {
-    return _message;
-}
-
-optional<CompletionConfig> SettingSyncServerMessage::completionConfig() const {
-    return _completionConfig;
-}
-
-optional<ShortcutConfig> SettingSyncServerMessage::shortcutConfig() const {
-    return _shortcutConfig;
 }

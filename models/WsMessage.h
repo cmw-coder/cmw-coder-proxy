@@ -112,6 +112,30 @@ namespace models {
         explicit EditorCommitClientMessage(const std::filesystem::path& path);
     };
 
+    class EditorConfigServerMessage final : public WsMessage {
+    public:
+        const std::string result;
+
+        explicit EditorConfigServerMessage(nlohmann::json&& data);
+
+        [[nodiscard]] std::string message() const;
+
+        [[nodiscard]] std::optional<CompletionConfig> completionConfig() const;
+
+        [[nodiscard]] std::optional<GenericConfig> genericConfig() const;
+
+        [[nodiscard]] std::optional<ShortcutConfig> shortcutConfig() const;
+
+        [[nodiscard]] std::optional<StatisticConfig> statisticConfig() const;
+
+    private:
+        std::optional<CompletionConfig> _completionConfig{};
+        std::optional<GenericConfig> _genericConfig{};
+        std::optional<ShortcutConfig> _shortcutConfig{};
+        std::optional<StatisticConfig> _statisticConfig{};
+        std::string _message;
+    };
+
     class EditorPasteClientMessage final : public WsMessage {
     public:
         explicit EditorPasteClientMessage(
@@ -199,23 +223,5 @@ namespace models {
         std::filesystem::path _path;
         std::string _content, _id, _message;
         types::Selection _selection{};
-    };
-
-    class SettingSyncServerMessage final : public WsMessage {
-    public:
-        const std::string result;
-
-        explicit SettingSyncServerMessage(nlohmann::json&& data);
-
-        [[nodiscard]] std::string message() const;
-
-        [[nodiscard]] std::optional<CompletionConfig> completionConfig() const;
-
-        [[nodiscard]] std::optional<ShortcutConfig> shortcutConfig() const;
-
-    private:
-        std::optional<CompletionConfig> _completionConfig{};
-        std::optional<ShortcutConfig> _shortcutConfig{};
-        std::string _message;
     };
 }

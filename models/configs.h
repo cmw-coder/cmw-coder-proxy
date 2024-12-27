@@ -17,8 +17,8 @@ namespace models {
 
     class GenericConfig {
     public:
-        const std::optional<std::chrono::milliseconds> interactionUnlockDelay;
         const std::optional<std::chrono::seconds> autoSaveInterval;
+        const std::optional<std::chrono::milliseconds> interactionUnlockDelay;
 
         explicit GenericConfig(const nlohmann::json& data);
     };

@@ -22,13 +22,17 @@ namespace {
 
 CompletionConfig::CompletionConfig(const nlohmann::json& data)
     : completionOnPaste(
-          data.contains("completionOnPaste") ? data["completionOnPaste"].get<bool>() : nullopt
+          data.contains("completionOnPaste") ? optional(data["completionOnPaste"].get<bool>()) : nullopt
       ),
       debounceDelay(
-          data.contains("debounceDelayMsec") ? chrono::milliseconds(data["debounceDelayMsec"].get<uint32_t>()) : nullopt
+          data.contains("debounceDelayMilliSeconds")
+              ? optional(chrono::milliseconds(data["debounceDelayMilliSeconds"].get<uint32_t>()))
+              : nullopt
       ),
       pasteFixMaxTriggerLineCount(
-          data.contains("pasteFixMaxTriggerLineCount") ? data["pasteFixMaxTriggerLineCount"].get<uint32_t>() : nullopt
+          data.contains("pasteFixMaxTriggerLineCount")
+              ? optional(data["pasteFixMaxTriggerLineCount"].get<uint32_t>())
+              : nullopt
       ),
       prefixLineCount(
           data.contains("prefixLineCount") ? optional(data["prefixLineCount"].get<uint32_t>()) : nullopt
@@ -41,13 +45,15 @@ CompletionConfig::CompletionConfig(const nlohmann::json& data)
       ) {}
 
 GenericConfig::GenericConfig(const nlohmann::json& data)
-    : interactionUnlockDelay(
-          data.contains("interactionUnlockDelayMsec")
-              ? chrono::milliseconds(data["interactionUnlockDelayMsec"].get<uint32_t>())
+    : autoSaveInterval(
+          data.contains("autoSaveIntervalSeconds")
+              ? optional(chrono::seconds(data["autoSaveIntervalSeconds"].get<uint32_t>()))
               : nullopt
       ),
-      autoSaveInterval(
-          data.contains("autoSaveIntervalSec") ? chrono::seconds(data["autoSaveIntervalSec"].get<uint32_t>()) : nullopt
+      interactionUnlockDelay(
+          data.contains("interactionUnlockDelayMilliSeconds")
+              ? optional(chrono::milliseconds(data["interactionUnlockDelayMilliSeconds"].get<uint32_t>()))
+              : nullopt
       ) {}
 
 ShortcutConfig::ShortcutConfig(const nlohmann::json& data)
@@ -60,5 +66,5 @@ ShortcutConfig::ShortcutConfig(const nlohmann::json& data)
 
 StatisticConfig::StatisticConfig(const nlohmann::json& data)
     : checkEditedCompletion(
-        data.contains("checkEditedCompletion") ? data["checkEditedCompletion"].get<bool>() : nullopt
+        data.contains("checkEditedCompletion") ? optional(data["checkEditedCompletion"].get<bool>()) : nullopt
     ) {}
