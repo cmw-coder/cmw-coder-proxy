@@ -138,6 +138,7 @@ InteractionMonitor::InteractionMonitor()
         abort();
     }
 
+    _threadAutoSave();
     _threadMonitorCaretPosition();
     _threadReleaseInteractionLock();
 
@@ -153,11 +154,18 @@ unique_lock<shared_mutex> InteractionMonitor::getInteractionLock() const {
     return unique_lock(_interactionMutex);
 }
 
-void InteractionMonitor::updateCompletionConfig(const CompletionConfig& completionConfig) {
-    if (const auto interactionUnlockDelayOpt = completionConfig.interactionUnlockDelay;
+void InteractionMonitor::updateGenericConfig(const GenericConfig& genericConfig) {
+    if (const auto autoSaveIntervalOpt = genericConfig.autoSaveInterval;
+        autoSaveIntervalOpt.has_value()) {
+        const auto autoSaveInterval = autoSaveIntervalOpt.value();
+        logger::info(format("Update auto-save interval: {}s", autoSaveInterval.count()));
+        _configAutoSaveInterval.store(autoSaveInterval);
+    }
+    if (const auto interactionUnlockDelayOpt = genericConfig.interactionUnlockDelay;
         interactionUnlockDelayOpt.has_value()) {
-        logger::info(format("Update interaction unlock delay: {}ms", interactionUnlockDelayOpt.value()));
-        _configInteractionUnlockDelay.store(interactionUnlockDelayOpt.value());
+        const auto interactionUnlockDelay = interactionUnlockDelayOpt.value();
+        logger::info(format("Update interaction unlock delay: {}ms", interactionUnlockDelay.count()));
+        _configInteractionUnlockDelay.store(interactionUnlockDelay);
     }
 }
 
@@ -514,6 +522,20 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
     }
 }
 
+void InteractionMonitor::_threadAutoSave() const {
+    thread([this] {
+        while (_isRunning.load()) {
+            if (const auto autoSaveInterval = chrono::seconds(_configAutoSaveInterval.load());
+                autoSaveInterval > 0s) {
+                this_thread::sleep_for(chrono::seconds(_configAutoSaveInterval.load()));
+                WindowManager::GetInstance()->sendSave();
+            } else {
+                this_thread::sleep_for(1s);
+            }
+        }
+    }).detach();
+}
+
 void InteractionMonitor::_threadMonitorCaretPosition() {
     thread([this] {
         while (_isRunning.load()) {
@@ -538,7 +560,7 @@ void InteractionMonitor::_threadMonitorCaretPosition() {
                     _navigateWithMouse.store(nullopt);
                 }
             }
-            this_thread::sleep_for(10ms);
+            this_thread::sleep_for(100ms);
         }
     }).detach();
 }

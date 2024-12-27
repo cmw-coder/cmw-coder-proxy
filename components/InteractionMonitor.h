@@ -17,13 +17,20 @@
 namespace components {
     class InteractionMonitor : public SingletonDclp<InteractionMonitor> {
     public:
-        using InteractionCallBack = std::function<void(const std::any&, bool&)>;
+        using Handler = std::function<void(const std::any&, bool&)>;
 
         InteractionMonitor();
 
         ~InteractionMonitor() override;
 
         std::unique_lock<std::shared_mutex> getInteractionLock() const;
+
+        void registerInteraction(
+            const types::Interaction interaction,
+            Handler&& handler
+        ) {
+            _handlerMap[interaction].push_back(std::move(handler));
+        }
 
         template<class T>
         void registerInteraction(
@@ -34,19 +41,21 @@ namespace components {
             _handlerMap[interaction].push_back(std::bind_front(memberFunction, other));
         }
 
-        void updateCompletionConfig(const models::CompletionConfig& completionConfig);
+        void updateGenericConfig(const models::GenericConfig& genericConfig);
 
         void updateShortcutConfig(const models::ShortcutConfig& shortcutConfig);
 
     private:
         mutable std::shared_mutex _configCommitMutex, _configManualCompletionMutex, _interactionMutex;
         std::atomic<bool> _isRunning{true}, _isSelecting{false}, _needUnlockInteraction{false};
+        std::atomic<std::chrono::milliseconds> _configInteractionUnlockDelay{std::chrono::milliseconds(50)};
+        std::atomic<std::chrono::seconds> _configAutoSaveInterval{std::chrono::seconds(300)};
         std::atomic<std::optional<types::Mouse>> _navigateWithMouse;
         std::atomic<types::CaretPosition> _currentCaretPosition, _downCursorPosition;
         std::atomic<types::Time> _interactionUnlockTime;
-        std::atomic<uint32_t> _configInteractionUnlockDelay{50}, _navigateKeycode{0};
+        std::atomic<uint32_t> _navigateKeycode{0};
         std::shared_ptr<void> _cbtHookHandle, _keyHookHandle, _mouseHookHandle, _processHandle, _windowHookHandle;
-        std::unordered_map<types::Interaction, std::vector<InteractionCallBack>> _handlerMap;
+        std::unordered_map<types::Interaction, std::vector<Handler>> _handlerMap;
         types::KeyCombination _configCommit, _configManualCompletion;
 
         static long __stdcall _cbtProcedureHook(int nCode, unsigned int wParam, long lParam);
@@ -72,6 +81,8 @@ namespace components {
         void _processWindowMessage(long lParam);
 
         void _retrieveProjectId(const std::string& project) const;
+
+        void _threadAutoSave() const;
 
         void _threadMonitorCaretPosition();
 
