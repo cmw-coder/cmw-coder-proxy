@@ -39,8 +39,6 @@ namespace components {
 
         void interactionSave(const std::any&, bool&);
 
-        void interactionSelectionReplace(const std::any& data, bool&);
-
         void interactionUndo(const std::any&, bool&);
 
         void updateCompletionConfig(const models::CompletionConfig& completionConfig);
@@ -48,18 +46,18 @@ namespace components {
         void wsCompletionGenerate(nlohmann::json&& data);
 
     private:
-        mutable std::shared_mutex _completionsMutex, _completionCacheMutex, _editedCompletionMapMutex,
-                _lastCaretPositionMutex, _lastEditedFilePathMutex, _recentFilesMutex;
+        mutable std::shared_mutex _completionsMutex, _completionCacheMutex, _lastCaretPositionMutex,
+                _lastEditedFilePathMutex, _recentFilesMutex;
         types::CaretPosition _lastCaretPosition{};
         std::atomic<bool> _configCompletionOnPaste{true}, _isRunning{true}, _needDiscardWsAction{false},
                 _needRetrieveCompletion{false};
+        std::atomic<std::chrono::milliseconds> _configDebounceDelay{std::chrono::milliseconds(50)};
         std::atomic<types::Time> _debounceRetrieveCompletionTime;
-        std::atomic<uint32_t> _configDebounceDelay{50}, _configPasteMaxLineCount{10}, _configPrefixLineCount{200},
+        std::atomic<uint32_t> _configPasteFixMaxTriggerLineCount{10}, _configPrefixLineCount{200},
                 _configRecentFileCount{5}, _configSuffixLineCount{80};
         std::filesystem::path _lastEditedFilePath;
         std::optional<types::Completions> _completionsOpt;
         std::deque<FileTime> _recentFiles;
-        std::unordered_map<std::string, types::EditedCompletion> _editedCompletionMap;
         types::CompletionCache _completionCache;
 
         bool _cancelCompletion();
@@ -79,8 +77,6 @@ namespace components {
         void _prolongRetrieveCompletion();
 
         void _updateNeedRetrieveCompletion(bool need = true, char character = 0);
-
-        void _threadCheckAcceptedCompletions();
 
         void _threadCheckCurrentFilePath();
 

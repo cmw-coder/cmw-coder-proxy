@@ -9,6 +9,7 @@
 #include <components/ConfigManager.h>
 #include <components/InteractionMonitor.h>
 #include <components/MemoryManipulator.h>
+#include <components/StatisticManager.h>
 #include <components/SymbolManager.h>
 #include <components/WebsocketManager.h>
 #include <components/WindowManager.h>
@@ -73,9 +74,10 @@ namespace {
 
 CompletionManager::CompletionManager() {
     ranges::make_heap(_recentFiles, fileTimeCompare);
-    _threadCheckAcceptedCompletions();
+
     _threadCheckCurrentFilePath();
     _threadDebounceRetrieveCompletion();
+
     logger::info("CompletionManager is initialized");
 }
 
@@ -98,13 +100,7 @@ void CompletionManager::interactionCompletionAccept(const any&, bool& needBlockM
         actionId = completions.actionId;
     }
     if (!content.empty()) {
-        {
-            // TODO: Adapt to CompletionComponents::GenerateType::PasteReplace
-            unique_lock lock(_editedCompletionMapMutex);
-            if (_editedCompletionMap.contains(actionId)) {
-                _editedCompletionMap.at(actionId).react(true);
-            }
-        }
+        StatisticManager::GetInstance()->reactEditedCompletion(actionId, true);
         switch (generateType) {
             case CompletionComponents::GenerateType::Common: {
                 common::insertContent(content.substr(cacheIndex));
@@ -147,7 +143,6 @@ void CompletionManager::interactionDeleteInput(const any&, bool&) {
                 previousCacheOpt = _completionCache.previous();
             }
             if (previousCacheOpt.has_value()) {
-                // Has valid cache
                 if (const auto [_, completionOpt] = previousCacheOpt.value();
                     completionOpt.has_value()) {
                     WebsocketManager::GetInstance()->send(CompletionCacheClientMessage(true));
@@ -162,15 +157,7 @@ void CompletionManager::interactionDeleteInput(const any&, bool&) {
                 _cancelCompletion();
                 logger::log("Delete backward. Send CompletionCancel due to delete across line");
             }
-            if (const auto currentWindowHandleOpt = WindowManager::GetInstance()->getCurrentWindowHandle();
-                currentWindowHandleOpt.has_value()) {
-                unique_lock lock(_editedCompletionMapMutex);
-                for (auto& editedCompletion: _editedCompletionMap | views::values) {
-                    if (editedCompletion.windowHandle == currentWindowHandleOpt.value()) {
-                        editedCompletion.removeLine(line);
-                    }
-                }
-            }
+            StatisticManager::GetInstance()->removeLine(line);
         }
     } catch (const bad_any_cast& e) {
         logger::log(format("Invalid delayedDelete data: {}", e.what()));
@@ -184,16 +171,7 @@ void CompletionManager::interactionEnterInput(const any&, bool&) {
         logger::log("Enter Input. Send CompletionCancel");
     }
     _updateNeedRetrieveCompletion(true, '\n');
-    if (const auto currentWindowHandleOpt = WindowManager::GetInstance()->getCurrentWindowHandle();
-        currentWindowHandleOpt.has_value()) {
-        const auto line = MemoryManipulator::GetInstance()->getCaretPosition().line;
-        unique_lock lock(_editedCompletionMapMutex);
-        for (auto& editedCompletion: _editedCompletionMap | views::values) {
-            if (editedCompletion.windowHandle == currentWindowHandleOpt.value()) {
-                editedCompletion.addLine(line);
-            }
-        }
-    }
+    StatisticManager::GetInstance()->addLine(MemoryManipulator::GetInstance()->getCaretPosition().line);
 }
 
 void CompletionManager::interactionNavigateWithKey(const any&, bool&) {
@@ -282,18 +260,13 @@ void CompletionManager::interactionPaste(const any&, bool&) {
         const auto& clipboardText = iconv::autoDecode(clipboardTextOpt.value());
         const auto memoryManipulator = MemoryManipulator::GetInstance();
         const auto caretPosition = memoryManipulator->getCaretPosition();
-        if (const auto currentWindowHandleOpt = WindowManager::GetInstance()->getCurrentWindowHandle();
-            currentWindowHandleOpt.has_value()) {
-            const auto addedLineCount = caretPosition.character == 0
-                                            ? common::countLines(clipboardText)
-                                            : common::countLines(clipboardText) - 1;
-            unique_lock lock(_editedCompletionMapMutex);
-            for (auto& editedCompletion: _editedCompletionMap | views::values) {
-                if (editedCompletion.windowHandle == currentWindowHandleOpt.value()) {
-                    editedCompletion.addLine(caretPosition.line, addedLineCount);
-                }
-            }
-        }
+
+        StatisticManager::GetInstance()->addLine(
+            caretPosition.line,
+            caretPosition.character == 0
+                ? common::countLines(clipboardText)
+                : common::countLines(clipboardText) - 1
+        );
 
         try {
             if (const auto completionComponentsOpt = _retrieveContext(
@@ -323,7 +296,7 @@ void CompletionManager::interactionPaste(const any&, bool&) {
                     } else {
                         _sendGenerateMessage(completionComponents);
                     }
-                } else if (lineCount < _configPasteMaxLineCount.load()) {
+                } else if (lineCount < _configPasteFixMaxTriggerLineCount.load()) {
                     _sendGenerateMessage(completionComponents);
                 }
             }
@@ -340,35 +313,6 @@ void CompletionManager::interactionSave(const any&, bool&) {
     }
 }
 
-void CompletionManager::interactionSelectionReplace(const any& data, bool&) {
-    try {
-        if (const auto [startLine, count] = any_cast<pair<uint32_t, int32_t>>(data);
-            count > 0) {
-            if (const auto currentWindowHandleOpt = WindowManager::GetInstance()->getCurrentWindowHandle();
-                currentWindowHandleOpt.has_value()) {
-                unique_lock lock(_editedCompletionMapMutex);
-                for (auto& editedCompletion: _editedCompletionMap | views::values) {
-                    if (editedCompletion.windowHandle == currentWindowHandleOpt.value()) {
-                        editedCompletion.addLine(startLine, count);
-                    }
-                }
-            }
-        } else if (count < 0) {
-            if (const auto currentWindowHandleOpt = WindowManager::GetInstance()->getCurrentWindowHandle();
-                currentWindowHandleOpt.has_value()) {
-                unique_lock lock(_editedCompletionMapMutex);
-                for (auto& editedCompletion: _editedCompletionMap | views::values) {
-                    if (editedCompletion.windowHandle == currentWindowHandleOpt.value()) {
-                        editedCompletion.removeLine(startLine, -count);
-                    }
-                }
-            }
-        }
-    } catch (const bad_any_cast& e) {
-        logger::log(format("Invalid interactionSelectionReplace data: {}", e.what()));
-    }
-}
-
 void CompletionManager::interactionUndo(const any&, bool&) {
     if (_hasValidCache()) {
         _cancelCompletion();
@@ -382,33 +326,39 @@ void CompletionManager::interactionUndo(const any&, bool&) {
 void CompletionManager::updateCompletionConfig(const CompletionConfig& completionConfig) {
     if (const auto completionOnPasteOpt = completionConfig.completionOnPaste;
         completionOnPasteOpt.has_value()) {
-        logger::info(format("Update completion on paste: {}", completionOnPasteOpt.value()));
-        _configCompletionOnPaste.store(completionOnPasteOpt.value());
+        const auto completionOnPaste = completionOnPasteOpt.value();
+        logger::info(format("Update completion on paste: {}", completionOnPaste));
+        _configCompletionOnPaste.store(completionOnPaste);
     }
     if (const auto debounceDelayOpt = completionConfig.debounceDelay;
         debounceDelayOpt.has_value()) {
-        logger::info(format("Update debounce delay: {}ms", debounceDelayOpt.value()));
-        _configDebounceDelay.store(debounceDelayOpt.value());
+        const auto debounceDelay = debounceDelayOpt.value();
+        logger::info(format("Update debounce delay: {}ms", debounceDelay));
+        _configDebounceDelay.store(debounceDelay);
     }
-    if (const auto pasteMaxLineCountOpt = completionConfig.pasteMaxLineCount;
-        pasteMaxLineCountOpt.has_value()) {
-        logger::info(format("Update paste max line count: {}", pasteMaxLineCountOpt.value()));
-        _configPasteMaxLineCount.store(pasteMaxLineCountOpt.value());
+    if (const auto pasteFixMaxTriggerLineCountOpt = completionConfig.pasteFixMaxTriggerLineCount;
+        pasteFixMaxTriggerLineCountOpt.has_value()) {
+        const auto pasteFixMaxTriggerLineCount = pasteFixMaxTriggerLineCountOpt.value();
+        logger::info(format("Update paste fix max trigger line count: {}", pasteFixMaxTriggerLineCount));
+        _configPasteFixMaxTriggerLineCount.store(pasteFixMaxTriggerLineCount);
     }
     if (const auto prefixLineCountOpt = completionConfig.prefixLineCount;
         prefixLineCountOpt.has_value()) {
-        logger::info(format("Update prefix line count: {}", prefixLineCountOpt.value()));
-        _configPrefixLineCount.store(prefixLineCountOpt.value());
+        const auto prefixLineCount = prefixLineCountOpt.value();
+        logger::info(format("Update prefix line count: {}", prefixLineCount));
+        _configPrefixLineCount.store(prefixLineCount);
     }
     if (const auto recentFileCountOpt = completionConfig.recentFileCount;
         recentFileCountOpt.has_value()) {
-        logger::info(format("Update recent file count: {}", recentFileCountOpt.value()));
-        _configRecentFileCount.store(recentFileCountOpt.value());
+        const auto recentFileCount = recentFileCountOpt.value();
+        logger::info(format("Update recent file count: {}", recentFileCount));
+        _configRecentFileCount.store(recentFileCount);
     }
     if (const auto suffixLineCountOpt = completionConfig.suffixLineCount;
         suffixLineCountOpt.has_value()) {
-        logger::info(format("Update suffix line count: {}", suffixLineCountOpt.value()));
-        _configSuffixLineCount.store(suffixLineCountOpt.value());
+        const auto suffixLineCount = suffixLineCountOpt.value();
+        logger::info(format("Update suffix line count: {}", suffixLineCount));
+        _configSuffixLineCount.store(suffixLineCount);
     }
 }
 
@@ -433,19 +383,8 @@ void CompletionManager::wsCompletionGenerate(nlohmann::json&& data) {
             unique_lock lock(_completionCacheMutex);
             _completionCache.reset(iconv::autoEncode(candidate));
         }
-        if (const auto currentWindowHandleOpt = WindowManager::GetInstance()->getCurrentWindowHandle();
-            currentWindowHandleOpt.has_value()) {
-            unique_lock lock(_editedCompletionMapMutex);
-            _editedCompletionMap.emplace(
-                actionId,
-                EditedCompletion{
-                    actionId,
-                    currentWindowHandleOpt.value(),
-                    MemoryManipulator::GetInstance()->getCaretPosition().line,
-                    candidate
-                }
-            );
-        }
+
+        StatisticManager::GetInstance()->setEditedCompletion(actionId, completions.selection.begin.line, candidate);
 
         const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
         const auto [height, xPosition,yPosition] = common::getCaretDimensions();
@@ -480,13 +419,9 @@ bool CompletionManager::_cancelCompletion() {
         hasCompletion = !oldContent.empty();
     }
     if (completionsOpt.has_value()) {
-        WebsocketManager::GetInstance()->send(
-            CompletionCancelClientMessage(completionsOpt.value().actionId, true)
-        );
-        unique_lock lock(_editedCompletionMapMutex);
-        if (_editedCompletionMap.contains(completionsOpt.value().actionId)) {
-            _editedCompletionMap.at(completionsOpt.value().actionId).react(false);
-        }
+        const auto actionId = completionsOpt.value().actionId;
+        WebsocketManager::GetInstance()->send(CompletionCancelClientMessage(actionId, true));
+        StatisticManager::GetInstance()->reactEditedCompletion(actionId, false);
     }
     return hasCompletion;
 }
@@ -522,6 +457,7 @@ optional<CompletionComponents> CompletionManager::_retrieveContext(
     const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
     const auto currentLineCount = memoryManipulator->getCurrentLineCount();
 
+    // TODO: Use smaller lock range
     const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
     if (const auto path = memoryManipulator->getCurrentFilePath();
         currentFileHandle && currentLineCount && !path.empty()) {
@@ -552,6 +488,7 @@ optional<CompletionComponents> CompletionManager::_retrieveContext(
             );
             suffix.append("\n").append(tempLine);
         }
+        /// TODO:
         completionComponents.setContext(prefix, infix, suffix);
         completionComponents.setRecentFiles(_getRecentFiles());
         completionComponents.setSymbols(
@@ -579,29 +516,6 @@ void CompletionManager::_updateNeedRetrieveCompletion(const bool need, const cha
     _prolongRetrieveCompletion();
     _needDiscardWsAction.store(true);
     _needRetrieveCompletion.store(need && (!character || checkNeedRetrieveCompletion(character)));
-}
-
-void CompletionManager::_threadCheckAcceptedCompletions() {
-    thread([this] {
-        while (_isRunning) {
-            vector<EditedCompletion> needReportCompletions{}; {
-                const shared_lock lock(_editedCompletionMapMutex);
-                for (const auto& editedCompletion: _editedCompletionMap | views::values) {
-                    if (editedCompletion.canReport()) {
-                        needReportCompletions.push_back(editedCompletion);
-                    }
-                }
-            } {
-                const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
-                const unique_lock editedCompletionMapLock(_editedCompletionMapMutex);
-                for (const auto& needReportCompletion: needReportCompletions) {
-                    _editedCompletionMap.erase(needReportCompletion.actionId);
-                    WebsocketManager::GetInstance()->send(needReportCompletion.parse());
-                }
-            }
-            this_thread::sleep_for(1s);
-        }
-    }).detach();
 }
 
 void CompletionManager::_threadCheckCurrentFilePath() {
