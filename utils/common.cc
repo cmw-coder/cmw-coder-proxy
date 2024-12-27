@@ -24,7 +24,7 @@ CaretDimension common::getCaretDimensions(const bool waitTillAvailable) {
 
     auto [height, xPosition, yPosition] = MemoryManipulator::GetInstance()->getCaretDimension();
     while (waitTillAvailable && !height) {
-        std::this_thread::sleep_for(5ms);
+        std::this_thread::sleep_for(50ms);
         const auto [
             newHeight,
             newXPosition,
