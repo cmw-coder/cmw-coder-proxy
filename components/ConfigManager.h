@@ -23,13 +23,11 @@ namespace components {
         [[nodiscard]] std::string reportVersion() const;
 
     private:
-        mutable std::shared_mutex _currentFilePathMutex, _currentProjectPathMutex;
+        mutable std::shared_mutex _currentProjectPathMutex;
         std::atomic<bool> _isRunning{true};
-        std::filesystem::path _currentFilePath, _currentProjectPath;
+        std::filesystem::path _currentProjectPath;
         std::string _siVersionString;
         types::SiVersion::Full _siVersion;
-
-        void _threadMonitorCurrentFilePath();
 
         void _threadMonitorCurrentProjectPath();
     };

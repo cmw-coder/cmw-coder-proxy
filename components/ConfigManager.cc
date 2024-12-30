@@ -2,7 +2,6 @@
 
 #include <magic_enum/magic_enum.hpp>
 
-#include <components/CompletionManager.h>
 #include <components/ConfigManager.h>
 #include <components/InteractionMonitor.h>
 #include <components/MemoryManipulator.h>
@@ -32,8 +31,8 @@ ConfigManager::ConfigManager() {
         );
         _siVersionString = "_4.00." + format("{:0>{}}", build, 4);
     }
+
     _threadMonitorCurrentProjectPath();
-    _threadMonitorCurrentFilePath();
 
     logger::info(format("Configurator is initialized with version: {}", _siVersionString));
 }
@@ -50,28 +49,6 @@ string ConfigManager::reportVersion() const {
     return _siVersionString;
 }
 
-void ConfigManager::_threadMonitorCurrentFilePath() {
-    thread([this] {
-        while (_isRunning) {
-            filesystem::path tempFile; {
-                const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
-                tempFile = MemoryManipulator::GetInstance()->getCurrentFilePath().lexically_normal();
-            }
-            if (!tempFile.empty()) {
-                bool isChanged; {
-                    shared_lock lock(_currentFilePathMutex);
-                    isChanged = tempFile != _currentFilePath;
-                }
-                if (isChanged && tempFile.is_absolute()) {
-                    WebsocketManager::GetInstance()->send(EditorSwitchFileMessage(tempFile));
-                    unique_lock lock(_currentFilePathMutex);
-                    _currentFilePath = tempFile;
-                }
-            }
-            this_thread::sleep_for(200ms);
-        }
-    }).detach();
-}
 
 void ConfigManager::_threadMonitorCurrentProjectPath() {
     thread([this] {

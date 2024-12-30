@@ -75,7 +75,7 @@ namespace {
 CompletionManager::CompletionManager() {
     ranges::make_heap(_recentFiles, fileTimeCompare);
 
-    _threadCheckCurrentFilePath();
+    _threadMonitorCurrentFilePath();
     _threadDebounceRetrieveCompletion();
 
     logger::info("CompletionManager is initialized");
@@ -516,24 +516,40 @@ void CompletionManager::_updateNeedRetrieveCompletion(const bool need, const cha
     _needRetrieveCompletion.store(need && (!character || checkNeedRetrieveCompletion(character)));
 }
 
-void CompletionManager::_threadCheckCurrentFilePath() {
+void CompletionManager::_threadMonitorCurrentFilePath() {
     thread([this] {
+        uint32_t recentFilesCounter = 0;
         while (_isRunning) {
             filesystem::path currentPath; {
                 const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
-                currentPath = MemoryManipulator::GetInstance()->getCurrentFilePath();
+                currentPath = MemoryManipulator::GetInstance()->getCurrentFilePath().lexically_normal();
             }
-            if (const auto extension = currentPath.extension();
-                extension == ".c" || extension == ".h") {
-                unique_lock lock(_recentFilesMutex);
-                _recentFiles.emplace_back(currentPath, chrono::high_resolution_clock::now());
-                ranges::push_heap(_recentFiles, fileTimeCompare);
-                if (_recentFiles.size() > _configRecentFileCount.load()) {
-                    ranges::pop_heap(_recentFiles, fileTimeCompare);
-                    _recentFiles.pop_front();
+            if (!currentPath.empty()) {
+                bool isChanged; {
+                    shared_lock lock(_currentFilePathMutex);
+                    isChanged = currentPath != _currentFilePath;
+                }
+                if (isChanged && currentPath.is_absolute()) {
+                    WebsocketManager::GetInstance()->send(EditorSwitchFileMessage(currentPath));
+                    unique_lock lock(_currentFilePathMutex);
+                    _currentFilePath = currentPath;
                 }
             }
-            this_thread::sleep_for(3s);
+            if (recentFilesCounter >= 10) {
+                recentFilesCounter = 0;
+                if (const auto extension = currentPath.extension();
+                    extension == ".c" || extension == ".h") {
+                    unique_lock lock(_recentFilesMutex);
+                    _recentFiles.emplace_back(currentPath, chrono::high_resolution_clock::now());
+                    ranges::push_heap(_recentFiles, fileTimeCompare);
+                    if (_recentFiles.size() > _configRecentFileCount.load()) {
+                        ranges::pop_heap(_recentFiles, fileTimeCompare);
+                        _recentFiles.pop_front();
+                    }
+                }
+            }
+            recentFilesCounter++;
+            this_thread::sleep_for(200ms);
         }
     }).detach();
 }
