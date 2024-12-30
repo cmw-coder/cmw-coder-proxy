@@ -8,7 +8,6 @@
 namespace models {
     class CompletionConfig {
     public:
-        const std::optional<bool> completionOnPaste;
         const std::optional<std::chrono::milliseconds> debounceDelay;
         const std::optional<uint32_t> pasteFixMaxTriggerLineCount, prefixLineCount, recentFileCount, suffixLineCount;
 

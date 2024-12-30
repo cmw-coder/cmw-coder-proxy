@@ -49,7 +49,7 @@ namespace components {
         mutable std::shared_mutex _completionsMutex, _completionCacheMutex, _lastCaretPositionMutex,
                 _lastEditedFilePathMutex, _recentFilesMutex;
         types::CaretPosition _lastCaretPosition{};
-        std::atomic<bool> _configCompletionOnPaste{true}, _isRunning{true}, _needDiscardWsAction{false},
+        std::atomic<bool> _isRunning{true}, _needDiscardWsAction{false},
                 _needRetrieveCompletion{false};
         std::atomic<std::chrono::milliseconds> _configDebounceDelay{std::chrono::milliseconds(50)};
         std::atomic<types::Time> _debounceRetrieveCompletionTime;

@@ -21,10 +21,7 @@ namespace {
 }
 
 CompletionConfig::CompletionConfig(const nlohmann::json& data)
-    : completionOnPaste(
-          data.contains("completionOnPaste") ? optional(data["completionOnPaste"].get<bool>()) : nullopt
-      ),
-      debounceDelay(
+    : debounceDelay(
           data.contains("debounceDelayMilliSeconds")
               ? optional(chrono::milliseconds(data["debounceDelayMilliSeconds"].get<uint32_t>()))
               : nullopt

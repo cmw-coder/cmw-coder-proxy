@@ -324,12 +324,6 @@ void CompletionManager::interactionUndo(const any&, bool&) {
 }
 
 void CompletionManager::updateCompletionConfig(const CompletionConfig& completionConfig) {
-    if (const auto completionOnPasteOpt = completionConfig.completionOnPaste;
-        completionOnPasteOpt.has_value()) {
-        const auto completionOnPaste = completionOnPasteOpt.value();
-        logger::info(format("Update completion on paste: {}", completionOnPaste));
-        _configCompletionOnPaste.store(completionOnPaste);
-    }
     if (const auto debounceDelayOpt = completionConfig.debounceDelay;
         debounceDelayOpt.has_value()) {
         const auto debounceDelay = debounceDelayOpt.value();
