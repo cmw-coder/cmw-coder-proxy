@@ -450,13 +450,16 @@ optional<CompletionComponents> CompletionManager::_retrieveContext(
     const auto memoryManipulator = MemoryManipulator::GetInstance();
     const auto currentFileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File);
     const auto currentLineCount = memoryManipulator->getCurrentLineCount();
+    filesystem::path currentPath;
+    optional<CompletionComponents> completionComponentsOpt;
+    string prefix, prefixForSymbol, suffix; {
+        const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
+        currentPath = memoryManipulator->getCurrentFilePath();
+        if (!currentFileHandle || !currentLineCount || currentPath.empty()) {
+            return nullopt;
+        }
 
-    // TODO: Use smaller lock range
-    const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
-    if (const auto path = memoryManipulator->getCurrentFilePath();
-        currentFileHandle && currentLineCount && !path.empty()) {
-        CompletionComponents completionComponents(generateType, caretPosition, path);
-        string prefix, prefixForSymbol, suffix; {
+        completionComponentsOpt.emplace(generateType, caretPosition, currentPath); {
             const auto currentLine = memoryManipulator->getLineContent(
                 currentFileHandle, caretPosition.line
             );
@@ -482,16 +485,17 @@ optional<CompletionComponents> CompletionManager::_retrieveContext(
             );
             suffix.append("\n").append(tempLine);
         }
-        /// TODO:
+    }
+    if (completionComponentsOpt.has_value()) {
+        auto& completionComponents = completionComponentsOpt.value();
         completionComponents.setContext(prefix, infix, suffix);
         completionComponents.setRecentFiles(_getRecentFiles());
         completionComponents.setSymbols(
-            SymbolManager::GetInstance()->getSymbols(prefixForSymbol, path)
+            SymbolManager::GetInstance()->getSymbols(prefixForSymbol, currentPath)
         );
-
-        return completionComponents;
     }
-    return nullopt;
+
+    return completionComponentsOpt;
 }
 
 bool CompletionManager::_hasValidCache() const {
