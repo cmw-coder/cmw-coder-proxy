@@ -158,13 +158,13 @@ void InteractionMonitor::updateGenericConfig(const GenericConfig& genericConfig)
     if (const auto autoSaveIntervalOpt = genericConfig.autoSaveInterval;
         autoSaveIntervalOpt.has_value()) {
         const auto autoSaveInterval = autoSaveIntervalOpt.value();
-        logger::info(format("Update auto-save interval: {}s", autoSaveInterval.count()));
+        logger::info(format("Update auto-save interval: {}", autoSaveInterval));
         _configAutoSaveInterval.store(autoSaveInterval);
     }
     if (const auto interactionUnlockDelayOpt = genericConfig.interactionUnlockDelay;
         interactionUnlockDelayOpt.has_value()) {
         const auto interactionUnlockDelay = interactionUnlockDelayOpt.value();
-        logger::info(format("Update interaction unlock delay: {}ms", interactionUnlockDelay.count()));
+        logger::info(format("Update interaction unlock delay: {}", interactionUnlockDelay));
         _configInteractionUnlockDelay.store(interactionUnlockDelay);
     }
 }
@@ -524,14 +524,14 @@ void InteractionMonitor::_processWindowMessage(const long lParam) {
 
 void InteractionMonitor::_threadAutoSave() const {
     thread([this] {
+        Time lastSaveTime = chrono::high_resolution_clock::now();
         while (_isRunning.load()) {
             if (const auto autoSaveInterval = chrono::seconds(_configAutoSaveInterval.load());
-                autoSaveInterval > 0s) {
-                this_thread::sleep_for(chrono::seconds(_configAutoSaveInterval.load()));
+                chrono::high_resolution_clock::now() - lastSaveTime > autoSaveInterval) {
                 WindowManager::GetInstance()->sendSave();
-            } else {
-                this_thread::sleep_for(1s);
+                lastSaveTime = chrono::high_resolution_clock::now();
             }
+            this_thread::sleep_for(1s);
         }
     }).detach();
 }

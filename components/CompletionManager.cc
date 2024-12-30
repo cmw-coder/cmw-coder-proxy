@@ -327,7 +327,7 @@ void CompletionManager::updateCompletionConfig(const CompletionConfig& completio
     if (const auto debounceDelayOpt = completionConfig.debounceDelay;
         debounceDelayOpt.has_value()) {
         const auto debounceDelay = debounceDelayOpt.value();
-        logger::info(format("Update debounce delay: {}ms", debounceDelay));
+        logger::info(format("Update debounce delay: {}", debounceDelay));
         _configDebounceDelay.store(debounceDelay);
     }
     if (const auto pasteFixMaxTriggerLineCountOpt = completionConfig.pasteFixMaxTriggerLineCount;
