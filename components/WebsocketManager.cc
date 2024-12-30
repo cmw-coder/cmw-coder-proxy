@@ -2,6 +2,7 @@
 #include <magic_enum/magic_enum.hpp>
 
 #include <components/ConfigManager.h>
+#include <components/InteractionMonitor.h>
 #include <components/MemoryManipulator.h>
 #include <components/WebsocketManager.h>
 #include <utils/logger.h>
@@ -26,7 +27,9 @@ WebsocketManager::WebsocketManager(string&& url, const chrono::seconds& pingInte
             }
             case WebSocketMessageType::Open: {
                 logger::info("Websocket connection established");
+                const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
                 send(HandShakeClientMessage(
+                    MemoryManipulator::GetInstance()->getCurrentFilePath(),
                     MemoryManipulator::GetInstance()->getProjectDirectory(),
                     ConfigManager::GetInstance()->reportVersion()
                 ));

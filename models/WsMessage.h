@@ -192,7 +192,11 @@ namespace models {
 
     class HandShakeClientMessage final : public WsMessage {
     public:
-        explicit HandShakeClientMessage(const std::filesystem::path& currentProject, std::string&& version);
+        explicit HandShakeClientMessage(
+            const std::filesystem::path& currentFile,
+            const std::filesystem::path& currentProject,
+            std::string&& version
+        );
     };
 
     class ReviewRequestClientMessage final : public WsMessage {

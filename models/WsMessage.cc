@@ -285,10 +285,15 @@ EditorSwitchFileMessage::EditorSwitchFileMessage(const filesystem::path& path)
 EditorSwitchProjectClientMessage::EditorSwitchProjectClientMessage(const filesystem::path& path)
     : WsMessage(WsAction::EditorSwitchProject, iconv::autoDecode(path.generic_string())) {}
 
-HandShakeClientMessage::HandShakeClientMessage(const filesystem::path& currentProject, string&& version)
+HandShakeClientMessage::HandShakeClientMessage(
+    const filesystem::path& currentFile,
+    const filesystem::path& currentProject,
+    string&& version
+)
     : WsMessage(
         WsAction::HandShake, {
             {"pid", GetCurrentProcessId()},
+            {"currentFile", iconv::autoDecode(currentFile.generic_string())},
             {"currentProject", iconv::autoDecode(currentProject.generic_string())},
             {"version", version},
         }
