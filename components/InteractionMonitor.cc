@@ -575,7 +575,7 @@ void InteractionMonitor::_threadReleaseInteractionLock() {
                     _interactionMutex.unlock_shared();
                 }
             }
-            this_thread::sleep_for(5ms);
+            this_thread::sleep_for(10ms);
         }
     }).detach();
 }
