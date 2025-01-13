@@ -47,7 +47,7 @@ namespace components {
 
     private:
         mutable std::shared_mutex _completionsMutex, _completionCacheMutex, _currentFilePathMutex,
-                _lastCaretPositionMutex, _lastEditedFilePathMutex, _recentFilesMutex;
+                _lastCaretPositionMutex, _lastCompletionComponentsMutex, _lastEditedFilePathMutex, _recentFilesMutex;
         types::CaretPosition _lastCaretPosition{};
         std::atomic<bool> _isRunning{true}, _needDiscardWsAction{false},
                 _needRetrieveCompletion{false};
@@ -55,16 +55,17 @@ namespace components {
         std::atomic<types::Time> _debounceRetrieveCompletionTime;
         std::atomic<uint32_t> _configPasteFixMaxTriggerLineCount{10}, _configPrefixLineCount{200},
                 _configRecentFileCount{5}, _configSuffixLineCount{80};
-        std::filesystem::path _currentFilePath, _lastEditedFilePath;
-        std::optional<types::Completions> _completionsOpt;
         std::deque<FileTime> _recentFiles;
+        std::filesystem::path _currentFilePath, _lastEditedFilePath;
+        std::optional<types::CompletionComponents> _lastCompletionComponents;
+        std::optional<types::Completions> _completionsOpt;
         types::CompletionCache _completionCache;
 
         bool _cancelCompletion();
 
         std::vector<std::filesystem::path> _getRecentFiles() const;
 
-        std::optional<types::CompletionComponents> _retrieveContext(
+        std::optional<types::CompletionComponents> _retrieveCompletionComponents(
             const types::CaretPosition& caretPosition,
             types::CompletionComponents::GenerateType generateType,
             const std::string& infix = ""

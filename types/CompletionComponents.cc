@@ -21,11 +21,7 @@ CompletionComponents::CompletionComponents(
     const CaretPosition& caretPosition,
     const filesystem::path& path
 ): path(path), _generateType(generateType), _caretPosition(caretPosition) {
-    const auto currentTime = chrono::system_clock::now();
-    _initTime = currentTime;
-    _contextTime = currentTime;
-    _recentFilesTime = currentTime;
-    _symbolTime = currentTime;
+    _resetTimePoints();
 }
 
 string CompletionComponents::getPrefix() const {
@@ -38,6 +34,10 @@ vector<filesystem::path> CompletionComponents::getRecentFiles() const {
 
 string CompletionComponents::getSuffix() const {
     return _suffix;
+}
+
+bool CompletionComponents::needCache(const CaretPosition& caretPosition) const {
+    return caretPosition.line == _caretPosition.line;
 }
 
 void CompletionComponents::setContext(
@@ -103,4 +103,37 @@ nlohmann::json CompletionComponents::toJson() const {
         });
     }
     return result;
+}
+
+void CompletionComponents::updateCaretPosition(const CaretPosition& caretPosition) {
+    _caretPosition = caretPosition;
+}
+
+void CompletionComponents::useCachedContext(
+    const string& currentLinePrefix,
+    const string& newInfix,
+    const string& currentLineSuffix
+) {
+    if (const auto lastNewLineInCachedPrefix = _prefix.find_last_of('\n');
+        lastNewLineInCachedPrefix != string::npos) {
+        _prefix = _prefix.substr(lastNewLineInCachedPrefix + 1) + currentLinePrefix;
+    } else {
+        _prefix = currentLinePrefix;
+    }
+    _infix = newInfix;
+    if (const auto firstNewLineInSuffix = currentLineSuffix.find('\n');
+        firstNewLineInSuffix != string::npos) {
+        _suffix = currentLineSuffix + _suffix.substr(firstNewLineInSuffix);
+    } else {
+        _suffix = currentLineSuffix;
+    }
+    _resetTimePoints();
+}
+
+void CompletionComponents::_resetTimePoints() {
+    const auto currentTime = chrono::system_clock::now();
+    _initTime = currentTime;
+    _contextTime = currentTime;
+    _recentFilesTime = currentTime;
+    _symbolTime = currentTime;
 }

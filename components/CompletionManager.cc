@@ -269,7 +269,7 @@ void CompletionManager::interactionPaste(const any&, bool&) {
         );
 
         try {
-            if (const auto completionComponentsOpt = _retrieveContext(
+            if (const auto completionComponentsOpt = _retrieveCompletionComponents(
                 caretPosition,
                 CompletionComponents::GenerateType::PasteReplace,
                 clipboardText
@@ -442,7 +442,7 @@ vector<filesystem::path> CompletionManager::_getRecentFiles() const {
     return _recentFiles | views::keys | ranges::to<vector>();
 }
 
-optional<CompletionComponents> CompletionManager::_retrieveContext(
+optional<CompletionComponents> CompletionManager::_retrieveCompletionComponents(
     const CaretPosition& caretPosition,
     const CompletionComponents::GenerateType generateType,
     const string& infix
@@ -562,12 +562,41 @@ void CompletionManager::_threadDebounceRetrieveCompletion() {
                 try {
                     const auto memoryManipulator = MemoryManipulator::GetInstance();
                     const auto caretPosition = memoryManipulator->getCaretPosition();
-                    if (const auto completionComponentsOpt = _retrieveContext(
-                        caretPosition,
-                        CompletionComponents::GenerateType::Common
-                    ); completionComponentsOpt.has_value()) {
-                        _sendGenerateMessage(completionComponentsOpt.value());
-                        logger::info("Generate common completion");
+                    bool needCache; {
+                        shared_lock lock(_lastCompletionComponentsMutex);
+                        needCache = _lastCompletionComponents.has_value() && _lastCompletionComponents.value().
+                                    needCache(caretPosition);
+                    }
+                    if (needCache) {
+                        const auto interactionLock = InteractionMonitor::GetInstance()->getInteractionLock();
+                        if (const auto fileHandle = memoryManipulator->getHandle(MemoryAddress::HandleType::File)) {
+                            optional<CompletionComponents> completionComponentsOpt; {
+                                shared_lock lock(_lastCompletionComponentsMutex);
+                                completionComponentsOpt.emplace(_lastCompletionComponents.value());
+                            }
+                            completionComponentsOpt.value().updateCaretPosition(caretPosition);
+                            const auto currentLine = memoryManipulator->getLineContent(fileHandle, caretPosition.line);
+                            completionComponentsOpt.value().useCachedContext(
+                                iconv::autoDecode(currentLine.substr(0, caretPosition.character)),
+                                "",
+                                iconv::autoDecode(currentLine.substr(caretPosition.character))
+                            );
+                            _sendGenerateMessage(completionComponentsOpt.value()); {
+                                unique_lock lock(_lastCompletionComponentsMutex);
+                                _lastCompletionComponents.emplace(completionComponentsOpt.value());
+                            }
+                        }
+                    } else {
+                        if (const auto completionComponentsOpt = _retrieveCompletionComponents(
+                            caretPosition,
+                            CompletionComponents::GenerateType::Common
+                        ); completionComponentsOpt.has_value()) {
+                            _sendGenerateMessage(completionComponentsOpt.value());
+                            logger::info("Generate common completion"); {
+                                unique_lock lock(_lastCompletionComponentsMutex);
+                                _lastCompletionComponents.emplace(completionComponentsOpt.value());
+                            }
+                        }
                     }
                 } catch (const exception& e) {
                     logger::warn(format("(_threadDebounceRetrieveCompletion) Exception: {}", e.what()));

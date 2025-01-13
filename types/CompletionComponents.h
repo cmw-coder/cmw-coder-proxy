@@ -23,11 +23,13 @@ namespace types {
             const std::filesystem::path& path
         );
 
-        std::string getPrefix() const;
+        [[nodiscard]] std::string getPrefix() const;
 
-        std::vector<std::filesystem::path> getRecentFiles() const;
+        [[nodiscard]] std::vector<std::filesystem::path> getRecentFiles() const;
 
-        std::string getSuffix() const;
+        [[nodiscard]] std::string getSuffix() const;
+
+        [[nodiscard]] bool needCache(const CaretPosition& caretPosition) const;
 
         void setContext(
             const std::string& prefix,
@@ -39,7 +41,15 @@ namespace types {
 
         void setSymbols(const std::vector<models::SymbolInfo>& symbols);
 
-        nlohmann::json toJson() const;
+        [[nodiscard]] nlohmann::json toJson() const;
+
+        void updateCaretPosition(const CaretPosition& caretPosition);
+
+        void useCachedContext(
+            const std::string& currentLinePrefix,
+            const std::string& newInfix,
+            const std::string& currentLineSuffix
+        );
 
     private:
         GenerateType _generateType;
@@ -48,5 +58,7 @@ namespace types {
         std::vector<std::filesystem::path> _recentFiles;
         std::vector<models::SymbolInfo> _symbols;
         std::chrono::time_point<std::chrono::system_clock> _initTime, _contextTime, _recentFilesTime, _symbolTime;
+
+        void _resetTimePoints();
     };
 }
