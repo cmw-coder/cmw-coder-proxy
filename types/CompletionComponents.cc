@@ -116,14 +116,14 @@ void CompletionComponents::useCachedContext(
 ) {
     if (const auto lastNewLineInCachedPrefix = _prefix.find_last_of('\n');
         lastNewLineInCachedPrefix != string::npos) {
-        _prefix = _prefix.substr(lastNewLineInCachedPrefix + 1) + currentLinePrefix;
+        _prefix = _prefix.substr(0, lastNewLineInCachedPrefix + 1) + currentLinePrefix;
     } else {
         _prefix = currentLinePrefix;
     }
     _infix = newInfix;
-    if (const auto firstNewLineInSuffix = currentLineSuffix.find('\n');
-        firstNewLineInSuffix != string::npos) {
-        _suffix = currentLineSuffix + _suffix.substr(firstNewLineInSuffix);
+    if (const auto firstNewLineInCachedSuffix = _suffix.find('\n');
+        firstNewLineInCachedSuffix != string::npos) {
+        _suffix = currentLineSuffix + _suffix.substr(firstNewLineInCachedSuffix);
     } else {
         _suffix = currentLineSuffix;
     }
