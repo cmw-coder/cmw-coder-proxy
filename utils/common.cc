@@ -11,6 +11,41 @@ using namespace std;
 using namespace types;
 using namespace utils;
 
+namespace {
+    const std::unordered_map<SiVersion::Major, std::unordered_map<char, uint32_t>> keyMap = {
+        {
+            SiVersion::Major::V35,
+            {
+                {'S', 0x0053},
+            }
+        },
+        {
+            SiVersion::Major::V40,
+            {
+                {'S', 0x000053},
+            }
+        },
+    };
+    const std::unordered_map<SiVersion::Major, std::unordered_map<Modifier, uint32_t>> modifierMap = {
+        {
+            SiVersion::Major::V35,
+            {
+                {Modifier::Shift, 0x0300},
+                {Modifier::Ctrl, 0x0400},
+                {Modifier::Alt, 0x0800},
+            }
+        },
+        {
+            SiVersion::Major::V40,
+            {
+                {Modifier::Shift, 0x030000},
+                {Modifier::Ctrl, 0x040000},
+                {Modifier::Alt, 0x080000},
+            }
+        },
+    };
+}
+
 bool common::checkHighestBit(const uint16_t value) noexcept {
     return value & 0b1000'0000'0000'0000;
 }
@@ -101,6 +136,29 @@ void common::replaceContent(const Selection& replaceRange, string content) { {
         WindowManager::GetInstance()->sendLeftThenRight();
     } else {
         WindowManager::GetInstance()->sendEnd();
+    }
+}
+
+uint32_t common::toKeycode(const char key, const Modifier modifier) {
+    const auto majorVersion = ConfigManager::GetInstance()->version().first;
+    try {
+        return keyMap.at(majorVersion).at(key) +
+               modifierMap.at(majorVersion).at(modifier);
+    } catch (...) {
+        return {};
+    }
+}
+
+uint32_t common::toKeycode(const char key, const ModifierSet& modifiers) {
+    const auto majorVersion = ConfigManager::GetInstance()->version().first;
+    try {
+        auto keycode = keyMap.at(majorVersion).at(key);
+        for (const auto& modifier: modifiers) {
+            keycode += modifierMap.at(majorVersion).at(modifier);
+        }
+        return keycode;
+    } catch (...) {
+        return {};
     }
 }
 

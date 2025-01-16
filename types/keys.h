@@ -1,7 +1,8 @@
 #pragma once
 
-#include <magic_enum/magic_enum.hpp>
 #include <unordered_set>
+
+#include <magic_enum/magic_enum.hpp>
 
 namespace types {
     enum class Modifier {

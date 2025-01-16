@@ -2,6 +2,7 @@
 #include <components/MemoryManipulator.h>
 #include <components/WindowManager.h>
 #include <types/keys.h>
+#include <utils/common.h>
 #include <utils/logger.h>
 #include <utils/system.h>
 #include <utils/window.h>
@@ -113,8 +114,9 @@ void WindowManager::sendLeftThenRight() const {
 
 bool WindowManager::sendSave() {
     _cancelRetrieveInfo();
-    if (_currentWindowHandle.load().has_value()) {
-        window::sendKeyInput('S', {Modifier::Ctrl});
+    if (const auto currentWindowHandleOpt = _currentWindowHandle.load();
+        currentWindowHandleOpt.has_value()) {
+        window::sendKeycode(currentWindowHandleOpt.value(), common::toKeycode('S', Modifier::Ctrl));
     }
     return false;
 }
